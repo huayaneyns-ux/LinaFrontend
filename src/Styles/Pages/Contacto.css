@@ -1,0 +1,142 @@
+.contacto-page {
+  padding-bottom: 80px;
+}
+
+.contacto-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+}
+
+.contacto-info-panel h2, .contacto-whatsapp-panel h2 {
+  font-size: 2rem;
+  color: var(--text-dark);
+  margin-bottom: 15px;
+}
+
+.contacto-info-panel > p, .contacto-whatsapp-panel > p {
+  color: var(--text-muted);
+  margin-bottom: 40px;
+  font-size: 1.1rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.info-icon {
+  font-size: 1.8rem;
+  color: var(--secondary);
+  margin-top: 5px;
+}
+
+.info-item h4 {
+  font-size: 1.2rem;
+  color: var(--text-dark);
+  margin-bottom: 5px;
+}
+
+.info-item p {
+  color: var(--text-muted);
+}
+
+.contacto-imagen {
+  margin-top: 40px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.contacto-imagen img {
+  width: 100%;
+  display: block;
+}
+
+.whatsapp-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.whatsapp-card {
+  background-color: var(--bg-white);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 30px;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.whatsapp-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: #25D366; /* Color de WhatsApp */
+}
+
+.wsp-icon-container {
+  background-color: #25D366;
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(37, 211, 102, 0.4);
+}
+
+.whatsapp-card h3 {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+  color: var(--text-dark);
+}
+
+.whatsapp-card p {
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.wsp-link {
+  font-weight: bold;
+  color: #25D366;
+}
+
+.ubicacion-section {
+  text-align: center;
+  margin-top: 40px; /* Reducido de 80px */
+}
+
+.ubicacion-section h2 {
+  font-size: 2.2rem;
+  color: var(--text-dark);
+  margin-bottom: 10px;
+}
+
+.ubicacion-section > p {
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+
+.mapa-placeholder {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  height: 280px; /* Reducido de 450px para encajar en pantalla */
+  background-color: #eee;
+}
+
+@media (max-width: 900px) {
+  .contacto-grid {
+    grid-template-columns: 1fr;
+  }
+}

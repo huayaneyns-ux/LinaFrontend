@@ -1,0 +1,229 @@
+.checkout-page {
+  padding: 40px 20px 80px;
+  max-width: 900px;
+}
+
+
+.checkout-panel {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 40px;
+}
+
+.checkout-panel h2 {
+  color: var(--text-dark);
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.entrega-opciones {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.entrega-opcion {
+  flex: 1;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.entrega-opcion svg {
+  color: var(--text-muted);
+  margin-bottom: 15px;
+  transition: color var(--transition-fast);
+}
+
+.entrega-opcion h3 {
+  margin-bottom: 10px;
+  color: var(--text-dark);
+}
+
+.entrega-opcion p {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.entrega-opcion:hover {
+  border-color: var(--secondary);
+  box-shadow: var(--shadow-md);
+}
+
+.entrega-opcion.selected {
+  border-color: var(--secondary);
+  background-color: rgba(0, 180, 216, 0.05);
+}
+
+.entrega-opcion.selected svg {
+  color: var(--secondary);
+}
+
+.direccion-form {
+  background-color: var(--bg-light);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 30px;
+}
+
+.input-direccion {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-top: 15px;
+  font-size: 1rem;
+}
+
+.checkout-acciones {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Confirmación */
+.confirmacion-grid {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 40px;
+}
+
+.confirmacion-lista h3, .confirmacion-totales h3 {
+  color: var(--secondary);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lista-mini-productos {
+  list-style: none;
+}
+
+.lista-mini-productos li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-dark);
+}
+
+.confirmacion-totales {
+  background-color: var(--bg-light);
+  padding: 25px;
+  border-radius: var(--radius-md);
+}
+
+.total-final {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 2px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.total-monto {
+  font-size: 1.8rem;
+  color: var(--primary);
+}
+
+/* Exito panel */
+.exito-panel {
+  text-align: center;
+}
+
+.exito-icon {
+  font-size: 5rem;
+  color: #38a169;
+  margin-bottom: 20px;
+}
+
+.codigo-pedido-box {
+  background-color: var(--bg-light);
+  padding: 20px;
+  border-radius: var(--radius-md);
+  margin: 30px auto;
+  max-width: 300px;
+}
+
+.codigo-pedido-box p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.codigo-pedido-box h3 {
+  font-size: 2.5rem;
+  color: var(--text-dark);
+  letter-spacing: 2px;
+}
+
+.instrucciones-pago {
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.estado-pendiente {
+  color: #dd6b20;
+  background-color: #feebc8;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.minimo-req {
+  color: #d32f2f;
+}
+
+.info-box {
+  background-color: rgba(0, 180, 216, 0.1);
+  padding: 15px;
+  border-radius: var(--radius-md);
+  margin: 20px 0;
+  border-left: 4px solid var(--secondary);
+  text-align: left;
+}
+
+.btn-whatsapp-pago {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #25D366;
+  color: white;
+  padding: 15px 30px;
+  border-radius: 30px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: 100%;
+}
+
+.btn-whatsapp-pago:hover {
+  background-color: #128C7E;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+@media (max-width: 768px) {
+  .entrega-opciones {
+    flex-direction: column;
+  }
+  .confirmacion-grid {
+    grid-template-columns: 1fr;
+  }
+  .step span {
+    display: none;
+  }
+}

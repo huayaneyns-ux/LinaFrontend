@@ -1,0 +1,45 @@
+.institucional-page {
+  padding-bottom: 80px;
+  background-color: #FCFBF5; /* Color crema elegante */
+  min-height: 100vh;
+}
+
+.institucional-hero {
+  background-size: cover;
+  background-position: center;
+  color: var(--text-light);
+  text-align: center;
+  padding: 60px 20px;
+  margin: 60px auto 40px auto;
+  max-width: 95%; /* Make it slightly smaller than full width to show border radius */
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+
+.institucional-hero::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4); /* Overlay oscuro unificado */
+  z-index: 1;
+}
+
+.institucional-hero .container {
+  position: relative;
+  z-index: 2;
+}
+
+.institucional-hero h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  margin-bottom: 20px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.institucional-hero p {
+  font-size: 1.4rem;
+  max-width: 600px;
+  margin: 0 auto;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}

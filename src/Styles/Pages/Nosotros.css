@@ -1,0 +1,56 @@
+.nosotros-page {
+  padding-bottom: 80px;
+}
+
+.nosotros-historia {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 50px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 50px;
+  text-align: center;
+}
+
+.nosotros-historia .nosotros-text p {
+  max-width: 800px;
+  margin: 0 auto 20px auto;
+}
+
+.nosotros-historia h2::after {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nosotros-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+
+.nosotros-card {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.nosotros-card-image {
+  height: 250px;
+  overflow: hidden;
+}
+
+.nosotros-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .nosotros-grid {
+    grid-template-columns: 1fr;
+  }
+}

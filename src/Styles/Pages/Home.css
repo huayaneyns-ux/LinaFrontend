@@ -1,0 +1,269 @@
+.home-page {
+  /* Override default padding for full-width carousel */
+  margin-top: -80px; 
+}
+
+.categories-section {
+  margin: 100px 0;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 2.5rem;
+  margin-bottom: 60px;
+  color: var(--text-dark);
+}
+
+.categories-grid {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 5px;
+  flex-wrap: wrap; 
+  padding-bottom: 10px;
+}
+
+.category-card {
+  background-color: var(--bg-white);
+  border-radius: var(--radius-lg);
+  padding: 30px 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-normal);
+  border: 1px solid var(--border-color);
+  width: 140px; /* Ancho fijo para que todos sean iguales */
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.category-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--secondary);
+}
+
+.category-icon {
+  margin-bottom: 15px;
+  color: var(--secondary); /* Usamos el turquesa/azul */
+}
+
+.category-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.highlight-section {
+  background-color: #2c3e50;
+  color: white;
+  padding: 80px 20px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.highlight-section::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.highlight-container {
+  position: relative;
+  z-index: 1;
+}
+
+.highlight-section h2 {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: white;
+}
+
+.highlight-section p {
+  font-size: 1.2rem;
+  color: white;
+  margin-bottom: 40px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.btn-large {
+  padding: 15px 40px;
+  font-size: 1.2rem;
+  border-radius: 30px;
+}
+
+/* Nuevas Secciones */
+.marcas-section {
+  padding: 60px 20px;
+  margin: 100px 0;
+  text-align: center;
+}
+
+.tendencias-section {
+  padding: 60px 20px;
+  margin: 100px 0;
+  text-align: center;
+}
+
+.marcas-grid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.marca-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  padding: 20px;
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-normal);
+}
+
+.marca-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--primary);
+}
+
+.marca-logo {
+  height: 60px;
+  object-fit: contain;
+}
+
+.categorias-section {
+  padding: 60px 20px;
+  background-color: #2c3e50; /* Azul oscuro solicitado */
+  color: white;
+  text-align: center;
+}
+
+.categorias-section h2 {
+  color: white;
+  margin-bottom: 40px;
+}
+
+.categorias-grid {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 40px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 20px;
+}
+
+.categoria-card {
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  transition: transform 0.3s;
+  min-width: 120px;
+}
+
+.categoria-card:hover {
+  transform: translateY(-5px);
+}
+
+.categoria-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid white;
+  background-color: white;
+}
+
+.categoria-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.categoria-card h3 {
+  font-size: 1.1rem;
+  color: rgb(97, 97, 97);
+  text-align: center;
+  margin: 0;
+}
+
+.highlight-section .btn {
+  background-color: var(--primary);
+  color: var(--text-dark);
+  border: none;
+}
+
+.highlight-section .btn:hover {
+  background-color: #e6b800;
+}
+
+.marca-card p {
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.tendencias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.tendencia-card {
+  background: var(--bg-white);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-align: left;
+}
+
+.tendencia-card:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-md);
+}
+
+.tendencia-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+.tendencia-info {
+  padding: 20px;
+}
+
+.tendencia-info h3 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  color: var(--text-dark);
+}
+
+.tendencia-info .precio {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+
+.tendencias-action {
+  text-align: center;
+}
