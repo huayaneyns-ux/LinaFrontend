@@ -1,0 +1,299 @@
+/* ============================================
+   ERP TOOLBAR — Barra de herramientas
+   ============================================ */
+
+.erp-module-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.erp-module-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.erp-module-subtitle {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  margin-top: 1px;
+}
+
+/* TOOLBAR CONTAINER */
+.erp-toolbar {
+  background-color: var(--erp-card-bg);
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-card-radius);
+  box-shadow: var(--erp-card-shadow);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Main row */
+.erp-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.erp-toolbar-search {
+  flex: 1;
+  min-width: 200px;
+  max-width: 340px;
+}
+
+.erp-toolbar-spacer { flex: 1; }
+
+.erp-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Buttons */
+.erp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all var(--erp-transition);
+  white-space: nowrap;
+  outline: none;
+}
+
+.erp-btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.erp-btn-primary {
+  background-color: var(--erp-accent);
+  color: #ffffff;
+}
+.erp-btn-primary:hover {
+  background-color: var(--erp-accent-hover);
+}
+
+.erp-btn-secondary {
+  background-color: #f1f5f9;
+  color: var(--erp-text-secondary);
+  border: 1px solid var(--erp-border);
+}
+.erp-btn-secondary:hover {
+  background-color: #e2e8f0;
+  color: var(--erp-text-primary);
+}
+
+.erp-btn-secondary.active {
+  background-color: var(--erp-accent-light);
+  color: var(--erp-accent);
+  border-color: var(--erp-accent);
+}
+
+.erp-btn-danger {
+  background-color: var(--erp-danger);
+  color: #ffffff;
+}
+.erp-btn-danger:hover {
+  background-color: var(--erp-danger-hover);
+}
+
+.erp-btn svg { font-size: 14px; }
+
+/* FILTER BADGE */
+.erp-filter-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: var(--erp-accent);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+/* FILTER PANEL ROW */
+.erp-filter-panel {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid var(--erp-border);
+  animation: erpFilterSlide 150ms ease;
+}
+
+@keyframes erpFilterSlide {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.erp-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 130px;
+}
+
+.erp-filter-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--erp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.erp-filter-select,
+.erp-filter-date {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--erp-input-border);
+  border-radius: var(--erp-input-radius);
+  font-size: 12.5px;
+  color: var(--erp-text-primary);
+  background-color: var(--erp-input-bg);
+  outline: none;
+  transition: border-color var(--erp-transition);
+  cursor: pointer;
+  width: 100%;
+}
+.erp-filter-select:focus,
+.erp-filter-date:focus {
+  border-color: var(--erp-input-border-focus);
+}
+
+.erp-filter-reset {
+  margin-left: auto;
+  align-self: flex-end;
+}
+
+@media (max-width: 640px) {
+  .erp-toolbar-main { flex-wrap: wrap; }
+  .erp-toolbar-search { max-width: 100%; min-width: 100%; }
+  .erp-filter-panel { flex-direction: column; }
+  .erp-filter-group { min-width: 100%; }
+}
+
+/* ── SEARCH INPUT ── */
+.erp-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+.erp-search-icon {
+  position: absolute;
+  left: 9px;
+  font-size: 13px;
+  color: var(--erp-text-muted);
+  pointer-events: none;
+}
+.erp-search-input {
+  width: 100%;
+  height: 32px;
+  padding: 0 30px 0 30px;
+  border: 1px solid var(--erp-border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: 'Inter', sans-serif;
+  color: var(--erp-text-primary);
+  background-color: #f8fafc;
+  outline: none;
+  transition: border-color var(--erp-transition), background-color var(--erp-transition);
+}
+.erp-search-input:focus {
+  border-color: var(--erp-accent);
+  background-color: #ffffff;
+}
+.erp-search-input::placeholder { color: var(--erp-text-muted); }
+
+.erp-search-clear {
+  position: absolute;
+  right: 7px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--erp-text-muted);
+  background-color: #e2e8f0;
+  border: none;
+  cursor: pointer;
+  transition: all var(--erp-transition);
+}
+.erp-search-clear:hover {
+  background-color: var(--erp-danger);
+  color: white;
+}
+
+/* ── ICON BUTTON ── */
+.erp-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all var(--erp-transition);
+  flex-shrink: 0;
+}
+.erp-icon-btn-default {
+  color: var(--erp-text-secondary);
+  background-color: transparent;
+}
+.erp-icon-btn-default:hover {
+  background-color: #e2e8f0;
+  color: var(--erp-text-primary);
+}
+.erp-icon-btn-primary {
+  color: var(--erp-accent);
+  background-color: transparent;
+}
+.erp-icon-btn-primary:hover {
+  background-color: var(--erp-accent-light);
+}
+.erp-icon-btn-danger {
+  color: var(--erp-danger);
+  background-color: transparent;
+}
+.erp-icon-btn-danger:hover {
+  background-color: var(--erp-danger-light);
+}
+.erp-icon-btn-success {
+  color: var(--erp-success);
+  background-color: transparent;
+}
+.erp-icon-btn-success:hover {
+  background-color: var(--erp-success-light);
+}
+.erp-icon-btn-warning {
+  color: #ca8a04;
+  background-color: transparent;
+}
+.erp-icon-btn-warning:hover {
+  background-color: rgba(202, 138, 4, 0.1);
+}

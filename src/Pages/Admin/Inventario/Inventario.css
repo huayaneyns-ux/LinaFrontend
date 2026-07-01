@@ -1,0 +1,168 @@
+/* ============================================
+   INVENTARIO & MULTITAB COMPONENT STYLING
+   ============================================ */
+
+.erp-module-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.erp-module-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  background-color: var(--erp-card-bg);
+  padding: 10px 14px;
+  border-radius: var(--erp-card-radius);
+  border: 1px solid var(--erp-card-border);
+}
+
+.erp-module-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.erp-module-subtitle {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  margin: 2px 0 0 0;
+}
+
+/* Tabs styles */
+.erp-tab-nav-wrapper {
+  background-color: var(--erp-card-bg);
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-card-radius) var(--erp-card-radius) 0 0;
+  border-bottom: none;
+  padding: 4px 8px 0;
+}
+
+.erp-tab-nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.erp-tab-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.erp-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--erp-text-secondary);
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: all var(--erp-transition);
+  position: relative;
+  border-bottom: 2px solid transparent;
+}
+
+.erp-tab-btn svg {
+  font-size: 14px;
+}
+
+.erp-tab-btn:hover {
+  color: var(--erp-accent);
+  background-color: var(--erp-accent-light);
+}
+
+.erp-tab-btn.active {
+  color: var(--erp-accent);
+  font-weight: 600;
+  background-color: #ffffff;
+  border-bottom-color: var(--erp-accent);
+}
+
+.erp-tab-content {
+  background-color: #ffffff;
+  border: 1px solid var(--erp-card-border);
+  border-radius: 0 0 var(--erp-card-radius) var(--erp-card-radius);
+  padding: 12px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Indicators grid */
+.erp-indicators-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.erp-indicator-card {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: transform var(--erp-transition);
+}
+
+.erp-indicator-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.erp-indicator-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background-color: var(--erp-accent-light);
+  color: var(--erp-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.erp-indicator-icon.success {
+  background-color: var(--erp-success-light);
+  color: var(--erp-success);
+}
+
+.erp-indicator-icon.warning {
+  background-color: rgba(234, 179, 8, 0.1);
+  color: #ca8a04;
+}
+
+.erp-indicator-icon.danger {
+  background-color: var(--erp-danger-light);
+  color: var(--erp-danger);
+}
+
+.erp-indicator-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.erp-indicator-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+  line-height: 1.1;
+}
+
+.erp-indicator-label {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+  white-space: nowrap;
+}

@@ -4,14 +4,13 @@
 }
 
 .categories-section {
-  margin: 100px 0;
+  margin: 100px 0px;
   padding: 60px 20px;
   text-align: center;
 }
 
 .section-title {
   font-size: 2.5rem;
-  margin-bottom: 60px;
   color: var(--text-dark);
 }
 

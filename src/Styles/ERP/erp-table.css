@@ -1,0 +1,146 @@
+/* ============================================
+   ERP TABLE — Compact, high-density
+   ============================================ */
+
+.erp-table-card {
+  background-color: var(--erp-card-bg);
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-card-radius);
+  box-shadow: var(--erp-card-shadow);
+  overflow: hidden;
+}
+
+.erp-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.erp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* THEAD */
+.erp-table thead {
+  background-color: var(--erp-table-header-bg);
+  border-bottom: 1px solid var(--erp-table-border);
+}
+
+.erp-table th {
+  padding: 7px 12px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--erp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  user-select: none;
+  border-bottom: 1px solid var(--erp-table-border);
+}
+
+.erp-table th.sortable {
+  cursor: pointer;
+}
+.erp-table th.sortable:hover {
+  color: var(--erp-text-primary);
+}
+
+.erp-th-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.erp-sort-icon {
+  font-size: 11px;
+  opacity: 0.5;
+  transition: opacity var(--erp-transition), color var(--erp-transition);
+}
+.erp-sort-icon.active {
+  opacity: 1;
+  color: var(--erp-accent);
+}
+
+/* TBODY */
+.erp-table tbody tr {
+  border-bottom: 1px solid var(--erp-table-border);
+  transition: background-color var(--erp-transition);
+}
+
+.erp-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.erp-table tbody tr:hover {
+  background-color: var(--erp-table-hover-bg);
+}
+
+.erp-table td {
+  padding: 7px 12px;
+  color: var(--erp-text-primary);
+  line-height: 1.3;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.erp-table td.text-muted {
+  color: var(--erp-text-muted);
+  font-size: 12px;
+}
+
+.erp-table td.actions-cell {
+  text-align: right;
+  padding-right: 10px;
+  width: 1%;
+}
+
+/* Row number / ID column */
+.erp-table td.col-id {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  font-family: 'Roboto Mono', monospace;
+}
+
+/* Username / main identifier */
+.erp-table td .cell-main {
+  font-weight: 600;
+  color: var(--erp-text-primary);
+  font-size: 13px;
+}
+.erp-table td .cell-sub {
+  font-size: 11.5px;
+  color: var(--erp-text-muted);
+  margin-top: 0px;
+  line-height: 1.3;
+}
+
+/* Empty state */
+.erp-table-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--erp-text-muted);
+  font-size: 13px;
+}
+.erp-table-empty-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+  opacity: 0.4;
+  display: block;
+}
+
+/* Table footer info */
+.erp-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  border-top: 1px solid var(--erp-table-border);
+  background-color: var(--erp-table-header-bg);
+}
+
+.erp-table-info {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+}

@@ -1,0 +1,235 @@
+/* ============================================
+   ERP FORMS — Modern dialog-friendly layout
+   ============================================ */
+
+.erp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 20px;
+  align-items: start;
+}
+
+.erp-form-grid.cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.erp-form-grid .col-span-2,
+.erp-form-field.col-span-2,
+.erp-form-group.col-span-2 {
+  grid-column: span 2;
+}
+
+/* Field wrapper — label + control + error */
+.erp-form-field,
+.erp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.erp-form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--erp-text-secondary);
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1.3;
+}
+
+.erp-form-label .required-star {
+  color: var(--erp-danger);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Unified input styles */
+.erp-input,
+.erp-form-input,
+.erp-form-select,
+.erp-form-textarea {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--erp-input-border);
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-family: 'Inter', sans-serif;
+  color: var(--erp-text-primary);
+  background-color: var(--erp-input-bg);
+  outline: none;
+  transition:
+    border-color var(--erp-transition),
+    box-shadow var(--erp-transition),
+    background-color var(--erp-transition);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.erp-input::placeholder,
+.erp-form-input::placeholder,
+.erp-form-textarea::placeholder {
+  color: var(--erp-text-muted);
+  opacity: 0.85;
+}
+
+.erp-form-select,
+select.erp-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+textarea.erp-input,
+.erp-form-textarea {
+  height: auto;
+  min-height: 88px;
+  padding: 10px 12px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.erp-input:hover:not(:disabled):not(:read-only),
+.erp-form-input:hover:not(:read-only),
+.erp-form-select:hover:not(:disabled),
+.erp-form-textarea:hover:not(:read-only) {
+  border-color: #cbd5e1;
+}
+
+.erp-input:focus,
+.erp-form-input:focus,
+.erp-form-select:focus,
+.erp-form-textarea:focus {
+  border-color: var(--erp-input-border-focus);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  background-color: #ffffff;
+}
+
+.erp-input.has-error,
+.erp-form-input.has-error,
+.erp-form-select.has-error,
+.erp-form-textarea.has-error {
+  border-color: var(--erp-danger);
+  background-color: #fffbfb;
+}
+.erp-input.has-error:focus,
+.erp-form-input.has-error:focus,
+.erp-form-select.has-error:focus,
+.erp-form-textarea.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Readonly / View / Disabled mode */
+.erp-input:disabled,
+.erp-input:read-only,
+.erp-form-input:read-only,
+.erp-form-select:disabled,
+.erp-form-textarea:read-only {
+  background-color: #f8fafc;
+  color: var(--erp-text-secondary);
+  cursor: default;
+  border-color: #e2e8f0;
+}
+.erp-input:disabled:focus,
+.erp-input:read-only:focus,
+.erp-form-input:read-only:focus,
+.erp-form-textarea:read-only:focus {
+  border-color: #e2e8f0;
+  box-shadow: none;
+}
+
+/* View field — static display */
+.erp-view-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.erp-view-value {
+  font-size: 13.5px;
+  color: var(--erp-text-primary);
+  padding: 10px 12px;
+  background-color: #f8fafc;
+  border: 1px solid var(--erp-border);
+  border-radius: 8px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Error message */
+.erp-form-error {
+  font-size: 11.5px;
+  color: var(--erp-danger);
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  line-height: 1.35;
+  margin-top: -2px;
+}
+
+/* Divider inside form */
+.erp-form-divider {
+  grid-column: span 2;
+  border: none;
+  border-top: 1px solid var(--erp-border);
+  margin: 2px 0 0;
+}
+
+/* Section title inside form */
+.erp-form-section-title {
+  grid-column: span 2;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.55px;
+  color: var(--erp-accent);
+  padding: 6px 0 0;
+  margin: 4px 0 0;
+  border-left: 3px solid var(--erp-accent);
+  padding-left: 10px;
+}
+
+.erp-form-section-title:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* Dialog-specific tuning */
+.erp-dialog-body .erp-form-grid {
+  gap: 20px 24px;
+}
+
+.erp-dialog-sm .erp-form-grid {
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.erp-dialog-sm .erp-form-grid .col-span-2,
+.erp-dialog-sm .erp-form-field.col-span-2,
+.erp-dialog-sm .erp-form-group.col-span-2,
+.erp-dialog-sm .erp-form-divider,
+.erp-dialog-sm .erp-form-section-title {
+  grid-column: span 1;
+}
+
+@media (max-width: 560px) {
+  .erp-form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .erp-form-grid .col-span-2,
+  .erp-form-field.col-span-2,
+  .erp-form-group.col-span-2,
+  .erp-form-divider,
+  .erp-form-section-title {
+    grid-column: span 1;
+  }
+}

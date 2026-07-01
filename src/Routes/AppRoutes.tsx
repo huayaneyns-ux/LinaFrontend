@@ -8,22 +8,14 @@ import Carrito from '../Pages/Carrito';
 import Login from '../Pages/Login';
 import Nosotros from '../Pages/Nosotros';
 import Contacto from '../Pages/Contacto';
-import Caja from '../Pages/Admin/Caja';
+import Checkout from '../Pages/Checkout';
 import MisPedidos from '../Pages/MisPedidos';
 
-import Checkout from '../Pages/Checkout';
-
 import Dashboard from '../Pages/Admin/Dashboard';
-import Ventas from '../Pages/Admin/Ventas';
-import PedidosAdmin from '../Pages/Admin/PedidosAdmin';
-import Compras from '../Pages/Admin/Compras';
-import Abastecer from '../Pages/Admin/Abastecer';
-import Proveedores from '../Pages/Admin/Proveedores';
-import ProductosAdmin from '../Pages/Admin/ProductosAdmin';
-import Stock from '../Pages/Admin/Stock';
-import Movimientos from '../Pages/Admin/Movimientos';
-import Kardex from '../Pages/Admin/Kardex';
-import Usuarios from '../Pages/Admin/Usuarios';
+import InventarioPage from '../Pages/Admin/Inventario/index';
+import VentasPage from '../Pages/Admin/Ventas/index';
+import ComprasPage from '../Pages/Admin/Compras/index';
+import SeguridadPage from '../Pages/Admin/Seguridad/index';
 
 const AppRoutes = () => {
   return (
@@ -45,19 +37,12 @@ const AppRoutes = () => {
         </ProtectedRoute>
       }>
         <Route index element={<Dashboard />} />
-        <Route path="caja" element={<Caja />} />
-        <Route path="ventas" element={<Ventas />} />
-        <Route path="pedidos" element={<PedidosAdmin />} />
-        <Route path="compras" element={<Compras />} />
-        <Route path="abastecer" element={<Abastecer />} />
-        <Route path="proveedores" element={<Proveedores />} />
-        <Route path="productos" element={<ProductosAdmin />} />
-        <Route path="inventario/stock" element={<Stock />} />
-        <Route path="inventario/movimientos" element={<Movimientos />} />
-        <Route path="inventario/kardex" element={<Kardex />} />
-        <Route path="usuarios" element={
+        <Route path="inventario" element={<InventarioPage />} />
+        <Route path="ventas" element={<VentasPage />} />
+        <Route path="compras" element={<ComprasPage />} />
+        <Route path="seguridad" element={
           <ProtectedRoute rolesPermitidos={['ADMINISTRADOR']}>
-            <Usuarios />
+            <SeguridadPage />
           </ProtectedRoute>
         } />
       </Route>

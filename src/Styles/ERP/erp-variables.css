@@ -1,0 +1,80 @@
+/* ============================================
+   ERP DESIGN SYSTEM — VARIABLES
+   ============================================ */
+:root {
+  /* Sidebar */
+  --erp-sidebar-bg: #0f172a;
+  --erp-sidebar-width: 220px;
+  --erp-sidebar-active-bg: rgba(59, 130, 246, 0.15);
+  --erp-sidebar-active-border: #3b82f6;
+  --erp-sidebar-text: #94a3b8;
+  --erp-sidebar-text-active: #f1f5f9;
+  --erp-sidebar-hover-bg: rgba(255, 255, 255, 0.05);
+  --erp-sidebar-section: #475569;
+  --erp-sidebar-border: rgba(255, 255, 255, 0.07);
+
+  /* Topbar */
+  --erp-topbar-height: 52px;
+  --erp-topbar-bg: #ffffff;
+  --erp-topbar-border: #e2e8f0;
+  --erp-topbar-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  /* Content */
+  --erp-content-bg: #f1f5f9;
+  --erp-card-bg: #ffffff;
+  --erp-card-border: #e2e8f0;
+  --erp-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --erp-card-radius: 8px;
+
+  /* Accent */
+  --erp-accent: #3b82f6;
+  --erp-accent-hover: #2563eb;
+  --erp-accent-light: rgba(59, 130, 246, 0.1);
+  --erp-secondary: #ffb700;
+
+  /* Text */
+  --erp-text-primary: #0f172a;
+  --erp-text-secondary: #475569;
+  --erp-text-muted: #94a3b8;
+  --erp-text-white: #ffffff;
+
+  /* Borders */
+  --erp-border: #e2e8f0;
+  --erp-border-focus: #3b82f6;
+
+  /* Table */
+  --erp-table-row-height: 40px;
+  --erp-table-header-bg: #f8fafc;
+  --erp-table-hover-bg: #f8fafc;
+  --erp-table-border: #e2e8f0;
+
+  /* Form */
+  --erp-input-height: 36px;
+  --erp-input-bg: #ffffff;
+  --erp-input-border: #d1d5db;
+  --erp-input-border-focus: #3b82f6;
+  --erp-input-radius: 6px;
+
+  /* Badges — high contrast, solid */
+  --erp-badge-active-bg: #16a34a;
+  --erp-badge-active-text: #ffffff;
+  --erp-badge-inactive-bg: #dc2626;
+  --erp-badge-inactive-text: #ffffff;
+  --erp-badge-suspended-bg: #ca8a04;
+  --erp-badge-suspended-text: #ffffff;
+  --erp-badge-pending-bg: #2563eb;
+  --erp-badge-pending-text: #ffffff;
+
+  /* Transitions */
+  --erp-transition: 150ms ease;
+  --erp-transition-md: 200ms ease;
+
+  /* Danger */
+  --erp-danger: #dc2626;
+  --erp-danger-hover: #b91c1c;
+  --erp-danger-light: rgba(220, 38, 38, 0.08);
+
+  /* Success */
+  --erp-success: #16a34a;
+  --erp-success-light: rgba(22, 163, 74, 0.08);
+}

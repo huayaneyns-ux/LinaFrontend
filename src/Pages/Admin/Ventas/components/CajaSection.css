@@ -1,0 +1,282 @@
+/* ============================================
+   CAJA & PAGOS COMPONENT CUSTOM CSS
+   ============================================ */
+
+.caja-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+}
+
+/* Stat Cards */
+.caja-top-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.caja-card-stat {
+  background-color: #ffffff;
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-card-radius);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--erp-card-shadow);
+}
+
+.caja-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.caja-badge-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.caja-badge-status.abierta {
+  background-color: var(--erp-success-light);
+  color: var(--erp-success);
+}
+.caja-badge-status.cerrada {
+  background-color: var(--erp-danger-light);
+  color: var(--erp-danger);
+}
+
+.caja-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--erp-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.caja-card-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--erp-text-primary);
+}
+
+.caja-card-value.text-green { color: var(--erp-success); }
+.caja-card-value.text-purple { color: #7c3aed; }
+.caja-card-value.text-blue { color: #2563eb; }
+
+.caja-card-sub {
+  font-size: 10px;
+  color: var(--erp-text-muted);
+}
+
+.caja-btn-action {
+  background-color: var(--erp-accent-light);
+  border: 1px solid var(--erp-accent);
+  color: var(--erp-accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 0;
+  border-radius: 4px;
+  margin-top: 6px;
+  cursor: pointer;
+  transition: all var(--erp-transition);
+}
+.caja-btn-action:hover {
+  background-color: var(--erp-accent);
+  color: white;
+}
+
+/* Splits Panels */
+.caja-main-panels {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (max-width: 900px) {
+  .caja-main-panels {
+    grid-template-columns: 1fr;
+  }
+}
+
+.caja-panel-register,
+.caja-panel-history {
+  background-color: #ffffff;
+  border: 1px solid var(--erp-card-border);
+  border-radius: var(--erp-card-radius);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  box-shadow: var(--erp-card-shadow);
+}
+
+.caja-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+  border-bottom: 1px solid var(--erp-border);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+.caja-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.caja-amount-input {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--erp-accent);
+  text-align: right;
+  height: 40px !important;
+}
+
+/* Visual Methods Grid */
+.caja-methods-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.caja-method-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background-color: #f8fafc;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 8px 4px;
+  cursor: pointer;
+  transition: all var(--erp-transition);
+}
+
+.caja-method-icon {
+  font-size: 16px;
+  color: var(--erp-text-secondary);
+}
+
+.caja-method-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--erp-text-primary);
+}
+
+.caja-method-btn:hover {
+  background-color: var(--method-bg);
+  border-color: var(--method-color);
+}
+.caja-method-btn:hover .caja-method-icon {
+  color: var(--method-color);
+}
+
+.caja-method-btn.active {
+  background-color: var(--method-bg);
+  border-color: var(--method-color);
+  box-shadow: 0 0 0 1px var(--method-color);
+}
+.caja-method-btn.active .caja-method-icon,
+.caja-method-btn.active .caja-method-label {
+  color: var(--method-color);
+}
+
+.caja-submit-btn {
+  margin-top: auto;
+  background-color: var(--erp-accent);
+  color: white;
+  border: none;
+  height: 38px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--erp-transition);
+}
+.caja-submit-btn:hover {
+  background-color: var(--erp-accent-hover);
+}
+
+/* History List Panel */
+.caja-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  flex: 1;
+  padding-right: 4px;
+}
+
+.caja-history-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid var(--erp-border);
+  border-radius: 6px;
+  background-color: #f8fafc;
+  transition: all var(--erp-transition);
+}
+.caja-history-row:hover {
+  border-color: var(--erp-accent-light);
+  background-color: #ffffff;
+}
+
+.caja-row-info {
+  display: flex;
+  flex-direction: column;
+}
+.caja-row-code {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+.caja-row-client {
+  font-size: 11px;
+  color: var(--erp-text-secondary);
+}
+.caja-row-time {
+  font-size: 10px;
+  color: var(--erp-text-muted);
+}
+
+.caja-row-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.caja-row-method {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.caja-row-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+
+.caja-history-empty {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  text-align: center;
+  padding: 24px;
+}

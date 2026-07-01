@@ -1,5 +1,4 @@
 import React from 'react';
-import { mockMarcas } from '../../Constantes/Data/MockData';
 import { useMarcas } from '../../Hooks/useMarcas'; 
 import '../../Styles/Pages/Home.css';
 
