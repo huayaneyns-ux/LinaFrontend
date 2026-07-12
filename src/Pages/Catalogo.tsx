@@ -18,7 +18,6 @@ const Catalogo = () => {
   const [busqueda, setBusqueda] = useState('');
   
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
-  const [cantidadDetalle, setCantidadDetalle] = useState(1);
   const { agregarAlCarrito } = useCart();
 
   const categoriaActual = searchParams.get('categoria') || 'todas';

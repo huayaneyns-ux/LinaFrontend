@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
 import type { ProductoType as Producto } from '../../Types/ProductoType';
+import { resolveImageUrl } from '../../Utils/imageUtils';
+import ImagePlaceholder from '../Shared/ImagePlaceholder';
+import { FiBox } from 'react-icons/fi';
 
 interface Props {
   producto: Producto;
@@ -33,6 +36,8 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
     onClose();
   };
 
+  const imgSrc = resolveImageUrl(producto.url);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -43,10 +48,10 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
             onMouseMove={handleMouseMove} 
             onMouseLeave={handleMouseLeave}
           >
-            {producto.url ? (
-              <img src={producto.url} alt={producto.nombre} style={zoomStyle} className="zoom-image" />
+            {imgSrc ? (
+              <img src={imgSrc} alt={producto.nombre} style={zoomStyle} className="zoom-image" />
             ) : (
-              <div style={{ width: '100%', height: '100%', background: '#eee', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Sin Imagen</div>
+              <ImagePlaceholder icon={FiBox} size={48} className="modal-img-placeholder" />
             )}
           </div>
           <div className="modal-info">

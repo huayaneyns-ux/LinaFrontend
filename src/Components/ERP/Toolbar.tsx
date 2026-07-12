@@ -7,7 +7,7 @@ interface ToolbarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
   searchPlaceholder?: string;
-  onNew: () => void;
+  onNew?: () => void;
   newLabel?: string;
   showFilters: boolean;
   onToggleFilters: () => void;
@@ -59,15 +59,17 @@ const Toolbar = ({
             )}
           </button>
 
-          <button
-            type="button"
-            className="erp-btn erp-btn-sm erp-btn-primary"
-            onClick={onNew}
-            id="btn-new-record"
-          >
-            <FiPlus />
-            {newLabel}
-          </button>
+          {onNew && (
+            <button
+              type="button"
+              className="erp-btn erp-btn-sm erp-btn-primary"
+              onClick={onNew}
+              id="btn-new-record"
+            >
+              <FiPlus />
+              {newLabel}
+            </button>
+          )}
         </div>
       </div>
 

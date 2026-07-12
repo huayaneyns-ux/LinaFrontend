@@ -1,3 +1,4 @@
+import React from 'react';
 import type { ReactNode } from 'react';
 import type { SortConfig } from '../../Hooks/useDataTable';
 import { FiArrowUp, FiArrowDown, FiCode } from 'react-icons/fi';
@@ -20,6 +21,8 @@ interface DataTableProps<T extends Record<string, any>> {
   emptyMessage?: string;
   loading?: boolean;
   rowKey?: (row: T) => string | number;
+  expandedRowKey?: string | number;
+  renderExpanded?: (row: T) => ReactNode;
 }
 
 function DataTable<T extends Record<string, any>>({
@@ -30,6 +33,8 @@ function DataTable<T extends Record<string, any>>({
   emptyMessage = 'No se encontraron registros',
   loading = false,
   rowKey,
+  expandedRowKey,
+  renderExpanded,
 }: DataTableProps<T>) {
   const getSortIcon = (colKey: string) => {
     if (sortConfig.key !== colKey) return <FiCode className="erp-sort-icon" style={{ opacity: 0.35, fontSize: '11px' }} />;
@@ -78,17 +83,26 @@ function DataTable<T extends Record<string, any>>({
             </tr>
           ) : (
             data.map((row, idx) => (
-              <tr key={rowKey ? rowKey(row) : idx}>
-                {columns.map(col => (
-                  <td
-                    key={col.key}
-                    style={{ textAlign: col.align ?? 'left' }}
-                    className={col.key === 'actions' ? 'actions-cell' : ''}
-                  >
-                    {col.render ? col.render(row, idx) : (row[col.key] ?? '—')}
-                  </td>
-                ))}
-              </tr>
+              <React.Fragment key={rowKey ? rowKey(row) : idx}>
+                <tr>
+                  {columns.map(col => (
+                    <td
+                      key={col.key}
+                      style={{ textAlign: col.align ?? 'left' }}
+                      className={col.key === 'actions' ? 'actions-cell' : ''}
+                    >
+                      {col.render ? col.render(row, idx) : (row[col.key] ?? '—')}
+                    </td>
+                  ))}
+                </tr>
+                {expandedRowKey !== undefined && rowKey && rowKey(row) === expandedRowKey && renderExpanded ? (
+                  <tr>
+                    <td colSpan={columns.length} className="expanded-row">
+                      {renderExpanded(row)}
+                    </td>
+                  </tr>
+                ) : null}
+              </React.Fragment>
             ))
           )}
         </tbody>

@@ -19,7 +19,7 @@ interface CrudDialogProps {
   cancelLabel?: string;
   // Loading state
   loading?: boolean;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 }
 
 const MODE_CONFIG: Record<DialogMode, { icon: ReactNode; iconClass: string; defaultTitle: string; defaultConfirm: string }> = {
@@ -58,7 +58,7 @@ const CrudDialog = ({
 
   return (
     <div className="erp-dialog-backdrop" onClick={handleBackdropClick} role="dialog" aria-modal="true">
-      <div className={`erp-dialog${size === 'sm' ? ' erp-dialog-sm' : size === 'lg' ? ' erp-dialog-lg' : ''}`}>
+      <div className={`erp-dialog${size === 'sm' ? ' erp-dialog-sm' : size === 'lg' ? ' erp-dialog-lg' : size === 'xl' ? ' erp-dialog-xl' : ''}`}>
         {/* Header */}
         <div className="erp-dialog-header">
           <div className="erp-dialog-header-left">

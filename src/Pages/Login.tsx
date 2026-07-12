@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
-import { useCart } from '../Context/CartContext';
 import { mockPedidos } from '../Constantes/Data/MockData';
 import { FiUser, FiShield, FiMail, FiPackage, FiShoppingCart, FiLogOut, FiSettings } from 'react-icons/fi';
 import '../Styles/Pages/Login.css';

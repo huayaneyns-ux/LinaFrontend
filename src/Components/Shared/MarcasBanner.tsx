@@ -1,4 +1,7 @@
-import { useMarcas } from '../Hooks/useMarcas';
+import { useMarcas } from '../../Hooks/useMarcas';
+import { resolveImageUrl } from '../../Utils/imageUtils';
+import ImagePlaceholder from './ImagePlaceholder';
+import { FiBookmark } from 'react-icons/fi';
 import '../Styles/Components/MarcasBanner.css';
 
 const MarcasBanner = () => {
@@ -16,15 +19,17 @@ const MarcasBanner = () => {
       <div className="marcas-slider">
         <div className="marcas-track">
           {/* Duplicamos la lista para crear un efecto de scroll infinito continuo */}
-          {[...marcasActivas, ...marcasActivas].map((marca, index) => (
+          {[...marcasActivas, ...marcasActivas].map((marca, index) => {
+            const logoUrl = resolveImageUrl(marca.url);
+            return (
             <div key={`${marca.id}-${index}`} className="marca-item">
-              {marca.url ? (
-                <img src={marca.url} alt={marca.nombre} title={marca.nombre} />
+              {logoUrl ? (
+                <img src={logoUrl} alt={marca.nombre} title={marca.nombre} />
               ) : (
-                <div className="marca-placeholder">{marca.nombre}</div>
+                <ImagePlaceholder icon={FiBookmark} size={18} className="marca-item-placeholder" />
               )}
             </div>
-          ))}
+          );})}
         </div>
       </div>
     </div>

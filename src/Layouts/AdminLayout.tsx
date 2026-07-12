@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
 import {
-  FiHome, FiDollarSign, FiPackage, FiMonitor,
-  FiShoppingCart, FiTruck, FiUsers, FiBox, FiArchive,
+  FiHome, FiTruck, FiUsers, FiBox,
   FiLogOut, FiSearch, FiBell, FiSettings, FiBarChart2,
   FiChevronRight, FiMenu, FiX
 } from 'react-icons/fi';

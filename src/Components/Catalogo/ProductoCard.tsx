@@ -1,5 +1,8 @@
 import type { ProductoType as Producto } from '../../Types/ProductoType';
 import { useCart } from '../../Context/CartContext';
+import { resolveImageUrl } from '../../Utils/imageUtils';
+import ImagePlaceholder from '../Shared/ImagePlaceholder';
+import { FiBox } from 'react-icons/fi';
 import '../../Styles/Components/ProductoCard.css';
 
 interface Props {
@@ -15,13 +18,15 @@ const ProductoCard = ({ producto, onOpenDetalle }: Props) => {
     agregarAlCarrito(producto, 1);
   };
 
+  const imgSrc = resolveImageUrl(producto.url);
+
   return (
     <div className="producto-card" onClick={() => onOpenDetalle(producto)}>
       <div className="producto-imagen">
-        {producto.url ? (
-          <img src={producto.url} alt={producto.nombre} />
+        {imgSrc ? (
+          <img src={imgSrc} alt={producto.nombre} />
         ) : (
-          <div className="sin-imagen">Sin Imagen</div>
+          <ImagePlaceholder icon={FiBox} size={32} className="producto-sin-imagen" />
         )}
       </div>
       <div className="producto-info">
