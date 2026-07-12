@@ -128,7 +128,6 @@ const UnitsSection = () => {
           id: dialogState.record.id,
           nombre: formState.nombre || '',
           abreviatura: formState.abreviatura || '',
-          estado: formState.estado !== false,
         };
         await updateItem(payload);
       } else if (dialogState.mode === 'delete' && dialogState.record) {

@@ -1,18 +1,17 @@
 import { api } from '../Services/apiService';
-import type { 
+import { normalizeImagenResponse } from '../Utils/imageUtils';
+import type {
     ImagenResponseDto,
     ImagenDeleteDto
 } from '../Types/Imagen';
 
 export const ImagenService = {
 
-    // =====================================
-    // SUBIR IMAGEN
-    // =====================================
     subirImagen: async (imagen: File): Promise<ImagenResponseDto> => {
         const formData = new FormData();
         formData.append('imagen', imagen);
-        return api.requestFormData<ImagenResponseDto>('/Imagen/Subir', formData);
+        const raw = await api.requestFormData<Record<string, unknown>>('/Imagen/Subir', formData);
+        return normalizeImagenResponse(raw);
     },
 
 

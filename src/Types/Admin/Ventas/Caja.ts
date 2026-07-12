@@ -37,7 +37,7 @@ export interface CajaDetalleInsertDto {
 export interface CajaPagoInsertDto {
   idMetodoPago: number;
   monto: number;
-  codigoOperacion: string;
+  codigoOperacion?: string;
 }
 
 

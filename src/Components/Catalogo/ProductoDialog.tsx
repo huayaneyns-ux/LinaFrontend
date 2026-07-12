@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { ProductoType as Producto } from '../../Types/ProductoType';
-import { resolveImageUrl } from '../../Utils/imageUtils';
+import type { Producto } from '../../Types/Producto';
+import { resolveImageUrl, getProductoImagenPath } from '../../Utils/imageUtils';
 import ImagePlaceholder from '../Shared/ImagePlaceholder';
 import { FiBox } from 'react-icons/fi';
 
@@ -36,7 +36,7 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
     onClose();
   };
 
-  const imgSrc = resolveImageUrl(producto.url);
+  const imgSrc = resolveImageUrl(getProductoImagenPath(producto));
 
   return (
     <div className="modal-overlay" onClick={onClose}>

@@ -2,17 +2,18 @@ export interface MarcaSelectDto {
   id: number;
   nombre: string;
   estado: boolean;
-  url?: string;
+  urlImagen?: string;
+  publicIdImagen?: string;
 }
 
 export interface MarcaInsertDto {
   nombre: string;
-  url?: string;
+  urlImagen?: string;
 }
 
 export interface MarcaUpdateDto {
   id: number;
   nombre: string;
   estado: boolean;
-  url?: string;
+  urlImagen?: string;
 }

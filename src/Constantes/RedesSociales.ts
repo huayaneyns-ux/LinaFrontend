@@ -5,9 +5,8 @@
  */
 export const REDES_SOCIALES = {
   tiktok: {
-    perfil: 'https://www.tiktok.com/@librerialina',
-    /** Link completo del video o solo el ID. Dejar vacío para ocultar el widget. */
-    video: '',
+    perfil: 'https://www.tiktok.com/@evapartis',
+    video: 'https://www.tiktok.com/@evapartis/video/7496308754497948933',
   },
   instagram: 'https://www.instagram.com/librerialina',
   facebook: 'https://www.facebook.com/librerialina',

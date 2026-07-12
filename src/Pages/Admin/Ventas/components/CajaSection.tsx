@@ -1,11 +1,9 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { CajaService } from '../../../../Services/Admin/Ventas/Caja';
-import { VentaRealizadaService } from '../../../../Services/Admin/Ventas/Venta';
+import { MetodoPagoService } from '../../../../Services/Admin/Ventas/MetodoPago';
 import { ProductoService } from '../../../../Services/Admin/Inventario/Producto';
-import { CategoriaService } from '../../../../Services/Admin/Inventario/Categoria';
 import type { ProductoSelectDto } from '../../../../Types/Admin/Inventario/Producto';
-import type { CategoriaSelectDto } from '../../../../Types/Admin/Inventario/Categoria';
-import type { VentaRealizadaSelectDto } from '../../../../Types/Admin/Ventas/Venta';
+import type { MetodoPagoSelectDto } from '../../../../Types/Admin/Ventas/MetodoPago';
 import type {
   CajaClienteDto,
   CajaClienteInsertDto,
@@ -14,699 +12,707 @@ import type {
   CajaPagoInsertDto,
 } from '../../../../Types/Admin/Ventas/Caja';
 import { useAuth } from '../../../../Context/AuthContext';
-import { formatDate } from '../../../../Utils/formatters';
-import { 
-  FiDollarSign, 
-  FiSmartphone, 
-  FiCreditCard, 
-  FiTrendingUp, 
-  FiSearch, 
-  FiShoppingCart, 
-  FiPlus, 
-  FiMinus, 
-  FiTrash2, 
-  FiUser, 
-  FiCheckCircle, 
-  FiPlusCircle,
-  FiXCircle
+import { resolveImageUrl, isActivoEstado } from '../../../../Utils/imageUtils';
+import { downloadComprobantePdf } from '../../../../Utils/generateComprobantePdf';
+import {
+  FiSearch,
+  FiShoppingCart,
+  FiPlus,
+  FiMinus,
+  FiTrash2,
+  FiUser,
+  FiCheckCircle,
+  FiAlertCircle,
+  FiHelpCircle,
+  FiX,
+  FiEdit3,
+  FiCreditCard,
+  FiPackage,
+  FiUserPlus,
 } from 'react-icons/fi';
 import './CajaSection.css';
-
-const BASE_APERTURA = 350;
 
 interface CartItem {
   producto: ProductoSelectDto;
   cantidad: number;
 }
 
-const resolveImageUrl = (path?: string) => {
-  if (!path) return 'https://images.unsplash.com/photo-1544816155-12df9643f363?w=100&q=80';
-  if (path.startsWith('http://') || path.startsWith('https://')) return path;
-  const clean = path.startsWith('/') ? path : `/${path}`;
-  return `https://localhost:7146${clean}`;
+interface PagoForm {
+  idMetodoPago: number;
+  monto: string;
+  codigoOperacion: string;
+}
+
+type ClientStatus = 'idle' | 'pending' | 'valid' | 'invalid';
+type SalePhase = 'editing' | 'confirmed';
+
+const EMPTY_CLIENT_FORM: CajaClienteInsertDto = {
+  nombreApellido: '',
+  dni: '',
+  telefono: '',
+  correo: '',
 };
+
+const createEmptyPago = (metodos: MetodoPagoSelectDto[]): PagoForm => ({
+  idMetodoPago: metodos[0]?.id ?? 0,
+  monto: '',
+  codigoOperacion: '',
+});
 
 const CajaSection = () => {
   const { usuario } = useAuth();
-  
-  // Data States
+
   const [productos, setProductos] = useState<ProductoSelectDto[]>([]);
-  const [categorias, setCategorias] = useState<CategoriaSelectDto[]>([]);
-  const [ventas, setVentas] = useState<VentaRealizadaSelectDto[]>([]);
+  const [metodosPago, setMetodosPago] = useState<MetodoPagoSelectDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [ventasLoading, setVentasLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client States
+  const [productSearch, setProductSearch] = useState('');
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [salePhase, setSalePhase] = useState<SalePhase>('editing');
+
   const [searchDni, setSearchDni] = useState('');
-  const [searchingClient, setSearchingClient] = useState(false);
+  const [clientStatus, setClientStatus] = useState<ClientStatus>('idle');
   const [selectedClient, setSelectedClient] = useState<CajaClienteDto | null>(null);
-  const [showClientForm, setShowClientForm] = useState(false);
-  const [clientForm, setClientForm] = useState<CajaClienteInsertDto>({
-    nombreApellido: '',
-    dni: '',
-    telefono: '',
-    correo: '',
-  });
+  const [searchingClient, setSearchingClient] = useState(false);
+
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [clientForm, setClientForm] = useState<CajaClienteInsertDto>(EMPTY_CLIENT_FORM);
   const [savingClient, setSavingClient] = useState(false);
 
-  // Product Selection/POS States
-  const [productSearch, setProductSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | 'todas'>('todas');
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [showDniExistsDialog, setShowDniExistsDialog] = useState(false);
+  const [existingClientFound, setExistingClientFound] = useState<CajaClienteDto | null>(null);
 
-  // Checkout States
-  const [selectedMetodo, setSelectedMetodo] = useState<number>(1); // 1 = EFECTIVO
-  const [codigoOperacion, setCodigoOperacion] = useState('');
+  const [productDialog, setProductDialog] = useState<ProductoSelectDto | null>(null);
+  const [dialogQty, setDialogQty] = useState(1);
+
+  const [useMultiplePayments, setUseMultiplePayments] = useState(false);
+  const [pagos, setPagos] = useState<PagoForm[]>([createEmptyPago([])]);
   const [processing, setProcessing] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Local/Session opening simulation
-  const [cajaAbierta] = useState(true);
+  const vendedorNombre = usuario
+    ? `${usuario.nombres} ${usuario.apellidos || ''}`.trim()
+    : 'Vendedor';
 
-  // Load Initial Data
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [prodsData, catsData] = await Promise.all([
+      const [prods, metodos] = await Promise.all([
         ProductoService.getProductos(),
-        CategoriaService.getCategorias(),
+        MetodoPagoService.getMetodosPago(),
       ]);
-      // Filter only active products and active categories
-      setProductos(prodsData.filter(p => p.estado));
-      setCategorias(catsData.filter(c => c.estado));
+      setProductos(prods.filter(p => p.estado));
+      const activos = metodos.filter(m => isActivoEstado(m.estado));
+      setMetodosPago(activos);
+      setPagos([createEmptyPago(activos)]);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al cargar productos y catálogos');
+      setError(err instanceof Error ? err.message : 'Error al cargar datos de caja');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loadVentas = useCallback(async () => {
-    try {
-      setVentasLoading(true);
-      const data = await VentaRealizadaService.getVentas();
-      setVentas(data);
-    } catch {
-      // Ignorar silenciosamente o poner vacío si falla
-      setVentas([]);
-    } finally {
-      setVentasLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadInitialData();
-    loadVentas();
-  }, [loadInitialData, loadVentas]);
+  }, [loadInitialData]);
 
-  // Client Lookup
-  const handleSearchClient = async () => {
-    if (!searchDni.trim()) return;
-    setSearchingClient(true);
-    setSelectedClient(null);
-    setShowClientForm(false);
-    try {
-      const client = await CajaService.buscarClientePorDni(searchDni);
-      if (client && client.id) {
-        setSelectedClient(client);
-      } else {
-        // Pre-fill DNI and show form
-        setClientForm({
-          nombreApellido: '',
-          dni: searchDni,
-          telefono: '',
-          correo: '',
-        });
-        setShowClientForm(true);
-      }
-    } catch {
-      // Client not found, show form
-      setClientForm({
-        nombreApellido: '',
-        dni: searchDni,
-        telefono: '',
-        correo: '',
-      });
-      setShowClientForm(true);
-    } finally {
-      setSearchingClient(false);
-    }
-  };
-
-  // Client Creation
-  const handleCreateClient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!clientForm.nombreApellido || !clientForm.dni) {
-      alert('Por favor complete Nombre y DNI');
-      return;
-    }
-    setSavingClient(true);
-    try {
-      const response = await CajaService.crearCliente(clientForm);
-      if (response && response.idCliente) {
-        setSelectedClient({
-          id: response.idCliente,
-          nombreApellido: clientForm.nombreApellido,
-          dni: clientForm.dni,
-          telefono: clientForm.telefono,
-          correo: clientForm.correo,
-        });
-        setShowClientForm(false);
-      } else {
-        alert(response.mensaje || 'Error al registrar cliente');
-      }
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al registrar cliente');
-    } finally {
-      setSavingClient(false);
-    }
-  };
-
-  // Cart Management
-  const handleAddToCart = (producto: ProductoSelectDto) => {
-    setCart(prev => {
-      const existing = prev.find(item => item.producto.id === producto.id);
-      if (existing) {
-        return prev.map(item =>
-          item.producto.id === producto.id ? { ...item, cantidad: item.cantidad + 1 } : item
-        );
-      }
-      return [...prev, { producto, cantidad: 1 }];
-    });
-  };
-
-  const handleUpdateQuantity = (idProducto: number, delta: number) => {
-    setCart(prev =>
-      prev
-        .map(item => {
-          if (item.producto.id === idProducto) {
-            const nextQty = item.cantidad + delta;
-            return { ...item, cantidad: nextQty };
-          }
-          return item;
-        })
-        .filter(item => item.cantidad > 0)
-    );
-  };
-
-  const handleRemoveFromCart = (idProducto: number) => {
-    setCart(prev => prev.filter(item => item.producto.id !== idProducto));
-  };
-
-  // Cart Calculations
   const totals = useMemo(() => {
-    const total = cart.reduce((sum, item) => sum + item.producto.precioVenta * item.cantidad, 0);
+    const total = cart.reduce((s, i) => s + i.producto.precioVenta * i.cantidad, 0);
     const subtotal = total / 1.18;
     const igv = total - subtotal;
     return { subtotal, igv, total };
   }, [cart]);
 
-  // Filtered Products
   const filteredProducts = useMemo(() => {
-    return productos.filter(p => {
-      const matchSearch =
-        p.nombre.toLowerCase().includes(productSearch.toLowerCase()) ||
-        p.codigo.toLowerCase().includes(productSearch.toLowerCase()) ||
-        (p.sku && p.sku.toLowerCase().includes(productSearch.toLowerCase()));
-      const matchCat = selectedCategory === 'todas' || p.idCategoria === selectedCategory;
-      return matchSearch && matchCat;
-    });
-  }, [productos, productSearch, selectedCategory]);
+    const q = productSearch.toLowerCase().trim();
+    if (!q) return productos;
+    return productos.filter(
+      p =>
+        p.nombre.toLowerCase().includes(q) ||
+        p.categoria?.toLowerCase().includes(q)
+    );
+  }, [productos, productSearch]);
 
-  // Checkout
-  const handleProcessSale = async () => {
-    if (!cajaAbierta) return;
-    if (!selectedClient) {
-      alert('Por favor busque o registre un cliente para continuar');
+  const cartLocked = salePhase === 'confirmed';
+
+  const resetSale = () => {
+    setCart([]);
+    setSalePhase('editing');
+    setSearchDni('');
+    setSelectedClient(null);
+    setClientStatus('idle');
+    setUseMultiplePayments(false);
+    setPagos([{ ...createEmptyPago(metodosPago), monto: '' }]);
+    setSuccessMsg(null);
+    setShowCreateDialog(false);
+    setShowDniExistsDialog(false);
+    setClientForm(EMPTY_CLIENT_FORM);
+  };
+
+  const applyClient = (client: CajaClienteDto) => {
+    setSelectedClient(client);
+    setSearchDni(client.dni);
+    setClientStatus('valid');
+    setShowCreateDialog(false);
+    setShowDniExistsDialog(false);
+    setClientForm(EMPTY_CLIENT_FORM);
+  };
+
+  const handleSearchClientByDni = async () => {
+    const dni = searchDni.trim();
+    if (!dni) {
+      setClientStatus('idle');
+      setSelectedClient(null);
       return;
     }
+    setSearchingClient(true);
+    setClientStatus('pending');
+    setSelectedClient(null);
+    try {
+      const client = await CajaService.buscarClientePorDni(dni);
+      if (client?.id) {
+        applyClient(client);
+      } else {
+        setClientStatus('invalid');
+      }
+    } catch {
+      setClientStatus('invalid');
+      setSelectedClient(null);
+    } finally {
+      setSearchingClient(false);
+    }
+  };
+
+  const openCreateClient = () => {
+    setClientForm({ ...EMPTY_CLIENT_FORM, dni: searchDni });
+    setShowCreateDialog(true);
+    setShowDniExistsDialog(false);
+    setExistingClientFound(null);
+  };
+
+  const handleCreateClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientForm.nombreApellido.trim() || !clientForm.dni.trim()) return;
+
+    setSavingClient(true);
+    setError(null);
+    try {
+      const existing = await CajaService.buscarClientePorDni(clientForm.dni.trim());
+      if (existing?.id) {
+        setExistingClientFound(existing);
+        setShowDniExistsDialog(true);
+        return;
+      }
+    } catch {
+      /* DNI no existe, continuar creación */
+    }
+
+    try {
+      const res = await CajaService.crearCliente(clientForm);
+      if (res?.idCliente) {
+        applyClient({
+          id: res.idCliente,
+          nombreApellido: clientForm.nombreApellido,
+          dni: clientForm.dni,
+          telefono: clientForm.telefono,
+          correo: clientForm.correo,
+        });
+      } else {
+        setError(res?.mensaje || 'No se pudo registrar el cliente');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al crear cliente');
+    } finally {
+      setSavingClient(false);
+    }
+  };
+
+  const handleDniExistsYes = () => {
+    if (existingClientFound) applyClient(existingClientFound);
+  };
+
+  const handleDniExistsNo = () => {
+    setShowDniExistsDialog(false);
+    setExistingClientFound(null);
+    setClientForm(prev => ({ ...prev, dni: '' }));
+  };
+
+  const handleAddToCart = (producto: ProductoSelectDto, cantidad: number) => {
+    if (cartLocked) return;
+    setCart(prev => {
+      const existing = prev.find(i => i.producto.id === producto.id);
+      if (existing) {
+        return prev.map(i =>
+          i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + cantidad } : i
+        );
+      }
+      return [...prev, { producto, cantidad }];
+    });
+    setProductDialog(null);
+    setDialogQty(1);
+  };
+
+  const updateQty = (id: number, delta: number) => {
+    if (cartLocked) return;
+    setCart(prev =>
+      prev
+        .map(i => (i.producto.id === id ? { ...i, cantidad: i.cantidad + delta } : i))
+        .filter(i => i.cantidad > 0)
+    );
+  };
+
+  const removeItem = (id: number) => {
+    if (cartLocked) return;
+    setCart(prev => prev.filter(i => i.producto.id !== id));
+  };
+
+  const metodoRequiereCodigo = (id: number) => {
+    const m = metodosPago.find(x => x.id === id);
+    return !m?.nombre.toUpperCase().includes('EFECTIVO');
+  };
+
+  const updatePago = (idx: number, patch: Partial<PagoForm>) => {
+    setPagos(prev => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+  };
+
+  const addPagoRow = () => {
+    setPagos(prev => [...prev, createEmptyPago(metodosPago)]);
+  };
+
+  const removePagoRow = (idx: number) => {
+    if (pagos.length <= 1) return;
+    setPagos(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleConfirmOrder = () => {
     if (cart.length === 0) {
-      alert('El carrito de ventas está vacío');
+      setError('Agregue al menos un producto al carrito');
       return;
+    }
+    if (!selectedClient || clientStatus !== 'valid') {
+      setError('Debe buscar y validar un cliente por DNI antes de confirmar');
+      return;
+    }
+    setError(null);
+    setSalePhase('confirmed');
+    setPagos([{ ...createEmptyPago(metodosPago), monto: totals.total.toFixed(2) }]);
+    setUseMultiplePayments(false);
+  };
+
+  const buildPagosPayload = (): CajaPagoInsertDto[] | null => {
+    const list = useMultiplePayments ? pagos : [pagos[0]];
+    const parsed = list.map(p => ({
+      idMetodoPago: p.idMetodoPago,
+      monto: parseFloat(p.monto),
+      codigoOperacion: p.codigoOperacion.trim() || undefined,
+    }));
+
+    if (parsed.some(p => isNaN(p.monto) || p.monto <= 0)) return null;
+
+    const sum = parsed.reduce((s, p) => s + p.monto, 0);
+    if (Math.abs(sum - totals.total) > 0.02) return null;
+
+    return parsed;
+  };
+
+  const handleFinalizeSale = async () => {
+    if (!selectedClient) return;
+    const pagosPayload = buildPagosPayload();
+    if (!pagosPayload) {
+      setError('Verifique los montos: la suma de pagos debe igualar el total.');
+      return;
+    }
+    for (const p of pagosPayload) {
+      if (metodoRequiereCodigo(p.idMetodoPago) && !p.codigoOperacion?.trim()) {
+        setError('Ingrese el número de operación para los métodos que lo requieren');
+        return;
+      }
     }
 
     setProcessing(true);
+    setError(null);
     try {
-      const detalle: CajaDetalleInsertDto[] = cart.map(item => ({
-        idProducto: item.producto.id,
-        cantidad: item.cantidad,
-        precioUnitario: item.producto.precioVenta,
+      const detalle: CajaDetalleInsertDto[] = cart.map(i => ({
+        idProducto: i.producto.id,
+        cantidad: i.cantidad,
+        precioUnitario: i.producto.precioVenta,
       }));
 
-      const pagos: CajaPagoInsertDto[] = [
-        {
-          idMetodoPago: selectedMetodo,
-          monto: totals.total,
-          codigoOperacion: codigoOperacion.trim(),
-        },
-      ];
-
-      // Use active user ID or fallback to 1 (Admin)
       const idUsuario = usuario?.id ? Number(usuario.id) : 1;
-
       const payload: CajaVentaInsertDto = {
         idCliente: selectedClient.id,
         idUsuario: isNaN(idUsuario) ? 1 : idUsuario,
         igv: Number(totals.igv.toFixed(4)),
         detalle,
-        pagos,
+        pagos: pagosPayload,
       };
 
       const response = await CajaService.registrarVenta(payload);
-      alert(`Venta registrada con éxito. Boleta #${response.idVenta}\n${response.mensaje}`);
-      
-      // Clear Cart and Client
-      setCart([]);
-      setSelectedClient(null);
-      setSearchDni('');
-      setCodigoOperacion('');
-      
-      // Reload History
-      await loadVentas();
+
+      await downloadComprobantePdf({
+        idVenta: response.idVenta,
+        cliente: selectedClient,
+        vendedor: vendedorNombre,
+        items: cart,
+        subtotal: totals.subtotal,
+        igv: totals.igv,
+        total: totals.total,
+        pagos: pagosPayload,
+        metodos: metodosPago,
+      });
+
+      setSuccessMsg(`Venta registrada — Comprobante #${response.idVenta}. PDF descargado.`);
+      resetSale();
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Error al procesar la venta');
+      setError(err instanceof Error ? err.message : 'Error al registrar la venta');
     } finally {
       setProcessing(false);
     }
   };
 
-  const paymentMethods = [
-    { id: 1, label: 'Efectivo', color: '#16a34a', bg: '#dcfce7', icon: <FiDollarSign /> },
-    { id: 2, label: 'Yape', color: '#7c3aed', bg: '#f3e8ff', icon: <FiSmartphone /> },
-    { id: 3, label: 'Plin', color: '#06b6d4', bg: '#ecfeff', icon: <FiSmartphone /> },
-    { id: 4, label: 'Visa', color: '#2563eb', bg: '#dbeafe', icon: <FiCreditCard /> },
-    { id: 5, label: 'Mastercard', color: '#ea580c', bg: '#ffedd5', icon: <FiCreditCard /> },
-    { id: 6, label: 'Transferencia', color: '#0284c7', bg: '#e0f2fe', icon: <FiTrendingUp /> },
-  ];
+  const clientStatusLabel = () => {
+    if (clientStatus === 'valid') return { text: 'Cliente validado', cls: 'valid' };
+    if (clientStatus === 'invalid') return { text: 'Cliente no encontrado', cls: 'invalid' };
+    if (clientStatus === 'pending') return { text: 'Buscando...', cls: 'pending' };
+    return { text: 'Sin validar — ingrese DNI y busque', cls: 'idle' };
+  };
 
-  // Turn History (simulated or real from today)
-  const turnoVentas = useMemo(() => {
-    const todayStr = new Date().toDateString();
-    return ventas.filter(v => new Date(v.fecha).toDateString() === todayStr);
-  }, [ventas]);
-
-  // Statistics
-  const stats = useMemo(() => {
-    const totalVentasTurno = turnoVentas.reduce((sum, v) => sum + v.total, 0);
-    const totalCaja = BASE_APERTURA + totalVentasTurno;
-    return { totalVentasTurno, totalCaja };
-  }, [turnoVentas]);
+  const statusInfo = clientStatusLabel();
+  const pagosSum = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
 
   return (
     <div className="caja-container">
-      {error && (
-        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px', marginBottom: '10px' }}>
-          {error}
-        </div>
-      )}
+      {error && <div className="caja-alert caja-alert-error">{error}</div>}
+      {successMsg && <div className="caja-alert caja-alert-success">{successMsg}</div>}
 
-      {/* Top Stat Cards */}
-      <div className="caja-top-grid">
-        <div className="caja-card-stat">
-          <div className="caja-card-header-row">
-            <span className="caja-card-label">Caja Chica General</span>
-            <span className={`caja-badge-status ${cajaAbierta ? 'abierta' : 'cerrada'}`}>
-              <FiCheckCircle /> {cajaAbierta ? 'Activa' : 'Inactiva'}
-            </span>
+      <div className="caja-layout">
+        <aside className={`caja-panel caja-panel-catalog ${cartLocked ? 'locked' : ''}`}>
+          <div className="caja-panel-head">
+            <FiPackage />
+            <span>Catálogo de productos</span>
           </div>
-          <span className="caja-card-value">S/ {stats.totalCaja.toFixed(2)}</span>
-          <span className="caja-card-sub">Base apertura: S/ {BASE_APERTURA.toFixed(2)}</span>
-        </div>
-
-        <div className="caja-card-stat">
-          <span className="caja-card-label">Ventas del Turno (Hoy)</span>
-          <span className="caja-card-value text-green">S/ {stats.totalVentasTurno.toFixed(2)}</span>
-          <span className="caja-card-sub">{turnoVentas.length} transacciones registradas hoy</span>
-        </div>
-
-        <div className="caja-card-stat">
-          <span className="caja-card-label">Operador Activo</span>
-          <span className="caja-card-value text-blue" style={{ fontSize: '15px', fontWeight: 700, margin: '4px 0' }}>
-            {usuario ? `${usuario.nombres} ${usuario.apellidos}` : 'Administrador'}
-          </span>
-          <span className="caja-card-sub">Rol: {usuario?.rol || 'ADMINISTRADOR'}</span>
-        </div>
-      </div>
-
-      {/* POS Panels Grid */}
-      <div className="caja-main-panels" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
-        
-        {/* LEFT PANEL: POS Shopping Grid */}
-        <div className="caja-panel-register">
-          
-          {/* Client Selection Section */}
-          <div className="caja-panel-title" style={{ justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiUser /> Datos del Cliente
-            </span>
-            {selectedClient && (
-              <button 
-                type="button" 
-                onClick={() => setSelectedClient(null)} 
-                style={{ background: 'transparent', border: 'none', color: 'var(--erp-danger)', cursor: 'pointer', display: 'flex', alignItems: 'center', fontSize: '11px', fontWeight: 600 }}
-              >
-                <FiXCircle style={{ marginRight: '3px' }} /> Cambiar Cliente
-              </button>
-            )}
-          </div>
-
-          {!selectedClient ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '15px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <input
-                  type="text"
-                  className="erp-input"
-                  placeholder="Ingrese DNI del cliente..."
-                  value={searchDni}
-                  onChange={e => setSearchDni(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSearchClient()}
-                />
-                <button 
-                  type="button" 
-                  className="erp-btn erp-btn-primary" 
-                  onClick={handleSearchClient}
-                  disabled={searchingClient}
-                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  <FiSearch /> {searchingClient ? 'Buscando...' : 'Buscar'}
-                </button>
-              </div>
-
-              {showClientForm && (
-                <form onSubmit={handleCreateClient} className="fade-in" style={{ padding: '12px', border: '1px solid var(--erp-border)', borderRadius: '6px', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--erp-text-primary)' }}>Registrar Cliente Nuevo</span>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div className="erp-form-group">
-                      <label className="erp-form-label" style={{ fontSize: '10px' }}>Nombres y Apellidos</label>
-                      <input
-                        type="text"
-                        required
-                        className="erp-input erp-input-sm"
-                        value={clientForm.nombreApellido}
-                        onChange={e => setClientForm(prev => ({ ...prev, nombreApellido: e.target.value }))}
-                      />
-                    </div>
-                    <div className="erp-form-group">
-                      <label className="erp-form-label" style={{ fontSize: '10px' }}>DNI</label>
-                      <input
-                        type="text"
-                        required
-                        className="erp-input erp-input-sm"
-                        value={clientForm.dni}
-                        disabled
-                      />
-                    </div>
-                    <div className="erp-form-group">
-                      <label className="erp-form-label" style={{ fontSize: '10px' }}>Teléfono (Opcional)</label>
-                      <input
-                        type="text"
-                        className="erp-input erp-input-sm"
-                        value={clientForm.telefono}
-                        onChange={e => setClientForm(prev => ({ ...prev, telefono: e.target.value }))}
-                      />
-                    </div>
-                    <div className="erp-form-group">
-                      <label className="erp-form-label" style={{ fontSize: '10px' }}>Correo (Opcional)</label>
-                      <input
-                        type="email"
-                        className="erp-input erp-input-sm"
-                        value={clientForm.correo}
-                        onChange={e => setClientForm(prev => ({ ...prev, correo: e.target.value }))}
-                      />
-                    </div>
-                  </div>
-                  <button 
-                    type="submit" 
-                    className="erp-btn erp-btn-sm erp-btn-success" 
-                    disabled={savingClient}
-                    style={{ alignSelf: 'flex-end', marginTop: '4px' }}
-                  >
-                    {savingClient ? 'Guardando...' : 'Registrar y Seleccionar'}
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : (
-            <div className="fade-in" style={{ padding: '10px 12px', border: '1px solid #dcfce7', borderRadius: '6px', backgroundColor: '#f0fdf4', display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '8px', marginBottom: '15px' }}>
-              <FiCheckCircle style={{ color: '#16a34a', fontSize: '18px' }} />
-              <div>
-                <div style={{ fontSize: '13px', fontWeight: 700, color: '#14532d' }}>{selectedClient.nombreApellido}</div>
-                <div style={{ fontSize: '11px', color: '#166534' }}>DNI: {selectedClient.dni} | Cel: {selectedClient.telefono || 'No registrado'}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Product Grid Header & Search */}
-          <div className="caja-panel-title" style={{ marginBottom: '8px' }}>
-            <FiPlusCircle /> Selección de Artículos
-          </div>
-
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-            <div style={{ flex: 1, position: 'relative' }}>
+          <div className="caja-filters">
+            <div className="caja-search-wrap">
+              <FiSearch />
               <input
                 type="text"
                 className="erp-input"
-                placeholder="Buscar por código, SKU o nombre de producto..."
+                placeholder="Buscar por nombre o categoría..."
                 value={productSearch}
                 onChange={e => setProductSearch(e.target.value)}
-                style={{ paddingLeft: '32px' }}
+                disabled={cartLocked}
               />
-              <FiSearch style={{ position: 'absolute', left: '10px', top: '12px', color: 'var(--erp-text-muted)' }} />
             </div>
-            
-            <select
-              className="erp-input"
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value === 'todas' ? 'todas' : Number(e.target.value))}
-              style={{ width: '160px' }}
-            >
-              <option value="todas">Todas las Categorías</option>
-              {categorias.map(cat => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.nombre}
-                </option>
-              ))}
-            </select>
           </div>
-
-          {/* Product Grid Area */}
-          <div className="pos-products-scroller" style={{ flex: 1, overflowY: 'auto', maxHeight: '420px', paddingRight: '4px' }}>
+          <div className="caja-product-list">
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--erp-text-muted)', fontSize: '13px' }}>Cargando catálogo de productos...</div>
+              <p className="caja-empty">Cargando productos...</p>
             ) : filteredProducts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--erp-text-muted)', fontSize: '13px' }}>No se encontraron productos coincidentes</div>
+              <p className="caja-empty">No hay productos coincidentes</p>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
-                {filteredProducts.map(p => (
-                  <div 
-                    key={p.id} 
-                    className="pos-product-card"
-                    style={{
-                      border: '1px solid var(--erp-border)',
-                      borderRadius: '8px',
-                      padding: '8px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '4px',
-                      backgroundColor: '#ffffff',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
-                      transition: 'border-color 0.2s, box-shadow 0.2s',
-                    }}
-                  >
-                    <img 
-                      src={resolveImageUrl(p.rutaImagen)} 
-                      alt={p.nombre} 
-                      style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '4px', backgroundColor: '#f8fafc' }}
-                    />
-                    <span style={{ fontSize: '10px', color: 'var(--erp-text-muted)', fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {p.codigo}
-                    </span>
-                    <strong style={{ fontSize: '12px', color: 'var(--erp-text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', height: '34px', lineHeight: '17px' }}>
-                      {p.nombre}
-                    </strong>
-                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--erp-accent)' }}>S/ {p.precioVenta.toFixed(2)}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleAddToCart(p)} 
-                        className="erp-btn erp-btn-sm erp-btn-primary"
-                        style={{ padding: '2px 8px', minWidth: 'auto', borderRadius: '4px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      >
-                        <FiPlus size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
-
-        {/* RIGHT PANEL: Cart & Checkout */}
-        <div className="caja-panel-register" style={{ display: 'flex', flexDirection: 'column' }}>
-          
-          <div className="caja-panel-title">
-            <FiShoppingCart /> Carrito de Venta
-          </div>
-
-          {/* Cart Items List */}
-          <div style={{ flex: 1, overflowY: 'auto', maxHeight: '280px', marginBottom: '10px', paddingRight: '4px' }}>
-            {cart.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '30px 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
-                El carrito está vacío. Agrega productos desde el panel izquierdo.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {cart.map(item => (
-                  <div 
-                    key={item.producto.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '6px 8px',
-                      border: '1px solid var(--erp-border)',
-                      borderRadius: '6px',
-                      backgroundColor: '#f8fafc',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0, paddingRight: '8px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--erp-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {item.producto.nombre}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>
-                        S/ {item.producto.precioVenta.toFixed(2)} c/u
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <button 
-                        type="button" 
-                        onClick={() => handleUpdateQuantity(item.producto.id, -1)}
-                        style={{ border: '1px solid #cbd5e1', background: '#ffffff', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                      >
-                        <FiMinus size={10} />
-                      </button>
-                      <span style={{ fontSize: '12px', fontWeight: 700, width: '20px', textAlign: 'center' }}>
-                        {item.cantidad}
-                      </span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleUpdateQuantity(item.producto.id, 1)}
-                        style={{ border: '1px solid #cbd5e1', background: '#ffffff', borderRadius: '4px', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                      >
-                        <FiPlus size={10} />
-                      </button>
-                      <button 
-                        type="button" 
-                        onClick={() => handleRemoveFromCart(item.producto.id)}
-                        style={{ border: 'none', background: 'transparent', color: 'var(--erp-danger)', cursor: 'pointer', padding: '4px' }}
-                      >
-                        <FiTrash2 size={12} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Totals Section */}
-          <div style={{ borderTop: '1px solid var(--erp-border)', paddingTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--erp-text-secondary)' }}>
-              <span>Subtotal:</span>
-              <span>S/ {totals.subtotal.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--erp-text-secondary)' }}>
-              <span>IGV (18%):</span>
-              <span>S/ {totals.igv.toFixed(2)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 800, color: 'var(--erp-text-primary)' }}>
-              <span>Total General:</span>
-              <span>S/ {totals.total.toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Payment Panel */}
-          <div className="erp-form-group" style={{ marginBottom: '10px' }}>
-            <label className="erp-form-label" style={{ fontSize: '11px' }}>Método de Pago</label>
-            <div className="caja-methods-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
-              {paymentMethods.map(method => (
+              filteredProducts.map(p => (
                 <button
-                  key={method.id}
+                  key={p.id}
                   type="button"
-                  className={`caja-method-btn ${selectedMetodo === method.id ? 'active' : ''}`}
-                  onClick={() => setSelectedMetodo(method.id)}
-                  style={{
-                    '--method-color': method.color,
-                    '--method-bg': method.bg,
-                    padding: '6px 2px',
-                    borderRadius: '4px',
-                    borderWidth: '1px',
-                  } as React.CSSProperties}
+                  className="caja-product-row"
+                  onClick={() => !cartLocked && setProductDialog(p)}
+                  disabled={cartLocked}
                 >
-                  <span className="caja-method-icon" style={{ fontSize: '14px' }}>{method.icon}</span>
-                  <span className="caja-method-label" style={{ fontSize: '10px' }}>{method.label}</span>
+                  <span className="caja-product-name">{p.nombre}</span>
+                  <span className="caja-product-meta">{p.categoria} · S/ {p.precioVenta.toFixed(2)}</span>
                 </button>
-              ))}
-            </div>
+              ))
+            )}
           </div>
+        </aside>
 
-          {selectedMetodo !== 1 && (
-            <div className="erp-form-group fade-in" style={{ marginBottom: '12px' }}>
-              <label className="erp-form-label" style={{ fontSize: '11px' }}>Código de Operación / Referencia</label>
+        <main className="caja-panel caja-panel-main">
+          <section className="caja-client-block">
+            <div className="caja-panel-head">
+              <FiUser />
+              <span>Datos del cliente</span>
+            </div>
+            <div className="caja-client-search">
               <input
                 type="text"
-                required
-                className="erp-input erp-input-sm"
-                placeholder="Ej: OP-987654"
-                value={codigoOperacion}
-                onChange={e => setCodigoOperacion(e.target.value)}
+                className="erp-input"
+                placeholder="DNI del cliente (8 dígitos)"
+                value={searchDni}
+                maxLength={8}
+                onChange={e => {
+                  setSearchDni(e.target.value.replace(/\D/g, ''));
+                  if (clientStatus !== 'idle') {
+                    setClientStatus('idle');
+                    setSelectedClient(null);
+                  }
+                }}
+                disabled={cartLocked && clientStatus === 'valid'}
               />
+              <button
+                type="button"
+                className="erp-btn erp-btn-primary caja-btn-search"
+                onClick={handleSearchClientByDni}
+                disabled={searchingClient || !searchDni.trim()}
+                aria-label="Buscar cliente por DNI"
+                title="Buscar cliente"
+              >
+                <FiSearch />
+              </button>
             </div>
-          )}
-
-          <button
-            type="button"
-            className="caja-submit-btn"
-            onClick={handleProcessSale}
-            disabled={processing || cart.length === 0 || !selectedClient}
-            style={{ width: '100%', marginTop: 'auto' }}
-          >
-            {processing ? 'Procesando...' : `Registrar Venta (S/ ${totals.total.toFixed(2)})`}
-          </button>
-
-        </div>
-
-      </div>
-
-      {/* SESSIONS / HISTORY PANEL */}
-      <div className="caja-panel-history" style={{ marginTop: '10px', minHeight: '180px' }}>
-        <div className="caja-panel-title">Transacciones del Turno (Hoy)</div>
-        <div className="caja-history-list" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {ventasLoading ? (
-            <div className="caja-history-empty">Cargando transacciones...</div>
-          ) : turnoVentas.length === 0 ? (
-            <div className="caja-history-empty">No hay transacciones registradas hoy</div>
-          ) : (
-            turnoVentas.map(s => (
-              <div key={s.id} className="caja-history-row" style={{ padding: '6px 10px' }}>
-                <div className="caja-row-info">
-                  <span className="caja-row-code">Boleta #{s.id}</span>
-                  <span className="caja-row-client">Cliente: {s.cliente} | Vendedor: {s.vendedor}</span>
-                  <span className="caja-row-time">{formatDate(s.fecha)}</span>
-                </div>
-                <div className="caja-row-right">
-                  <span className="caja-row-amount">S/ {s.total.toFixed(2)}</span>
-                </div>
+            <div className={`caja-client-status caja-client-status--${statusInfo.cls}`}>
+              {statusInfo.cls === 'valid' && <FiCheckCircle />}
+              {statusInfo.cls === 'invalid' && <FiAlertCircle />}
+              {(statusInfo.cls === 'idle' || statusInfo.cls === 'pending') && <FiHelpCircle />}
+              <span>{statusInfo.text}</span>
+            </div>
+            {selectedClient && (
+              <div className="caja-client-fields">
+                <div><strong>Nombre:</strong> {selectedClient.nombreApellido}</div>
+                <div><strong>DNI:</strong> {selectedClient.dni}</div>
+                <div><strong>Teléfono:</strong> {selectedClient.telefono || '—'}</div>
+                <div><strong>Correo:</strong> {selectedClient.correo || '—'}</div>
               </div>
-            ))
-          )}
-        </div>
+            )}
+            {!cartLocked && (
+              <div className="caja-client-actions">
+                <button type="button" className="erp-btn erp-btn-sm erp-btn-primary" onClick={openCreateClient}>
+                  <FiUserPlus /> Crear cliente
+                </button>
+              </div>
+            )}
+          </section>
+
+          <section className={`caja-cart-block ${cartLocked ? 'caja-cart-block--confirmed' : ''}`}>
+            <div className="caja-panel-head">
+              <FiShoppingCart />
+              <span>Carrito de venta</span>
+              <span className="caja-cart-count">{cart.length} ítem{cart.length !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="caja-cart-list">
+              {cart.length === 0 ? (
+                <p className="caja-empty">Seleccione productos del catálogo</p>
+              ) : (
+                cart.map(item => {
+                  const img = resolveImageUrl(item.producto.rutaImagen);
+                  return (
+                    <div key={item.producto.id} className="caja-cart-item">
+                      <div className="caja-cart-img">
+                        {img ? <img src={img} alt={item.producto.nombre} /> : <FiPackage />}
+                      </div>
+                      <div className="caja-cart-info">
+                        <strong>{item.producto.nombre}</strong>
+                        <span>S/ {item.producto.precioVenta.toFixed(2)} c/u</span>
+                      </div>
+                      {!cartLocked ? (
+                        <div className="caja-cart-qty">
+                          <button type="button" onClick={() => updateQty(item.producto.id, -1)}><FiMinus /></button>
+                          <span>{item.cantidad}</span>
+                          <button type="button" onClick={() => updateQty(item.producto.id, 1)}><FiPlus /></button>
+                          <button type="button" className="danger" onClick={() => removeItem(item.producto.id)}><FiTrash2 /></button>
+                        </div>
+                      ) : (
+                        <span className="caja-cart-qty-readonly">× {item.cantidad}</span>
+                      )}
+                      <div className="caja-cart-sub">
+                        S/ {(item.producto.precioVenta * item.cantidad).toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="caja-totals">
+              <div><span>Subtotal</span><span>S/ {totals.subtotal.toFixed(2)}</span></div>
+              <div><span>IGV (18%)</span><span>S/ {totals.igv.toFixed(2)}</span></div>
+              <div className="caja-total-row"><span>Total</span><span>S/ {totals.total.toFixed(2)}</span></div>
+            </div>
+          </section>
+
+          <div className="caja-actions">
+            {salePhase === 'editing' ? (
+              <button
+                type="button"
+                className="caja-btn-confirm"
+                onClick={handleConfirmOrder}
+                disabled={cart.length === 0}
+              >
+                Confirmar carrito
+              </button>
+            ) : (
+              <>
+                <button type="button" className="caja-btn-secondary" onClick={() => setSalePhase('editing')}>
+                  <FiEdit3 /> Volver a editar
+                </button>
+
+                <div className="caja-payment-block">
+                  <div className="caja-panel-head">
+                    <FiCreditCard />
+                    <span>Realizar pago</span>
+                  </div>
+
+                  {metodosPago.length === 0 ? (
+                    <p className="caja-empty">No hay métodos de pago disponibles</p>
+                  ) : (
+                    <>
+                      <label className="caja-split-toggle">
+                        <input
+                          type="checkbox"
+                          checked={useMultiplePayments}
+                          onChange={e => {
+                            setUseMultiplePayments(e.target.checked);
+                            if (e.target.checked) {
+                              setPagos([
+                                { ...createEmptyPago(metodosPago), monto: '' },
+                                { ...createEmptyPago(metodosPago), monto: '' },
+                              ]);
+                            } else {
+                              setPagos([{ ...createEmptyPago(metodosPago), monto: totals.total.toFixed(2) }]);
+                            }
+                          }}
+                        />
+                        Dividir pago en varios métodos
+                      </label>
+
+                      {(useMultiplePayments ? pagos : [pagos[0]]).map((pago, idx) => (
+                        <div key={idx} className="caja-pago-form">
+                          <div className="caja-pago-form-header">
+                            <span className="caja-pago-label">Pago {idx + 1}</span>
+                            {useMultiplePayments && pagos.length > 1 && (
+                              <button type="button" className="caja-pago-remove" onClick={() => removePagoRow(idx)}>
+                                <FiTrash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                          <select
+                            className="erp-input"
+                            value={pago.idMetodoPago}
+                            onChange={e => updatePago(idx, { idMetodoPago: Number(e.target.value) })}
+                          >
+                            {metodosPago.map(m => (
+                              <option key={m.id} value={m.id}>{m.nombre}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="number"
+                            className="erp-input"
+                            placeholder="Monto"
+                            min="0"
+                            step="0.01"
+                            value={pago.monto}
+                            onChange={e => updatePago(idx, { monto: e.target.value })}
+                          />
+                          {metodoRequiereCodigo(pago.idMetodoPago) && (
+                            <input
+                              type="text"
+                              className="erp-input"
+                              placeholder="N° operación / referencia"
+                              value={pago.codigoOperacion}
+                              onChange={e => updatePago(idx, { codigoOperacion: e.target.value })}
+                            />
+                          )}
+                        </div>
+                      ))}
+
+                      {useMultiplePayments && (
+                        <>
+                          <button type="button" className="caja-btn-add-pago" onClick={addPagoRow}>
+                            <FiPlus /> Agregar otro método de pago
+                          </button>
+                          <p className="caja-pago-hint">
+                            Suma: S/ {pagosSum.toFixed(2)} / Total: S/ {totals.total.toFixed(2)}
+                          </p>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  className="caja-btn-confirm"
+                  onClick={handleFinalizeSale}
+                  disabled={processing || metodosPago.length === 0}
+                >
+                  {processing ? 'Registrando...' : 'Confirmar venta y descargar boleta'}
+                </button>
+              </>
+            )}
+          </div>
+        </main>
       </div>
 
+      {productDialog && (
+        <div className="caja-modal-backdrop" onClick={() => setProductDialog(null)}>
+          <div className="caja-modal" onClick={e => e.stopPropagation()}>
+            <button type="button" className="caja-modal-close" onClick={() => setProductDialog(null)}><FiX /></button>
+            <div className="caja-modal-img">
+              {resolveImageUrl(productDialog.rutaImagen) ? (
+                <img src={resolveImageUrl(productDialog.rutaImagen)!} alt={productDialog.nombre} />
+              ) : (
+                <FiPackage size={48} />
+              )}
+            </div>
+            <h3>{productDialog.nombre}</h3>
+            <p className="caja-modal-desc">{productDialog.descripcion || 'Sin descripción'}</p>
+            <p className="caja-modal-price">S/ {productDialog.precioVenta.toFixed(2)}</p>
+            <div className="caja-modal-qty">
+              <label>Cantidad</label>
+              <div className="caja-qty-controls">
+                <button type="button" onClick={() => setDialogQty(q => Math.max(1, q - 1))}><FiMinus /></button>
+                <input type="number" min={1} value={dialogQty} onChange={e => setDialogQty(Math.max(1, Number(e.target.value) || 1))} />
+                <button type="button" onClick={() => setDialogQty(q => q + 1)}><FiPlus /></button>
+              </div>
+            </div>
+            <button type="button" className="caja-btn-confirm" onClick={() => handleAddToCart(productDialog, dialogQty)}>
+              Agregar al carrito
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCreateDialog && (
+        <div className="caja-modal-backdrop" onClick={() => setShowCreateDialog(false)}>
+          <div className="caja-modal caja-modal-wide" onClick={e => e.stopPropagation()}>
+            <button type="button" className="caja-modal-close" onClick={() => setShowCreateDialog(false)}><FiX /></button>
+            <h3>Crear cliente</h3>
+            <p className="caja-modal-sub">Complete los datos del nuevo cliente</p>
+            <form className="caja-create-client" onSubmit={handleCreateClientSubmit}>
+              <div className="caja-form-grid">
+                <input className="erp-input" placeholder="Nombres y apellidos *" required value={clientForm.nombreApellido} onChange={e => setClientForm(p => ({ ...p, nombreApellido: e.target.value }))} />
+                <input className="erp-input" placeholder="DNI *" required maxLength={8} value={clientForm.dni} onChange={e => setClientForm(p => ({ ...p, dni: e.target.value.replace(/\D/g, '').slice(0, 8) }))} />
+                <input className="erp-input" placeholder="Teléfono" value={clientForm.telefono} onChange={e => setClientForm(p => ({ ...p, telefono: e.target.value }))} />
+                <input className="erp-input" placeholder="Correo" type="email" value={clientForm.correo} onChange={e => setClientForm(p => ({ ...p, correo: e.target.value }))} />
+              </div>
+              <button type="submit" className="erp-btn erp-btn-primary" disabled={savingClient}>
+                {savingClient ? 'Guardando...' : 'Registrar cliente'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showDniExistsDialog && existingClientFound && (
+        <div className="caja-modal-backdrop">
+          <div className="caja-modal caja-modal-confirm">
+            <h3>Cliente ya registrado</h3>
+            <p className="caja-modal-sub">
+              El DNI <strong>{existingClientFound.dni}</strong> pertenece a:
+            </p>
+            <p className="caja-dni-exists-name">{existingClientFound.nombreApellido}</p>
+            <p className="caja-modal-sub">¿Es su DNI?</p>
+            <div className="caja-confirm-actions">
+              <button type="button" className="erp-btn erp-btn-primary" onClick={handleDniExistsYes}>
+                Sí, es mi DNI
+              </button>
+              <button type="button" className="erp-btn erp-btn-secondary" onClick={handleDniExistsNo}>
+                No, ingresar otro DNI
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

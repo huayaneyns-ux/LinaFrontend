@@ -118,7 +118,7 @@ const CrudDialog = ({
             disabled={loading}
             id="dialog-confirm-btn"
           >
-            {loading ? 'Procesando...' : resolvedConfirm}
+            {loading ? (mode === 'view' ? 'Cerrando...' : 'Guardando...') : resolvedConfirm}
           </button>
         </div>
       </div>

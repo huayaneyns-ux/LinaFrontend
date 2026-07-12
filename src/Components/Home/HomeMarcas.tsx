@@ -2,11 +2,13 @@ import React from 'react';
 import { useMarcas } from '../../Hooks/useMarcas';
 import { FiBookmark } from 'react-icons/fi';
 
-import { resolveImageUrl } from '../../Utils/imageUtils';
+import { resolveImageUrl, isActivoEstado } from '../../Utils/imageUtils';
 
 const HomeMarcas: React.FC = () => {
-  const { marcasData } = useMarcas();
-  const activeMarcas = marcasData.filter(m => m.estado !== false);
+  const { marcasData, loading } = useMarcas();
+  const activeMarcas = marcasData.filter(m => isActivoEstado(m.estado));
+
+  if (!loading && activeMarcas.length === 0) return null;
 
   return (
     <section className="home-section marcas-section-new">
@@ -21,7 +23,7 @@ const HomeMarcas: React.FC = () => {
         <div className="marcas-track-wrapper">
           <div className="marcas-track">
             {[...activeMarcas, ...activeMarcas].map((marca, idx) => {
-              const logoUrl = resolveImageUrl(marca.url);
+              const logoUrl = resolveImageUrl(marca.urlImagen || marca.url);
               return (
                 <div key={`${marca.id}-${idx}`} className="marca-chip">
                   <div className="marca-logo-box">

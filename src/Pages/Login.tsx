@@ -2,7 +2,16 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
 import { mockPedidos } from '../Constantes/Data/MockData';
-import { FiUser, FiShield, FiMail, FiPackage, FiShoppingCart, FiLogOut, FiSettings } from 'react-icons/fi';
+import {
+  FiUser,
+  FiShield,
+  FiMail,
+  FiPackage,
+  FiShoppingCart,
+  FiLogOut,
+  FiSettings,
+  FiLock,
+} from 'react-icons/fi';
 import '../Styles/Pages/Login.css';
 
 const Login = () => {
@@ -10,7 +19,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  
+
   const { login, isAuthenticated, usuario, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -18,34 +27,26 @@ const Login = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    
+
     try {
       const success = await login(username, password);
       if (success) {
-        // Redirigir al admin si no es cliente
-        if (usuario?.rol === 'ADMINISTRADOR' || usuario?.rol === 'TRABAJADOR') {
-          navigate('/admin');
-        } else {
-          // Si es cliente, recargar o ir a inicio
-          navigate('/');
-        }
+        navigate('/');
       }
-    } catch (err: any) {
-      setError(err.message || 'Error al iniciar sesión');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar sesión';
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Si ya está autenticado, mostramos su perfil
   if (isAuthenticated && usuario) {
     const isAdmin = usuario.rol === 'ADMINISTRADOR' || usuario.rol === 'TRABAJADOR';
     const numPedidos = mockPedidos.filter(p => p.clienteId === usuario.id).length;
-    
-    // Aquí invocamos el hook dentro de la regla de Hooks (se hace al inicio pero lo desestructuramos)
-    // Para no romper la regla, lo declaramos al inicio del componente
+
     return (
-      <div className="login-page dashboard-page">
+      <div className="login-page page-with-header dashboard-page">
         <div className="dashboard-container fade-in">
           <div className="dashboard-header">
             <div className="dashboard-avatar">
@@ -65,7 +66,7 @@ const Login = () => {
                 <p>Mis Pedidos</p>
               </div>
             </div>
-            
+
             <div className="stat-card" onClick={() => navigate('/carrito')}>
               <div className="stat-icon"><FiShoppingCart /></div>
               <div className="stat-info">
@@ -87,18 +88,18 @@ const Login = () => {
               <FiMail className="info-icon" />
               <div>
                 <p className="info-label">Correo Electrónico</p>
-                <p className="info-value">{usuario.email || 'correo@ejemplo.com'}</p>
+                <p className="info-value">{usuario.email || '—'}</p>
               </div>
             </div>
           </div>
 
           <div className="dashboard-actions">
             {isAdmin && (
-              <button className="btn btn-primary" onClick={() => navigate('/admin')}>
+              <button type="button" className="btn btn-primary" onClick={() => navigate('/admin')}>
                 <FiSettings /> Panel de Administración
               </button>
             )}
-            <button className="btn btn-outline" onClick={logout}>
+            <button type="button" className="btn btn-outline" onClick={logout}>
               <FiLogOut /> Cerrar Sesión
             </button>
           </div>
@@ -108,45 +109,54 @@ const Login = () => {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <h2>Iniciar Sesión</h2>
-        <p>Bienvenido a Librería Lina</p>
-        
-        {error && <div className="error-message">{error}</div>}
+    <div className="login-page page-with-header">
+      <div className="login-wrapper">
+        <div className="login-brand">
+          <span className="login-brand-icon">📚</span>
+          <h1>Librería <strong>Lina</strong></h1>
+          <p>Accede a tu cuenta para gestionar pedidos y compras.</p>
+        </div>
 
-        <form onSubmit={handleLogin}>
-          <div className="form-group">
-            <label>Nombre de Usuario</label>
-            <input 
-              type="text" 
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ej: juancliente, admin"
-              required 
-            />
-          </div>
-          <div className="form-group">
-            <label>Contraseña</label>
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Ingresa 123"
-              required
-            />
-          </div>
-          <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
-            {loading ? 'Ingresando...' : 'Ingresar'}
-          </button>
-        </form>
+        <div className="login-card">
+          <h2>Iniciar Sesión</h2>
 
-        <div className="login-help">
-          <p>Cuentas de prueba (clave: 123):</p>
-          <ul>
-            <li><strong>juancliente</strong> (Cliente)</li>
-            <li><strong>admin</strong> (Administrador)</li>
-          </ul>
+          {error && <div className="error-message">{error}</div>}
+
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label htmlFor="username">Usuario</label>
+              <div className="input-with-icon">
+                <FiUser className="input-icon" />
+                <input
+                  id="username"
+                  type="text"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="Ingresa tu usuario"
+                  autoComplete="username"
+                  required
+                />
+              </div>
+            </div>
+            <div className="form-group">
+              <label htmlFor="password">Contraseña</label>
+              <div className="input-with-icon">
+                <FiLock className="input-icon" />
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Ingresa tu contraseña"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+              {loading ? 'Ingresando...' : 'Ingresar'}
+            </button>
+          </form>
         </div>
       </div>
     </div>
