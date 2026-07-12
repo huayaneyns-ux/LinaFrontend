@@ -43,6 +43,76 @@
 
 .erp-dialog-sm { max-width: 460px; }
 .erp-dialog-lg { max-width: 780px; }
+.erp-dialog-xl { max-width: 920px; }
+
+/* Layout 3/2 para formularios con imagen */
+.erp-dialog-split {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.erp-dialog-split-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.erp-dialog-split-side {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.erp-code-badge {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background-color: var(--erp-accent-light, #eff6ff);
+  border: 1.5px solid var(--erp-accent, #3b82f6);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--erp-accent, #3b82f6);
+  letter-spacing: 0.03em;
+  word-break: break-all;
+}
+
+.erp-code-hint {
+  font-size: 10px;
+  color: var(--erp-text-muted);
+  margin-top: 4px;
+}
+
+/* Compact dialog body */
+.erp-dialog-body .erp-dialog-split-fields .erp-input,
+.erp-dialog-body .erp-form-grid .erp-input {
+  height: 36px;
+  font-size: 13px;
+}
+
+.erp-dialog-body textarea.erp-input {
+  min-height: 60px;
+  padding: 8px 12px;
+}
+
+.erp-dialog-body {
+  padding: 16px 20px;
+}
+
+@media (max-width: 720px) {
+  .erp-dialog-split {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-dialog-split-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .erp-dialog-split-fields .span-2 {
+    grid-column: span 1;
+  }
+}
 
 /* HEADER */
 .erp-dialog-header {
@@ -117,7 +187,7 @@
 
 /* BODY */
 .erp-dialog-body {
-  padding: 20px 24px;
+  padding: 16px 20px;
   overflow-y: auto;
   flex: 1;
   background-color: #ffffff;

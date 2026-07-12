@@ -1,33 +1,93 @@
-import { useState, useCallback, useMemo } from 'react';
-import { mockVentas } from '../../../../Constantes/Data/MockData';
-import { useDataTable } from '../../../../Hooks/useDataTable';
-import { useDialog } from '../../../../Hooks/useDialog';
-import { useFilters } from '../../../../Hooks/useFilters';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { VentaRealizadaService } from '../../../../Services/Admin/Ventas/Venta';
+import type {
+  VentaRealizadaSelectDto,
+  VentaRealizadaDetalleDto,
+  VentaRealizadaPagoDto,
+} from '../../../../Types/Admin/Ventas/Venta';
 import { formatDate } from '../../../../Utils/formatters';
+import { useDataTable } from '../../../../Hooks/useDataTable';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
-import CrudDialog from '../../../../Components/ERP/CrudDialog';
+// import CrudDialog from '../../../../Components/ERP/CrudDialog'; // No longer used
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
-import { FiDollarSign, FiCheckCircle, FiClock, FiActivity, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import {
+  FiDollarSign,
+  FiChevronDown, FiChevronRight,
+  FiActivity,
+  FiCheckCircle,
+  FiClock,
+} from 'react-icons/fi';
 
-interface Venta {
-  id: string;
-  codigo: string;
-  cliente: string;
-  fecha: string;
-  metodoPago: string;
-  total: number;
+interface VentaFilters {
   estado: string;
 }
 
-const VentasSection = () => {
-  const [sales, setSales] = useState<Venta[]>(mockVentas);
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } = useDialog<Venta>();
-  const { filters, setFilter, resetFilters, hasActiveFilters, showFilters, toggleFilters } = useFilters();
+const DEFAULT_FILTERS: VentaFilters = { estado: '' };
 
-  const [formState, setFormState] = useState<Partial<Venta>>({});
+const VentasSection = () => {
+  const [sales, setSales] = useState<VentaRealizadaSelectDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Detail Modal States
+  const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
+
+  // Filtering States
+  const [filters, setFilters] = useState<VentaFilters>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+
+  const loadSalesList = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await VentaRealizadaService.getVentas();
+      setSales(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cargar el historial de ventas');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSalesList();
+  }, [loadSalesList]);
+
+  // View Sale Details (Calls the other 3 endpoints)
+  const loadSaleDetails = async (saleId: number) => {
+    try {
+      const [, details, payments] = await Promise.all([
+        VentaRealizadaService.getVentaById(saleId),
+        VentaRealizadaService.getDetalleVenta(saleId),
+        VentaRealizadaService.getPagoVenta(saleId),
+      ]);
+      return { details, payments };
+    } catch (err) {
+      console.error('Error al cargar detalles de venta:', err);
+      return { details: [], payments: [] };
+    }
+  };
+
+  const toggleRow = (saleId: number) => {
+    if (expandedRowId === saleId) {
+      setExpandedRowId(null);
+    } else {
+      setExpandedRowId(saleId);
+      // preload details for the row
+      loadSaleDetails(saleId).then(({ details, payments }) => {
+        // Store in state maps for rendering without modal
+        setRowDetailsMap(prev => ({ ...prev, [saleId]: details }));
+        setRowPaymentsMap(prev => ({ ...prev, [saleId]: payments }));
+      });
+    }
+  };
+
+  // Maps to store details per row for inline rendering
+  const [rowDetailsMap, setRowDetailsMap] = useState<Record<number, VentaRealizadaDetalleDto[]>>({});
+  const [rowPaymentsMap, setRowPaymentsMap] = useState<Record<number, VentaRealizadaPagoDto[]>>({});
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -35,9 +95,8 @@ const VentasSection = () => {
   );
 
   const externalFilter = useCallback(
-    (sale: Venta) => {
+    (sale: VentaRealizadaSelectDto) => {
       if (filters.estado && sale.estado !== filters.estado) return false;
-      if (filters.metodoPago && sale.metodoPago !== filters.metodoPago) return false;
       return true;
     },
     [filters]
@@ -54,9 +113,9 @@ const VentasSection = () => {
     pagination,
     setPage,
     setPageSize,
-  } = useDataTable<Venta>({
+  } = useDataTable<VentaRealizadaSelectDto>({
     data: sales,
-    searchKeys: ['codigo', 'cliente'],
+    searchKeys: ['cliente', 'vendedor', 'id'],
     defaultPageSize: 8,
     externalFilter,
   });
@@ -69,116 +128,74 @@ const VentasSection = () => {
     return { totalMonto, activosCount, pendientesCount, totalCount };
   }, [sales]);
 
-  const handleOpenDialog = (mode: typeof dialogState.mode, record?: Venta) => {
-    setFormState(record ? { ...record } : { id: 'V-' + (sales.length + 1001), codigo: 'VT-' + (sales.length + 1).toString().padStart(3, '0'), cliente: '', fecha: new Date().toISOString(), metodoPago: 'EFECTIVO', total: 0, estado: 'ACTIVO' });
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
-  };
-
-  const handleConfirm = () => {
-    if (dialogState.mode === 'create') {
-      const newSale: Venta = {
-        id: formState.id || 'V-' + Date.now().toString().slice(-4),
-        codigo: formState.codigo || 'VT-' + Date.now().toString().slice(-3),
-        cliente: formState.cliente || 'Consumidor Final',
-        fecha: new Date().toISOString(),
-        metodoPago: formState.metodoPago || 'EFECTIVO',
-        total: Number(formState.total) || 0,
-        estado: formState.estado || 'ACTIVO',
-      };
-      setSales(prev => [newSale, ...prev]);
-    } else if (dialogState.mode === 'edit' && dialogState.record) {
-      setSales(prev =>
-        prev.map(s =>
-          s.id === dialogState.record!.id ? { ...s, ...formState } as Venta : s
-        )
-      );
-    } else if (dialogState.mode === 'delete' && dialogState.record) {
-      setSales(prev => prev.filter(s => s.id !== dialogState.record!.id));
-    }
-    closeDialog();
-  };
-
   const columns = [
     {
-      key: 'codigo',
-      header: 'Boleta / Factura',
+      key: 'id',
+      header: 'Comprobante',
       sortable: true,
-      width: '130px',
-      render: (row: Venta) => <strong style={{ color: 'var(--erp-text-primary)' }}>{row.codigo}</strong>,
+      width: '120px',
+      render: (row: VentaRealizadaSelectDto) => (
+        <strong style={{ color: 'var(--erp-text-primary)' }}>Boleta #{row.id}</strong>
+      ),
     },
     {
       key: 'cliente',
       header: 'Cliente',
       sortable: true,
-      render: (row: Venta) => (
+      render: (row: VentaRealizadaSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{row.cliente}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>ID Transacción: {row.id}</div>
+          <div style={{ fontWeight: 600 }}>{row.cliente || 'Cliente General'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>Vendedor: {row.vendedor || 'Sistema'}</div>
         </div>
       ),
     },
     {
       key: 'fecha',
-      header: 'Fecha',
+      header: 'Fecha de Registro',
       sortable: true,
-      width: '120px',
-      render: (row: Venta) => formatDate(row.fecha),
+      width: '150px',
+      render: (row: VentaRealizadaSelectDto) => formatDate(row.fecha),
     },
     {
-      key: 'metodoPago',
-      header: 'Forma de Pago',
+      key: 'cantidadProductos',
+      header: 'Cant. Items',
       sortable: true,
-      width: '140px',
-      render: (row: Venta) => {
-        const met = row.metodoPago.toUpperCase();
-        let color = '#475569';
-        let bg = '#f1f5f9';
-        if (met === 'YAPE' || met === 'PLIN') { color = '#7c3aed'; bg = 'rgba(124, 58, 237, 0.08)'; }
-        else if (met === 'VISA' || met === 'MASTERCARD') { color = '#2563eb'; bg = 'rgba(37, 99, 235, 0.08)'; }
-        else if (met === 'EFECTIVO') { color = '#16a34a'; bg = 'rgba(22, 163, 74, 0.08)'; }
-
-        return (
-          <span style={{
-            fontSize: '11px',
-            fontWeight: 700,
-            padding: '2px 8px',
-            borderRadius: '4px',
-            color,
-            backgroundColor: bg
-          }}>
-            {row.metodoPago}
-          </span>
-        );
-      },
+      align: 'center' as const,
+      width: '100px',
+      render: (row: VentaRealizadaSelectDto) => (
+        <span style={{ fontWeight: 600 }}>{row.cantidadProductos || 0}</span>
+      ),
     },
     {
       key: 'total',
-      header: 'Monto Total',
+      header: 'Total Cobrado',
       sortable: true,
       align: 'right' as const,
-      width: '110px',
-      render: (row: Venta) => `S/ ${(row.total || 0).toFixed(2)}`,
+      width: '120px',
+      render: (row: VentaRealizadaSelectDto) => `S/ ${(row.total || 0).toFixed(2)}`,
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
       width: '110px',
-      render: (row: Venta) => <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />,
+      render: (row: VentaRealizadaSelectDto) => (
+        <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
+      ),
     },
     {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
-      render: (row: Venta) => (
+      width: '80px',
+      render: (row: VentaRealizadaSelectDto) => (
         <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
+          <IconButton
+            icon={expandedRowId === row.id ? <FiChevronDown /> : <FiChevronRight />}
+            tooltip="Ver detalle"
+            variant="primary"
+            onClick={() => toggleRow(row.id)}
+          />
         </div>
       ),
     },
@@ -186,75 +203,59 @@ const VentasSection = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {/* Indicators */}
+      {error && (
+        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
+          {error}
+        </div>
+      )}
+
+      {/* Sales indicators */}
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiDollarSign /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">S/ {indicators.totalMonto.toFixed(2)}</span>
-            <span className="erp-indicator-label">Monto Liquidado</span>
+            <span className="erp-indicator-label">Total Liquidado</span>
           </div>
         </div>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon success"><FiCheckCircle /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.activosCount}</span>
-            <span className="erp-indicator-label">Ventas Cobradas</span>
+            <span className="erp-indicator-label">Boletas Activas</span>
           </div>
         </div>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon warning"><FiClock /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.pendientesCount}</span>
-            <span className="erp-indicator-label">Ventas Pendientes</span>
+            <span className="erp-indicator-label">Boletas Pendientes</span>
           </div>
         </div>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiActivity /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.totalCount}</span>
-            <span className="erp-indicator-label">Total Transacciones</span>
+            <span className="erp-indicator-label">Total Boletas</span>
           </div>
         </div>
       </div>
 
-      {/* Toolbar */}
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por código de venta o cliente..."
-        onNew={() => handleOpenDialog('create')}
-        newLabel="Nueva Venta"
+        searchPlaceholder="Buscar por cliente o vendedor..."
         showFilters={showFilters}
-        onToggleFilters={toggleFilters}
+        onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
-        onResetFilters={hasActiveFilters ? resetFilters : undefined}
+        onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
         filterPanel={
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
             <div className="erp-form-group">
-              <label className="erp-form-label">Forma de Pago</label>
-              <select
-                className="erp-input"
-                value={filters.metodoPago || ''}
-                onChange={e => setFilter('metodoPago', e.target.value)}
-              >
-                <option value="">Todos</option>
-                <option value="EFECTIVO">Efectivo</option>
-                <option value="YAPE">Yape</option>
-                <option value="PLIN">Plin</option>
-                <option value="VISA">Visa</option>
-                <option value="MASTERCARD">Mastercard</option>
-              </select>
-            </div>
-            <div className="erp-form-group">
               <label className="erp-form-label">Estado</label>
-              <select
-                className="erp-input"
-                value={filters.estado || ''}
-                onChange={e => setFilter('estado', e.target.value)}
-              >
+              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
                 <option value="">Todos</option>
-                <option value="ACTIVO">Liquidada</option>
+                <option value="ACTIVO">Activa</option>
                 <option value="PENDIENTE">Pendiente</option>
               </select>
             </div>
@@ -262,101 +263,82 @@ const VentasSection = () => {
         }
       />
 
-      {/* Table */}
+      {/* Main Table */}
       <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <DataTable
-          columns={columns}
-          data={processedData}
-          sortConfig={sortConfig}
-          onSort={handleSort}
-          rowKey={(row) => row.id}
-          emptyMessage="No se encontraron ventas registradas"
-        />
-        <Pagination
-          page={pagination.page}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          pageSize={pagination.pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+        {loading ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando historial de ventas...</div>
+        ) : (
+          <>
+            <DataTable
+              columns={columns}
+              data={processedData}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              rowKey={row => row.id}
+              expandedRowKey={expandedRowId ?? undefined}
+              renderExpanded={row => (
+                <div style={{ padding: '12px', backgroundColor: '#f9fafb' }}>
+                  {/* Product Details */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <strong>Detalle de Artículos</strong>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--erp-border)', backgroundColor: '#f1f5f9' }}>
+                          <th style={{ padding: '4px', fontWeight: 600 }}>Código</th>
+                          <th style={{ padding: '4px', fontWeight: 600 }}>Descripción</th>
+                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'center' }}>Cant.</th>
+                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'right' }}>P.Unit.</th>
+                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'right' }}>Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(rowDetailsMap[row.id] || []).map(det => (
+                          <tr key={det.id} style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                            <td style={{ padding: '4px', fontFamily: 'monospace', fontWeight: 600 }}>{det.codigo}</td>
+                            <td style={{ padding: '4px' }}>{det.nombre}</td>
+                            <td style={{ padding: '4px', textAlign: 'center' }}>{det.cantidad}</td>
+                            <td style={{ padding: '4px', textAlign: 'right' }}>S/ {det.precioUnitario.toFixed(2)}</td>
+                            <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>S/ {det.subtotal.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Payments */}
+                  <div>
+                    <strong>Pagos</strong>
+                    <div style={{ marginTop: '4px' }}>
+                      {(rowPaymentsMap[row.id] || []).map(pago => (
+                        <div key={pago.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px', backgroundColor: '#f8fafc', border: '1px solid var(--erp-border)', borderRadius: '4px', marginBottom: '4px' }}>
+                          <span style={{ color: pago.metodoPago === 'YAPE' ? '#28a745' : pago.metodoPago === 'Plin' ? '#1e90ff' : '#555' }}>
+                            {pago.metodoPago}
+                          </span>
+                          <span>Monto: S/ {pago.monto.toFixed(2)}</span>
+                        </div>
+                      ))}
+                      {(rowPaymentsMap[row.id] || []).length === 0 && (
+                        <div style={{ color: 'var(--erp-text-muted)', fontSize: '12px' }}>Sin pagos registrados</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              emptyMessage="No se encontraron comprobantes registrados"
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
+          </>
+        )}
       </div>
 
-      {/* Dialog */}
-      <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
-        onClose={closeDialog}
-        onConfirm={handleConfirm}
-        title={
-          dialogState.mode === 'create' ? 'Agregar Venta' :
-          dialogState.mode === 'edit' ? 'Editar Venta' :
-          dialogState.mode === 'view' ? 'Detalle de Comprobante' : 'Eliminar Venta'
-        }
-        size="lg"
-      >
-        <div className="erp-form-grid">
-          <div className="erp-form-group">
-            <label className="erp-form-label">Código de Venta</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.codigo || ''}
-              onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Cliente</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.cliente || ''}
-              onChange={e => setFormState(prev => ({ ...prev, cliente: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: Juan Pérez"
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Monto de Transacción (S/)</label>
-            <input
-              type="number"
-              step="0.01"
-              className="erp-input"
-              value={formState.total || 0}
-              onChange={e => setFormState(prev => ({ ...prev, total: Number(e.target.value) }))}
-              disabled={dialogState.mode === 'view'}
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Método de Pago</label>
-            <select
-              className="erp-input"
-              value={formState.metodoPago || 'EFECTIVO'}
-              onChange={e => setFormState(prev => ({ ...prev, metodoPago: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            >
-              <option value="EFECTIVO">Efectivo</option>
-              <option value="YAPE">Yape</option>
-              <option value="PLIN">Plin</option>
-              <option value="VISA">Visa</option>
-              <option value="MASTERCARD">Mastercard</option>
-            </select>
-          </div>
-          <div className="erp-form-group col-span-2">
-            <label className="erp-form-label">Estado de Transacción</label>
-            <select
-              className="erp-input"
-              value={formState.estado || 'ACTIVO'}
-              onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            >
-              <option value="ACTIVO">Liquidado (Pagado)</option>
-              <option value="PENDIENTE">Pendiente de Liquidación</option>
-            </select>
-          </div>
-        </div>
-      </CrudDialog>
+      {/* Invoice Details Dialog */}
+
     </div>
   );
 };

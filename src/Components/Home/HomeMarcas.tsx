@@ -1,28 +1,44 @@
 import React from 'react';
-import { useMarcas } from '../../Hooks/useMarcas'; 
-import '../../Styles/Pages/Home.css';
+import { useMarcas } from '../../Hooks/useMarcas';
+import { FiBookmark } from 'react-icons/fi';
+
+import { resolveImageUrl } from '../../Utils/imageUtils';
 
 const HomeMarcas: React.FC = () => {
-
   const { marcasData } = useMarcas();
+  const activeMarcas = marcasData.filter(m => m.estado !== false);
 
   return (
-    <section className="container marcas-section">
-      <h2 className="section-title">Nuestras Marcas</h2>
-      <div className="marcas-grid" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '30px', flexWrap: 'wrap' }}>
-        {marcasData.map((marca, index) => (
-          <React.Fragment key={marca.id}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '120px', height: '120px', borderRadius: '50%', backgroundColor: 'var(--bg-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', overflow: 'hidden' }}>
-                <img src={marca.url} alt={marca.nombre} style={{ width: '80%', height: '80%', objectFit: 'contain' }} />
-              </div>
-              <p style={{ fontWeight: '600', color: 'var(--text-dark)', margin: 0 }}>{marca.nombre}</p>
-            </div>
-            {/* {index < mockMarcas.length - 1 && (
-              <div style={{ height: '80px', width: '2px', backgroundColor: '#eaeaea' }}></div>
-            )} */}
-          </React.Fragment>
-        ))}
+    <section className="home-section marcas-section-new">
+      <div className="container">
+        <div className="section-header">
+          <div>
+            <h2 className="section-title-new">Marcas Asociadas</h2>
+            <p className="section-subtitle">Las mejores marcas, los mejores productos</p>
+          </div>
+        </div>
+
+        <div className="marcas-track-wrapper">
+          <div className="marcas-track">
+            {[...activeMarcas, ...activeMarcas].map((marca, idx) => {
+              const logoUrl = resolveImageUrl(marca.url);
+              return (
+                <div key={`${marca.id}-${idx}`} className="marca-chip">
+                  <div className="marca-logo-box">
+                    {logoUrl ? (
+                      <img src={logoUrl} alt={marca.nombre} />
+                    ) : (
+                      <div className="marca-logo-placeholder">
+                        <FiBookmark size={16} />
+                      </div>
+                    )}
+                  </div>
+                  <span className="marca-chip-name">{marca.nombre}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </section>
   );

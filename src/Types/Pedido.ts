@@ -1,5 +1,5 @@
 import type { Producto } from './Producto';
-import type { Cliente, Direccion } from './Cliente';
+import type { Direccion } from './Cliente';
 
 export interface Pedido {
   id: string;

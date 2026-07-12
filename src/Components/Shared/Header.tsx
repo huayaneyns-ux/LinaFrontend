@@ -1,83 +1,107 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { FiShoppingCart, FiUser, FiPackage } from 'react-icons/fi';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { FiShoppingCart, FiUser, FiMenu, FiX } from 'react-icons/fi';
 import { useCart } from '../../Context/CartContext';
 import { useAuth } from '../../Context/AuthContext';
+import SocialLinks from './SocialLinks';
 import '../../Styles/Components/Header.css';
 
+const NAV_LINKS = [
+  { path: '/', label: 'Inicio' },
+  { path: '/catalogo', label: 'Catálogo' },
+  { path: '/contacto', label: 'Contacto' },
+];
+
 const Header = () => {
-  const [scrolled, setScrolled] = useState(false);
   const { totalItems } = useCart();
   const { usuario, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const isDarkHeroPage = ['/', '/nosotros', '/contacto'].includes(location.pathname);
+  const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setScrolled(true);
-      } else {
-        setScrolled(false);
-      }
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
 
   const handleUserClick = () => {
     if (isAuthenticated) {
-      if (usuario?.rol !== 'CLIENTE') {
-        navigate('/admin');
-      } else {
-        navigate('/login');
-      }
+      navigate(usuario?.rol !== 'CLIENTE' ? '/admin' : '/mis-pedidos');
     } else {
       navigate('/login');
     }
   };
 
+  const isActive = (path: string) =>
+    path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
+
   return (
-    <header className="header scrolled shadow-md">
+    <header className={`header${scrolled ? ' scrolled' : ' transparent'}`}>
       <div className="container header-container">
         <div className="header-logo">
           <Link to="/">
-            <h2>Librería Lina</h2>
+            <span className="logo-icon">📚</span>
+            <span className="logo-text">Librería <strong>Lina</strong></span>
           </Link>
         </div>
 
         <nav className="header-nav">
           <ul>
-            <li><Link to="/catalogo">Catálogo</Link></li>
-            <li><Link to="/nosotros">Nosotros</Link></li>
-            <li><Link to="/contacto">Contacto</Link></li>
+            {NAV_LINKS.map(({ path, label }) => (
+              <li key={path}>
+                <Link to={path} className={isActive(path) ? 'nav-link active' : 'nav-link'}>
+                  {label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </nav>
 
         <div className="header-actions">
-          <button className="icon-btn" onClick={() => navigate('/carrito')}>
-            <FiShoppingCart size={24} />
+          <SocialLinks variant="header" />
+
+          <button className="icon-btn" onClick={() => navigate('/carrito')} title="Mi carrito">
+            <FiShoppingCart size={20} />
             {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
           </button>
-          
-          <button className="icon-btn" onClick={() => navigate('/mis-pedidos')} title="Mis Pedidos">
-            <FiPackage size={24} />
+
+          <button className="user-btn" onClick={handleUserClick}>
+            <FiUser size={18} />
+            <span className="user-name">
+              {isAuthenticated ? usuario?.nombres?.split(' ')[0] : 'Ingresar'}
+            </span>
           </button>
 
-          <div className="user-menu">
-            <button className="user-btn" onClick={handleUserClick}>
-              <FiUser size={24} />
-              <span className="user-name">
-                {isAuthenticated ? usuario?.nombres : 'Iniciar sesión'}
-              </span>
-            </button>
-            {isAuthenticated && (
-              <button className="logout-btn" onClick={logout}>Salir</button>
-            )}
-          </div>
+          {isAuthenticated && (
+            <button className="logout-btn" onClick={logout}>Salir</button>
+          )}
+
+          <button className="burger-btn" onClick={() => setMenuOpen(o => !o)} aria-label="Menú">
+            {menuOpen ? <FiX size={22} /> : <FiMenu size={22} />}
+          </button>
         </div>
       </div>
+
+      {menuOpen && (
+        <div className="mobile-menu">
+          {NAV_LINKS.map(({ path, label }) => (
+            <Link key={path} to={path} className={isActive(path) ? 'mobile-link active' : 'mobile-link'}>
+              {label}
+            </Link>
+          ))}
+          <div className="mobile-social">
+            <SocialLinks variant="inline" />
+          </div>
+          {isAuthenticated && (
+            <button className="mobile-link mobile-logout" onClick={logout}>Cerrar sesión</button>
+          )}
+        </div>
+      )}
     </header>
   );
 };

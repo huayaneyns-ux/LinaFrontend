@@ -1,9 +1,10 @@
+import type { ReactElement } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
 import type { RolUsuario } from '../Types/Usuario';
 
 interface Props {
-  children: JSX.Element;
+  children: ReactElement;
   rolesPermitidos?: RolUsuario[];
 }
 

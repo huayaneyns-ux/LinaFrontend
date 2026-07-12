@@ -1,29 +1,62 @@
 import { useState, useCallback, useMemo } from 'react';
-import { mockUnidades } from '../../../../Constantes/Data/MockData';
+
+import { UnidadMedidaService } from '../../../../Services/Admin/Inventario/UnidadMedida';
+import type {
+  UnidadMedidaSelectDto,
+  UnidadMedidaInsertDto,
+  UnidadMedidaUpdateDto,
+} from '../../../../Types/Admin/Inventario/UnidadMedida';
+
+import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
 import { useDataTable } from '../../../../Hooks/useDataTable';
 import { useDialog } from '../../../../Hooks/useDialog';
-import { useFilters } from '../../../../Hooks/useFilters';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
-import { FiTag, FiCheckCircle, FiMinusCircle, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import {
+  FiTag,
+  FiCheckCircle,
+  FiMinusCircle,
+  FiEye,
+  FiEdit2,
+  FiTrash2,
+  FiEyeOff,
+} from 'react-icons/fi';
 
-interface Unidad {
-  id: string;
-  nombre: string;
-  abreviatura: string;
+interface UnidadFilters {
   estado: string;
 }
 
-const UnitsSection = () => {
-  const [units, setUnits] = useState<Unidad[]>(mockUnidades);
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } = useDialog<Unidad>();
-  const { filters, setFilter, resetFilters, hasActiveFilters, showFilters, toggleFilters } = useFilters();
+const DEFAULT_FILTERS: UnidadFilters = { estado: '' };
 
-  const [formState, setFormState] = useState<Partial<Unidad>>({});
+const EMPTY_FORM: Partial<UnidadMedidaSelectDto> = {
+  nombre: '',
+  abreviatura: '',
+  estado: true,
+};
+
+const unidadCrudService = {
+  getAll: () => UnidadMedidaService.getUnidades(),
+  getById: (id: number) => UnidadMedidaService.getUnidadById(id),
+  create: (data: UnidadMedidaInsertDto) => UnidadMedidaService.createUnidad(data),
+  update: (data: UnidadMedidaUpdateDto) => UnidadMedidaService.updateUnidad(data),
+  delete: (id: number) => UnidadMedidaService.deleteUnidad(id),
+};
+
+const UnitsSection = () => {
+  const { items: units, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
+    useAdminCrud<UnidadMedidaSelectDto, UnidadMedidaInsertDto, UnidadMedidaUpdateDto>(unidadCrudService);
+
+  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
+    useDialog<UnidadMedidaSelectDto>();
+
+  const [filters, setFilters] = useState<UnidadFilters>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showDisabled, setShowDisabled] = useState(false);
+  const [formState, setFormState] = useState<Partial<UnidadMedidaSelectDto>>(EMPTY_FORM);
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -31,11 +64,15 @@ const UnitsSection = () => {
   );
 
   const externalFilter = useCallback(
-    (uni: Unidad) => {
-      if (filters.estado && uni.estado !== filters.estado) return false;
+    (uni: UnidadMedidaSelectDto) => {
+      if (!showDisabled && !uni.estado) return false;
+      if (filters.estado) {
+        if (filters.estado === 'ACTIVO' && !uni.estado) return false;
+        if (filters.estado === 'INACTIVO' && uni.estado) return false;
+      }
       return true;
     },
-    [filters]
+    [filters, showDisabled]
   );
 
   const {
@@ -49,7 +86,7 @@ const UnitsSection = () => {
     pagination,
     setPage,
     setPageSize,
-  } = useDataTable<Unidad>({
+  } = useDataTable<UnidadMedidaSelectDto>({
     data: units,
     searchKeys: ['nombre', 'abreviatura'],
     defaultPageSize: 8,
@@ -58,38 +95,49 @@ const UnitsSection = () => {
 
   const indicators = useMemo(() => {
     const total = units.length;
-    const activos = units.filter(u => u.estado === 'ACTIVO').length;
-    const inactivos = total - activos;
-    return { total, activos, inactivos };
+    const activos = units.filter(u => u.estado).length;
+    return { total, activos, inactivos: total - activos };
   }, [units]);
 
-  const handleOpenDialog = (mode: typeof dialogState.mode, record?: Unidad) => {
-    setFormState(record ? { ...record } : { id: 'U-' + (units.length + 1).toString().padStart(3, '0'), nombre: '', abreviatura: '', estado: 'ACTIVO' });
+  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: UnidadMedidaSelectDto) => {
+    if (record && (mode === 'view' || mode === 'edit')) {
+      const detail = await fetchById(record.id, record);
+      setFormState({ ...detail });
+    } else if (mode === 'delete' && record) {
+      setFormState({ ...record });
+    } else {
+      setFormState({ ...EMPTY_FORM });
+    }
+
     if (mode === 'create') openCreate();
     else if (mode === 'edit') openEdit(record!);
     else if (mode === 'view') openView(record!);
     else if (mode === 'delete') openDelete(record!);
   };
 
-  const handleConfirm = () => {
-    if (dialogState.mode === 'create') {
-      const newUnit: Unidad = {
-        id: formState.id || 'U-' + Date.now().toString().slice(-4),
-        nombre: formState.nombre || '',
-        abreviatura: formState.abreviatura || '',
-        estado: formState.estado || 'ACTIVO',
-      };
-      setUnits(prev => [newUnit, ...prev]);
-    } else if (dialogState.mode === 'edit' && dialogState.record) {
-      setUnits(prev =>
-        prev.map(u =>
-          u.id === dialogState.record!.id ? { ...u, ...formState } as Unidad : u
-        )
-      );
-    } else if (dialogState.mode === 'delete' && dialogState.record) {
-      setUnits(prev => prev.filter(u => u.id !== dialogState.record!.id));
+  const handleConfirm = async () => {
+    try {
+      if (dialogState.mode === 'create') {
+        const payload: UnidadMedidaInsertDto = {
+          nombre: formState.nombre || '',
+          abreviatura: formState.abreviatura || '',
+        };
+        await createItem(payload);
+      } else if (dialogState.mode === 'edit' && dialogState.record) {
+        const payload: UnidadMedidaUpdateDto = {
+          id: dialogState.record.id,
+          nombre: formState.nombre || '',
+          abreviatura: formState.abreviatura || '',
+          estado: formState.estado !== false,
+        };
+        await updateItem(payload);
+      } else if (dialogState.mode === 'delete' && dialogState.record) {
+        await deleteItem(dialogState.record.id);
+      }
+      closeDialog();
+    } catch {
+      // error shown via hook
     }
-    closeDialog();
   };
 
   const columns = [
@@ -98,20 +146,24 @@ const UnitsSection = () => {
       header: 'ID',
       sortable: true,
       width: '100px',
-      render: (row: Unidad) => <strong style={{ color: 'var(--erp-text-primary)' }}>{row.id}</strong>,
+      render: (row: UnidadMedidaSelectDto) => (
+        <strong style={{ color: 'var(--erp-text-primary)' }}>#{row.id}</strong>
+      ),
     },
     {
       key: 'nombre',
       header: 'Unidad de Medida',
       sortable: true,
-      render: (row: Unidad) => <strong style={{ color: 'var(--erp-text-primary)' }}>{row.nombre}</strong>,
+      render: (row: UnidadMedidaSelectDto) => (
+        <strong style={{ color: 'var(--erp-text-primary)' }}>{row.nombre}</strong>
+      ),
     },
     {
       key: 'abreviatura',
       header: 'Abreviatura',
       sortable: true,
       width: '140px',
-      render: (row: Unidad) => (
+      render: (row: UnidadMedidaSelectDto) => (
         <span style={{
           fontWeight: 700,
           padding: '2px 8px',
@@ -129,14 +181,16 @@ const UnitsSection = () => {
       header: 'Estado',
       sortable: true,
       width: '150px',
-      render: (row: Unidad) => <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'INACTIVO'} />,
+      render: (row: UnidadMedidaSelectDto) => (
+        <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
+      ),
     },
     {
       key: 'actions',
       header: '',
       align: 'right' as const,
       width: '100px',
-      render: (row: Unidad) => (
+      render: (row: UnidadMedidaSelectDto) => (
         <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
           <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
           <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
@@ -148,7 +202,12 @@ const UnitsSection = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {/* Indicators */}
+      {error && (
+        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
+          {error}
+        </div>
+      )}
+
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiTag /></div>
@@ -173,7 +232,6 @@ const UnitsSection = () => {
         </div>
       </div>
 
-      {/* Toolbar */}
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
@@ -181,18 +239,24 @@ const UnitsSection = () => {
         onNew={() => handleOpenDialog('create')}
         newLabel="Nueva Unidad"
         showFilters={showFilters}
-        onToggleFilters={toggleFilters}
+        onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
-        onResetFilters={hasActiveFilters ? resetFilters : undefined}
+        onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        extraActions={
+          <button
+            type="button"
+            className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
+            onClick={() => setShowDisabled(prev => !prev)}
+          >
+            {showDisabled ? <FiEyeOff /> : <FiEye />}
+            {showDisabled ? 'Ocultar deshabilitados' : 'Mostrar deshabilitados'}
+          </button>
+        }
         filterPanel={
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
             <div className="erp-form-group">
               <label className="erp-form-label">Estado</label>
-              <select
-                className="erp-input"
-                value={filters.estado || ''}
-                onChange={e => setFilter('estado', e.target.value)}
-              >
+              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
                 <option value="">Todos los estados</option>
                 <option value="ACTIVO">Activos</option>
                 <option value="INACTIVO">Inactivos</option>
@@ -202,75 +266,74 @@ const UnitsSection = () => {
         }
       />
 
-      {/* Table */}
       <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <DataTable
-          columns={columns}
-          data={processedData}
-          sortConfig={sortConfig}
-          onSort={handleSort}
-          rowKey={(row) => row.id}
-          emptyMessage="No se encontraron unidades de medida"
-        />
-        <Pagination
-          page={pagination.page}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          pageSize={pagination.pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+        {loading ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando unidades de medida...</div>
+        ) : (
+          <>
+            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron unidades de medida" />
+            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+          </>
+        )}
       </div>
 
-      {/* Dialog */}
       <CrudDialog
         isOpen={dialogState.isOpen}
         mode={dialogState.mode}
         onClose={closeDialog}
         onConfirm={handleConfirm}
+        loading={saving}
         title={
           dialogState.mode === 'create' ? 'Agregar Unidad' :
           dialogState.mode === 'edit' ? 'Editar Unidad' :
           dialogState.mode === 'view' ? 'Detalle de Unidad' : 'Eliminar Unidad'
         }
         size="sm"
+        deleteMessage={
+          dialogState.record ? (
+            <>¿Está seguro de eliminar la unidad <strong>{dialogState.record.nombre}</strong>?</>
+          ) : undefined
+        }
       >
-        <div className="erp-form-grid">
-          <div className="erp-form-group">
-            <label className="erp-form-label">Nombre de Unidad</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.nombre || ''}
-              onChange={e => setFormState(prev => ({ ...prev, nombre: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: Kilogramos"
-            />
+        {dialogState.mode !== 'delete' && (
+          <div className="erp-form-grid">
+            <div className="erp-form-group">
+              <label className="erp-form-label">Nombre de Unidad</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.nombre || ''}
+                onChange={e => setFormState(prev => ({ ...prev, nombre: e.target.value }))}
+                disabled={dialogState.mode === 'view'}
+                placeholder="Ej: Kilogramos"
+              />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Abreviatura / Símbolo</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.abreviatura || ''}
+                onChange={e => setFormState(prev => ({ ...prev, abreviatura: e.target.value }))}
+                disabled={dialogState.mode === 'view'}
+                placeholder="Ej: KG"
+              />
+            </div>
+            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
+              <div className="erp-form-group">
+                <label className="erp-form-label">Estado</label>
+                {dialogState.mode === 'view' ? (
+                  <div style={{ paddingTop: '6px' }}><StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} /></div>
+                ) : (
+                  <select className="erp-input" value={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}>
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
+                )}
+              </div>
+            )}
           </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Abreviatura / Símbolo</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.abreviatura || ''}
-              onChange={e => setFormState(prev => ({ ...prev, abreviatura: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: KG"
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Estado</label>
-            <select
-              className="erp-input"
-              value={formState.estado || 'ACTIVO'}
-              onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            >
-              <option value="ACTIVO">Activo</option>
-              <option value="INACTIVO">Inactivo</option>
-            </select>
-          </div>
-        </div>
+        )}
       </CrudDialog>
     </div>
   );

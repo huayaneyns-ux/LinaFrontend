@@ -1,16 +1,37 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import Header from '../Components/Shared/Header';
+import SocialLinks from '../Components/Shared/SocialLinks';
+import TikTokFloat from '../Components/Shared/TikTokFloat';
+import '../Styles/Layouts/PublicLayout.css';
 
 const PublicLayout = () => {
   return (
     <div className="public-layout">
       <Header />
-      <main style={{ minHeight: '80vh', paddingTop: '80px' }}>
+      <main className="public-main">
         <Outlet />
       </main>
-      <footer style={{ marginTop: '80px', padding: '40px 20px', background: 'var(--bg-white)', color: 'var(--text-dark)', textAlign: 'center', borderTop: '1px solid var(--border-color)' }}>
-        <p>&copy; {new Date().getFullYear()} Librería Lina. Todos los derechos reservados.</p>
+      <footer className="public-footer">
+        <div className="container public-footer-inner">
+          <div className="footer-brand">
+            <span className="footer-logo">📚 Librería <strong>Lina</strong></span>
+            <p className="footer-tagline">Artículos escolares y de oficina con la mejor calidad.</p>
+          </div>
+          <nav className="footer-nav">
+            <Link to="/">Inicio</Link>
+            <Link to="/catalogo">Catálogo</Link>
+            <Link to="/contacto">Contacto</Link>
+          </nav>
+          <div className="footer-social">
+            <span className="footer-social-label">Síguenos</span>
+            <SocialLinks variant="footer" />
+          </div>
+        </div>
+        <div className="footer-copy">
+          © {new Date().getFullYear()} Librería Lina — Todos los derechos reservados.
+        </div>
       </footer>
+      <TikTokFloat />
     </div>
   );
 };

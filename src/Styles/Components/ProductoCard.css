@@ -64,7 +64,7 @@
 }
 
 .producto-precio {
-  font-size: 1.1rem; /* Reducido */
+  font-size: 1.1rem;
   font-weight: 800;
   color: var(--primary);
   margin-bottom: 15px;
@@ -72,10 +72,21 @@
 
 .btn-add {
   width: 100%;
-  padding: 8px; /* Reducido */
+  padding: 8px;
   border-radius: 30px;
   font-weight: 600;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  font-size: 0.8rem; /* Reducido */
+  font-size: 0.8rem;
+}
+
+.producto-sin-imagen,
+.modal-img-placeholder {
+  min-height: 100%;
+}
+
+.marca-item-placeholder {
+  width: 60px;
+  height: 40px;
+  border-radius: 6px;
 }

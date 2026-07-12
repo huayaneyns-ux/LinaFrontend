@@ -1,5 +1,4 @@
 import { FaWhatsapp, FaMapMarkerAlt, FaEnvelope, FaPhoneAlt } from 'react-icons/fa';
-import { IMAGENES } from '../Constantes/Imagenes';
 import '../Styles/Pages/Institucional.css';
 import '../Styles/Pages/Contacto.css';
 

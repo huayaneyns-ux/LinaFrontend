@@ -1,33 +1,71 @@
 import { useState, useCallback, useMemo } from 'react';
-import { mockProveedores } from '../../../../Constantes/Data/MockData';
+
+import { ProveedorService } from '../../../../Services/Admin/Compras/Proveedor';
+import type {
+  Proveedor,
+  ProveedorInsert,
+  ProveedorUpdate,
+  ProveedorDeleteResponse,
+} from '../../../../Types/Admin/Compras/Proveedor';
+
+import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
 import { useDataTable } from '../../../../Hooks/useDataTable';
 import { useDialog } from '../../../../Hooks/useDialog';
-import { useFilters } from '../../../../Hooks/useFilters';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
-import { FiUsers, FiCheckCircle, FiMinusCircle, FiEye, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import {
+  FiUsers,
+  FiCheckCircle,
+  FiMinusCircle,
+  FiEye,
+  FiEdit2,
+  FiTrash2,
+  FiEyeOff,
+} from 'react-icons/fi';
 
-interface Proveedor {
-  id: string;
-  ruc: string;
-  razonSocial: string;
-  contacto: string;
-  email: string;
-  telefono: string;
-  direccion: string;
+interface ProveedorFilters {
   estado: string;
 }
 
-const ProveedoresSection = () => {
-  const [providers, setProviders] = useState<Proveedor[]>(mockProveedores);
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } = useDialog<Proveedor>();
-  const { filters, setFilter, resetFilters, hasActiveFilters, showFilters, toggleFilters } = useFilters();
+const DEFAULT_FILTERS: ProveedorFilters = { estado: '' };
 
-  const [formState, setFormState] = useState<Partial<Proveedor>>({});
+const EMPTY_FORM: Partial<Proveedor> = {
+  ruc: '',
+  razonSocial: '',
+  nombreContacto: '',
+  telefono: '',
+  idDireccion: 0,
+  direccion: '',
+  distrito: '',
+  provincia: '',
+  departamento: '',
+  estado: true,
+};
+
+const proveedorCrudService = {
+  getAll: () => ProveedorService.getProveedores(),
+  getById: (id: number) => ProveedorService.getProveedorById(id),
+  create: (data: ProveedorInsert) => ProveedorService.createProveedor(data),
+  update: (data: ProveedorUpdate) => ProveedorService.updateProveedor(data),
+  delete: (id: number) => ProveedorService.deleteProveedor(id),
+};
+
+const ProveedoresSection = () => {
+  const { items: providers, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
+    useAdminCrud<Proveedor, ProveedorInsert, ProveedorUpdate>(proveedorCrudService);
+
+  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
+    useDialog<Proveedor>();
+
+  const [filters, setFilters] = useState<ProveedorFilters>(DEFAULT_FILTERS);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showDisabled, setShowDisabled] = useState(false);
+  const [formState, setFormState] = useState<Partial<Proveedor>>(EMPTY_FORM);
+  const [deleteAlert, setDeleteAlert] = useState<ProveedorDeleteResponse | null>(null);
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -36,10 +74,14 @@ const ProveedoresSection = () => {
 
   const externalFilter = useCallback(
     (prov: Proveedor) => {
-      if (filters.estado && prov.estado !== filters.estado) return false;
+      if (!showDisabled && !prov.estado) return false;
+      if (filters.estado) {
+        if (filters.estado === 'ACTIVO' && !prov.estado) return false;
+        if (filters.estado === 'INACTIVO' && prov.estado) return false;
+      }
       return true;
     },
-    [filters]
+    [filters, showDisabled]
   );
 
   const {
@@ -55,84 +97,111 @@ const ProveedoresSection = () => {
     setPageSize,
   } = useDataTable<Proveedor>({
     data: providers,
-    searchKeys: ['ruc', 'razonSocial', 'contacto', 'email'],
+    searchKeys: ['ruc', 'razonSocial', 'nombreContacto', 'telefono', 'direccion'],
     defaultPageSize: 8,
     externalFilter,
   });
 
   const indicators = useMemo(() => {
     const total = providers.length;
-    const activos = providers.filter(p => p.estado === 'ACTIVO').length;
-    const inactivos = total - activos;
-    return { total, activos, inactivos };
+    const activos = providers.filter(p => p.estado).length;
+    return { total, activos, inactivos: total - activos };
   }, [providers]);
 
-  const handleOpenDialog = (mode: typeof dialogState.mode, record?: Proveedor) => {
-    setFormState(record ? { ...record } : { id: 'P-' + (providers.length + 1).toString().padStart(3, '0'), ruc: '', razonSocial: '', contacto: '', email: '', telefono: '', direccion: '', estado: 'ACTIVO' });
+  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: Proveedor) => {
+    setDeleteAlert(null);
+    if (record && (mode === 'view' || mode === 'edit')) {
+      const detail = await fetchById(record.id, record);
+      setFormState({ ...detail });
+    } else if (mode === 'delete' && record) {
+      setFormState({ ...record });
+    } else {
+      setFormState({ ...EMPTY_FORM });
+    }
+
     if (mode === 'create') openCreate();
     else if (mode === 'edit') openEdit(record!);
     else if (mode === 'view') openView(record!);
     else if (mode === 'delete') openDelete(record!);
   };
 
-  const handleConfirm = () => {
-    if (dialogState.mode === 'create') {
-      const newProv: Proveedor = {
-        id: formState.id || 'P-' + Date.now().toString().slice(-4),
-        ruc: formState.ruc || '',
-        razonSocial: formState.razonSocial || '',
-        contacto: formState.contacto || '',
-        email: formState.email || '',
-        telefono: formState.telefono || '',
-        direccion: formState.direccion || '',
-        estado: formState.estado || 'ACTIVO',
-      };
-      setProviders(prev => [newProv, ...prev]);
-    } else if (dialogState.mode === 'edit' && dialogState.record) {
-      setProviders(prev =>
-        prev.map(p =>
-          p.id === dialogState.record!.id ? { ...p, ...formState } as Proveedor : p
-        )
-      );
-    } else if (dialogState.mode === 'delete' && dialogState.record) {
-      setProviders(prev => prev.filter(p => p.id !== dialogState.record!.id));
+  const handleConfirm = async () => {
+    try {
+      if (dialogState.mode === 'create') {
+        const payload: ProveedorInsert = {
+          ruc: formState.ruc || '',
+          razonSocial: formState.razonSocial || '',
+          nombreContacto: formState.nombreContacto || '',
+          telefono: formState.telefono || '',
+          idDireccion: Number(formState.idDireccion) || 0,
+        };
+        await createItem(payload);
+      } else if (dialogState.mode === 'edit' && dialogState.record) {
+        const payload: ProveedorUpdate = {
+          id: dialogState.record.id,
+          ruc: formState.ruc || '',
+          razonSocial: formState.razonSocial || '',
+          nombreContacto: formState.nombreContacto || '',
+          telefono: formState.telefono || '',
+          idDireccion: Number(formState.idDireccion) || 0,
+          estado: formState.estado !== false,
+        };
+        await updateItem(payload);
+      } else if (dialogState.mode === 'delete' && dialogState.record) {
+        const result = await deleteItem(dialogState.record.id);
+        if (typeof result === 'object' && result !== null && 'tieneProductos' in result) {
+          const alert = result as ProveedorDeleteResponse;
+          if (alert.tieneProductos) {
+            setDeleteAlert(alert);
+            return;
+          }
+        }
+      }
+      closeDialog();
+    } catch {
+      // error shown via hook
     }
-    closeDialog();
   };
 
   const columns = [
     {
       key: 'ruc',
-      header: 'RUC / Código',
+      header: 'RUC',
       sortable: true,
       width: '130px',
-      render: (row: Proveedor) => <strong style={{ color: 'var(--erp-text-primary)' }}>{row.ruc}</strong>,
+      render: (row: Proveedor) => (
+        <strong style={{ color: 'var(--erp-text-primary)' }}>{row.ruc}</strong>
+      ),
     },
     {
       key: 'razonSocial',
-      header: 'Razón Social / Empresa',
+      header: 'Razón Social',
       sortable: true,
       render: (row: Proveedor) => (
         <div>
           <div style={{ fontWeight: 600 }}>{row.razonSocial}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '280px' }}>
-            Contacto: {row.contacto} | Tel: {row.telefono}
+          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>
+            Contacto: {row.nombreContacto} | Tel: {row.telefono}
           </div>
         </div>
       ),
     },
     {
-      key: 'email',
-      header: 'Correo Electrónico',
+      key: 'direccion',
+      header: 'Dirección',
       sortable: true,
       width: '180px',
+      render: (row: Proveedor) =>
+        [row.direccion, row.distrito, row.provincia].filter(Boolean).join(', ') || '—',
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
       width: '120px',
-      render: (row: Proveedor) => <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'INACTIVO'} />,
+      render: (row: Proveedor) => (
+        <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
+      ),
     },
     {
       key: 'actions',
@@ -151,7 +220,12 @@ const ProveedoresSection = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {/* Indicators */}
+      {error && (
+        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
+          {error}
+        </div>
+      )}
+
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiUsers /></div>
@@ -176,26 +250,31 @@ const ProveedoresSection = () => {
         </div>
       </div>
 
-      {/* Toolbar */}
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por ruc, razón social o contacto..."
+        searchPlaceholder="Buscar por RUC, razón social o contacto..."
         onNew={() => handleOpenDialog('create')}
         newLabel="Nuevo Proveedor"
         showFilters={showFilters}
-        onToggleFilters={toggleFilters}
+        onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
-        onResetFilters={hasActiveFilters ? resetFilters : undefined}
+        onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        extraActions={
+          <button
+            type="button"
+            className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
+            onClick={() => setShowDisabled(prev => !prev)}
+          >
+            {showDisabled ? <FiEyeOff /> : <FiEye />}
+            {showDisabled ? 'Ocultar deshabilitados' : 'Mostrar deshabilitados'}
+          </button>
+        }
         filterPanel={
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
             <div className="erp-form-group">
               <label className="erp-form-label">Estado</label>
-              <select
-                className="erp-input"
-                value={filters.estado || ''}
-                onChange={e => setFilter('estado', e.target.value)}
-              >
+              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
                 <option value="">Todos</option>
                 <option value="ACTIVO">Activo</option>
                 <option value="INACTIVO">Inactivo</option>
@@ -205,120 +284,97 @@ const ProveedoresSection = () => {
         }
       />
 
-      {/* Table */}
       <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <DataTable
-          columns={columns}
-          data={processedData}
-          sortConfig={sortConfig}
-          onSort={handleSort}
-          rowKey={(row) => row.id}
-          emptyMessage="No se encontraron proveedores"
-        />
-        <Pagination
-          page={pagination.page}
-          totalPages={totalPages}
-          totalItems={totalItems}
-          pageSize={pagination.pageSize}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+        {loading ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando proveedores...</div>
+        ) : (
+          <>
+            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron proveedores" />
+            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+          </>
+        )}
       </div>
 
-      {/* Dialog */}
       <CrudDialog
         isOpen={dialogState.isOpen}
         mode={dialogState.mode}
         onClose={closeDialog}
         onConfirm={handleConfirm}
+        loading={saving}
         title={
           dialogState.mode === 'create' ? 'Agregar Proveedor' :
           dialogState.mode === 'edit' ? 'Editar Proveedor' :
           dialogState.mode === 'view' ? 'Ver Detalles de Proveedor' : 'Eliminar Proveedor'
         }
         size="lg"
+        deleteMessage={
+          deleteAlert?.tieneProductos ? (
+            <div>
+              <p>{deleteAlert.mensaje}</p>
+              <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
+                {deleteAlert.productos.map(p => (
+                  <li key={p.id}>{p.codigo} — {p.nombre}</li>
+                ))}
+              </ul>
+            </div>
+          ) : dialogState.record ? (
+            <>¿Está seguro de eliminar a <strong>{dialogState.record.razonSocial}</strong>?</>
+          ) : undefined
+        }
       >
-        <div className="erp-form-grid">
-          <div className="erp-form-group">
-            <label className="erp-form-label">RUC (11 dígitos)</label>
-            <input
-              type="text"
-              maxLength={11}
-              className="erp-input"
-              value={formState.ruc || ''}
-              onChange={e => setFormState(prev => ({ ...prev, ruc: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: 20100200301"
-            />
+        {dialogState.mode !== 'delete' && (
+          <div className="erp-form-grid">
+            <div className="erp-form-group">
+              <label className="erp-form-label">RUC (11 dígitos)</label>
+              <input type="text" maxLength={11} className="erp-input" value={formState.ruc || ''} onChange={e => setFormState(prev => ({ ...prev, ruc: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: 20100200301" />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Razón Social</label>
+              <input type="text" className="erp-input" value={formState.razonSocial || ''} onChange={e => setFormState(prev => ({ ...prev, razonSocial: e.target.value }))} disabled={dialogState.mode === 'view'} />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Nombre del Contacto</label>
+              <input type="text" className="erp-input" value={formState.nombreContacto || ''} onChange={e => setFormState(prev => ({ ...prev, nombreContacto: e.target.value }))} disabled={dialogState.mode === 'view'} />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Teléfono</label>
+              <input type="text" className="erp-input" value={formState.telefono || ''} onChange={e => setFormState(prev => ({ ...prev, telefono: e.target.value }))} disabled={dialogState.mode === 'view'} />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">ID Dirección</label>
+              <input type="number" className="erp-input" value={formState.idDireccion ?? 0} onChange={e => setFormState(prev => ({ ...prev, idDireccion: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
+            </div>
+            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
+              <div className="erp-form-group">
+                <label className="erp-form-label">Estado</label>
+                {dialogState.mode === 'view' ? (
+                  <div style={{ paddingTop: '6px' }}><StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} /></div>
+                ) : (
+                  <select className="erp-input" value={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}>
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
+                )}
+              </div>
+            )}
+            <div className="erp-form-group col-span-2">
+              <label className="erp-form-label">Dirección</label>
+              <input type="text" className="erp-input" value={formState.direccion || ''} disabled placeholder="Se carga desde la BD por idDireccion" />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Distrito</label>
+              <input type="text" className="erp-input" value={formState.distrito || ''} disabled />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Provincia</label>
+              <input type="text" className="erp-input" value={formState.provincia || ''} disabled />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Departamento</label>
+              <input type="text" className="erp-input" value={formState.departamento || ''} disabled />
+            </div>
           </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Razón Social</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.razonSocial || ''}
-              onChange={e => setFormState(prev => ({ ...prev, razonSocial: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: Distribuidora Continental S.A."
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Nombre del Contacto</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.contacto || ''}
-              onChange={e => setFormState(prev => ({ ...prev, contacto: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: Alberto Ruiz"
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Teléfono de Contacto</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.telefono || ''}
-              onChange={e => setFormState(prev => ({ ...prev, telefono: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: 998877665"
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Correo Electrónico</label>
-            <input
-              type="email"
-              className="erp-input"
-              value={formState.email || ''}
-              onChange={e => setFormState(prev => ({ ...prev, email: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="ventas@proveedor.com"
-            />
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Estado de la cuenta</label>
-            <select
-              className="erp-input"
-              value={formState.estado || 'ACTIVO'}
-              onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            >
-              <option value="ACTIVO">Activo</option>
-              <option value="INACTIVO">Inactivo</option>
-            </select>
-          </div>
-          <div className="erp-form-group col-span-2">
-            <label className="erp-form-label">Dirección Fiscal</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.direccion || ''}
-              onChange={e => setFormState(prev => ({ ...prev, direccion: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Av, Calle, Nro, Distrito, Provincia"
-            />
-          </div>
-        </div>
+        )}
       </CrudDialog>
     </div>
   );
