@@ -1,6 +1,6 @@
-import type { ProductoType as Producto } from '../../Types/ProductoType';
+import type { Producto } from '../../Types/Producto';
 import { useCart } from '../../Context/CartContext';
-import { resolveImageUrl } from '../../Utils/imageUtils';
+import { resolveImageUrl, getProductoImagenPath } from '../../Utils/imageUtils';
 import ImagePlaceholder from '../Shared/ImagePlaceholder';
 import { FiBox } from 'react-icons/fi';
 import '../../Styles/Components/ProductoCard.css';
@@ -12,13 +12,12 @@ interface Props {
 
 const ProductoCard = ({ producto, onOpenDetalle }: Props) => {
   const { agregarAlCarrito } = useCart();
+  const imgSrc = resolveImageUrl(getProductoImagenPath(producto));
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     agregarAlCarrito(producto, 1);
   };
-
-  const imgSrc = resolveImageUrl(producto.url);
 
   return (
     <div className="producto-card" onClick={() => onOpenDetalle(producto)}>
@@ -33,7 +32,7 @@ const ProductoCard = ({ producto, onOpenDetalle }: Props) => {
         <span className="producto-categoria">{producto.categoria}</span>
         <h4 className="producto-nombre">{producto.nombre}</h4>
         <p className="producto-precio">S/ {producto.precio.toFixed(2)}</p>
-        <button className="btn btn-primary btn-add" onClick={handleAdd}>
+        <button type="button" className="btn btn-primary btn-add" onClick={handleAdd}>
           Añadir al carrito
         </button>
       </div>

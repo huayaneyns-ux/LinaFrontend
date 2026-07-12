@@ -84,7 +84,7 @@ function DataTable<T extends Record<string, any>>({
           ) : (
             data.map((row, idx) => (
               <React.Fragment key={rowKey ? rowKey(row) : idx}>
-                <tr>
+                <tr className={expandedRowKey !== undefined && rowKey && rowKey(row) === expandedRowKey ? 'row-expanded' : ''}>
                   {columns.map(col => (
                     <td
                       key={col.key}

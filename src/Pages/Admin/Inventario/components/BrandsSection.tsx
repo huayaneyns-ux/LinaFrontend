@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 
 import { MarcaService } from '../../../../Services/Admin/Inventario/Marca';
-import { ImagenService } from '../../../../Services/ImagenService';
 import type {
   MarcaSelectDto,
   MarcaInsertDto,
@@ -36,11 +35,12 @@ const DEFAULT_FILTERS: MarcaFilters = { estado: '' };
 
 const EMPTY_FORM: Partial<MarcaSelectDto> = {
   nombre: '',
-  url: '',
+  urlImagen: '',
+  publicIdImagen: '',
   estado: true,
 };
 
-import { resolveImageUrl } from '../../../../Utils/imageUtils';
+import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
 
 const marcaCrudService = {
   getAll: () => MarcaService.getMarcas(),
@@ -61,9 +61,11 @@ const BrandsSection = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showDisabled, setShowDisabled] = useState(false);
   const [formState, setFormState] = useState<Partial<MarcaSelectDto>>(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Ref para acceder al archivo pendiente al momento de guardar
   const imageUploadRef = useRef<ImageUploadHandle>(null);
+  const originalRutaRef = useRef('');
+  const originalPublicIdRef = useRef('');
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -110,9 +112,13 @@ const BrandsSection = () => {
     if (record && (mode === 'view' || mode === 'edit')) {
       const detail = await fetchById(record.id, record);
       setFormState({ ...detail });
+      originalRutaRef.current = detail.urlImagen || '';
+      originalPublicIdRef.current = detail.publicIdImagen || '';
     } else if (mode === 'delete' && record) {
       setFormState({ ...record });
     } else {
+      originalRutaRef.current = '';
+      originalPublicIdRef.current = '';
       setFormState({ ...EMPTY_FORM });
     }
 
@@ -123,45 +129,40 @@ const BrandsSection = () => {
   };
 
   const handleConfirm = async () => {
+    setSubmitting(true);
     try {
-      // ── 1. Si hay imagen pendiente, subirla con ImagenService ────────────────
-      let urlImagen = formState.url || '';
       const pending = imageUploadRef.current?.getPendingFile();
-      if (pending) {
-        try {
-          const resultado = await ImagenService.subirImagen(pending.file);
-          urlImagen = resultado.rutaImagen;
-        } catch {
-          throw new Error('No se pudo subir la imagen. Intente de nuevo.');
-        }
-      }
+      const { ruta } = await gestionarImagenAlGuardar({
+        pendingFile: pending?.file ?? null,
+        rutaFormulario: formState.urlImagen,
+        publicIdFormulario: formState.publicIdImagen,
+        rutaOriginal: originalRutaRef.current,
+        publicIdOriginal: originalPublicIdRef.current,
+        esEdicion: dialogState.mode === 'edit',
+      });
 
-      // ── 2. Guardar el registro ───────────────────────────────────────────────
-      // Nota: Marca no tiene publicIdImagen, al actualizar sin imagen
-      // simplemente se guarda url vacío (sin llamar al delete de Cloudinary)
       if (dialogState.mode === 'create') {
-        const payload: MarcaInsertDto = {
+        await createItem({
           nombre: formState.nombre || '',
-          url: urlImagen || undefined,
-        };
-        await createItem(payload);
+          urlImagen: ruta,
+        });
       } else if (dialogState.mode === 'edit' && dialogState.record) {
-        const payload: MarcaUpdateDto = {
+        await updateItem({
           id: dialogState.record.id,
           nombre: formState.nombre || '',
-          url: urlImagen || undefined,
+          urlImagen: ruta,
           estado: formState.estado !== false,
-        };
-        await updateItem(payload);
+        });
       } else if (dialogState.mode === 'delete' && dialogState.record) {
         await deleteItem(dialogState.record.id);
       }
 
-      // ── 3. Limpiar imagen pendiente ──────────────────────────────────────────
       imageUploadRef.current?.clearPending();
       closeDialog();
     } catch {
-      // error shown via hook
+      // error via hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -178,7 +179,7 @@ const BrandsSection = () => {
       header: 'Logo',
       width: '60px',
       render: (row: MarcaSelectDto) => {
-        const src = resolveImageUrl(row.url);
+        const src = resolveImageUrl(row.urlImagen);
         return src ? (
           <div style={{ width: '42px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px' }}>
             <img src={src} alt={row.nombre} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
@@ -304,7 +305,7 @@ const BrandsSection = () => {
         mode={dialogState.mode}
         onClose={closeDialog}
         onConfirm={handleConfirm}
-        loading={saving}
+        loading={saving || submitting}
         title={
           dialogState.mode === 'create' ? 'Agregar Marca' :
           dialogState.mode === 'edit' ? 'Editar Marca' :
@@ -350,9 +351,9 @@ const BrandsSection = () => {
               {dialogState.mode === 'view' ? (
                 <div>
                   <label className="erp-form-label">Logotipo</label>
-                  {resolveImageUrl(formState.url) ? (
+                  {resolveImageUrl(formState.urlImagen) ? (
                     <img
-                      src={resolveImageUrl(formState.url)!}
+                      src={resolveImageUrl(formState.urlImagen)!}
                       alt={formState.nombre}
                       style={{ width: '100%', maxHeight: '80px', objectFit: 'contain', border: '1px solid var(--erp-border)', padding: '8px', borderRadius: '8px', background: '#f8fafc' }}
                     />
@@ -366,8 +367,8 @@ const BrandsSection = () => {
               ) : (
                 <ImageUpload
                   ref={imageUploadRef}
-                  value={formState.url}
-                  onChange={url => setFormState(prev => ({ ...prev, url }))}
+                  value={formState.urlImagen}
+                  onChange={urlImagen => setFormState(prev => ({ ...prev, urlImagen }))}
                   folder="marcas"
                   label="Logotipo de la marca"
                   compact

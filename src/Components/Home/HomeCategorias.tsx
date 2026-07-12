@@ -26,7 +26,7 @@ const HomeCategorias: React.FC = () => {
 
         <div className="categorias-grid-new">
           {activeCategories.map((cat) => {
-            const imgSrc = resolveImageUrl(cat.url);
+            const imgSrc = resolveImageUrl(cat.urlImagen || cat.url);
             return (
               <div
                 key={cat.id}

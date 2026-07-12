@@ -10,16 +10,16 @@ import { useDataTable } from '../../../../Hooks/useDataTable';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
-// import CrudDialog from '../../../../Components/ERP/CrudDialog'; // No longer used
-import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
-import IconButton from '../../../../Components/ERP/IconButton';
 import {
   FiDollarSign,
-  FiChevronDown, FiChevronRight,
+  FiChevronDown,
+  FiChevronRight,
   FiActivity,
   FiCheckCircle,
   FiClock,
+  FiCreditCard,
 } from 'react-icons/fi';
+import './VentasSection.css';
 
 interface VentaFilters {
   estado: string;
@@ -27,17 +27,18 @@ interface VentaFilters {
 
 const DEFAULT_FILTERS: VentaFilters = { estado: '' };
 
+const fmt = (n?: number) => `S/ ${(n ?? 0).toFixed(2)}`;
+
 const VentasSection = () => {
   const [sales, setSales] = useState<VentaRealizadaSelectDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Detail Modal States
   const [expandedRowId, setExpandedRowId] = useState<number | null>(null);
-
-  // Filtering States
+  const [loadingDetailId, setLoadingDetailId] = useState<number | null>(null);
   const [filters, setFilters] = useState<VentaFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
+  const [rowDetailsMap, setRowDetailsMap] = useState<Record<number, VentaRealizadaDetalleDto[]>>({});
+  const [rowPaymentsMap, setRowPaymentsMap] = useState<Record<number, VentaRealizadaPagoDto[]>>({});
 
   const loadSalesList = useCallback(async () => {
     try {
@@ -56,18 +57,20 @@ const VentasSection = () => {
     loadSalesList();
   }, [loadSalesList]);
 
-  // View Sale Details (Calls the other 3 endpoints)
   const loadSaleDetails = async (saleId: number) => {
+    setLoadingDetailId(saleId);
     try {
-      const [, details, payments] = await Promise.all([
-        VentaRealizadaService.getVentaById(saleId),
+      const [details, payments] = await Promise.all([
         VentaRealizadaService.getDetalleVenta(saleId),
         VentaRealizadaService.getPagoVenta(saleId),
       ]);
-      return { details, payments };
-    } catch (err) {
-      console.error('Error al cargar detalles de venta:', err);
-      return { details: [], payments: [] };
+      setRowDetailsMap(prev => ({ ...prev, [saleId]: details }));
+      setRowPaymentsMap(prev => ({ ...prev, [saleId]: payments }));
+    } catch {
+      setRowDetailsMap(prev => ({ ...prev, [saleId]: [] }));
+      setRowPaymentsMap(prev => ({ ...prev, [saleId]: [] }));
+    } finally {
+      setLoadingDetailId(null);
     }
   };
 
@@ -76,18 +79,11 @@ const VentasSection = () => {
       setExpandedRowId(null);
     } else {
       setExpandedRowId(saleId);
-      // preload details for the row
-      loadSaleDetails(saleId).then(({ details, payments }) => {
-        // Store in state maps for rendering without modal
-        setRowDetailsMap(prev => ({ ...prev, [saleId]: details }));
-        setRowPaymentsMap(prev => ({ ...prev, [saleId]: payments }));
-      });
+      if (!rowDetailsMap[saleId]) {
+        loadSaleDetails(saleId);
+      }
     }
   };
-
-  // Maps to store details per row for inline rendering
-  const [rowDetailsMap, setRowDetailsMap] = useState<Record<number, VentaRealizadaDetalleDto[]>>({});
-  const [rowPaymentsMap, setRowPaymentsMap] = useState<Record<number, VentaRealizadaPagoDto[]>>({});
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -121,21 +117,36 @@ const VentasSection = () => {
   });
 
   const indicators = useMemo(() => {
-    const totalMonto = sales.reduce((sum, s) => sum + s.total, 0);
+    const totalMonto = sales.reduce((sum, s) => sum + (s.total ?? 0), 0);
     const activosCount = sales.filter(s => s.estado === 'ACTIVO').length;
     const pendientesCount = sales.filter(s => s.estado === 'PENDIENTE').length;
-    const totalCount = sales.length;
-    return { totalMonto, activosCount, pendientesCount, totalCount };
+    return { totalMonto, activosCount, pendientesCount, totalCount: sales.length };
   }, [sales]);
 
   const columns = [
     {
+      key: 'expand',
+      header: '',
+      width: '40px',
+      align: 'center' as const,
+      render: (row: VentaRealizadaSelectDto) => (
+        <button
+          type="button"
+          className="venta-expand-btn"
+          onClick={() => toggleRow(row.id)}
+          aria-label="Ver detalle"
+        >
+          {expandedRowId === row.id ? <FiChevronDown /> : <FiChevronRight />}
+        </button>
+      ),
+    },
+    {
       key: 'id',
       header: 'Comprobante',
       sortable: true,
-      width: '120px',
+      width: '110px',
       render: (row: VentaRealizadaSelectDto) => (
-        <strong style={{ color: 'var(--erp-text-primary)' }}>Boleta #{row.id}</strong>
+        <strong>#{row.id}</strong>
       ),
     },
     {
@@ -144,77 +155,119 @@ const VentasSection = () => {
       sortable: true,
       render: (row: VentaRealizadaSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{row.cliente || 'Cliente General'}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>Vendedor: {row.vendedor || 'Sistema'}</div>
+          <div className="venta-cell-main">{row.cliente || 'Cliente General'}</div>
+          <div className="venta-cell-sub">Vendedor: {row.vendedor || 'Sistema'}</div>
         </div>
       ),
     },
     {
       key: 'fecha',
-      header: 'Fecha de Registro',
+      header: 'Fecha',
       sortable: true,
-      width: '150px',
+      width: '140px',
       render: (row: VentaRealizadaSelectDto) => formatDate(row.fecha),
     },
     {
       key: 'cantidadProductos',
-      header: 'Cant. Items',
+      header: 'Items',
       sortable: true,
       align: 'center' as const,
-      width: '100px',
-      render: (row: VentaRealizadaSelectDto) => (
-        <span style={{ fontWeight: 600 }}>{row.cantidadProductos || 0}</span>
-      ),
+      width: '70px',
+      render: (row: VentaRealizadaSelectDto) => <strong>{row.cantidadProductos ?? 0}</strong>,
     },
     {
       key: 'total',
-      header: 'Total Cobrado',
+      header: 'Total',
       sortable: true,
       align: 'right' as const,
-      width: '120px',
-      render: (row: VentaRealizadaSelectDto) => `S/ ${(row.total || 0).toFixed(2)}`,
-    },
-    {
-      key: 'estado',
-      header: 'Estado',
-      sortable: true,
-      width: '110px',
-      render: (row: VentaRealizadaSelectDto) => (
-        <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      align: 'right' as const,
-      width: '80px',
-      render: (row: VentaRealizadaSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton
-            icon={expandedRowId === row.id ? <FiChevronDown /> : <FiChevronRight />}
-            tooltip="Ver detalle"
-            variant="primary"
-            onClick={() => toggleRow(row.id)}
-          />
-        </div>
-      ),
+      width: '100px',
+      render: (row: VentaRealizadaSelectDto) => fmt(row.total),
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
-      )}
+  const renderExpanded = (row: VentaRealizadaSelectDto) => {
+    const details = rowDetailsMap[row.id] ?? [];
+    const payments = rowPaymentsMap[row.id] ?? [];
+    const isLoading = loadingDetailId === row.id;
 
-      {/* Sales indicators */}
+    return (
+      <div className="venta-expanded">
+        {isLoading ? (
+          <p className="venta-expanded-loading">Cargando detalle...</p>
+        ) : (
+          <>
+            <div className="venta-expanded-section">
+              <h4>Detalle de artículos</h4>
+              <table className="venta-detail-table">
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th className="text-center">Cant.</th>
+                    <th className="text-right">P. Unit.</th>
+                    <th className="text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {details.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="venta-empty-row">Sin artículos registrados</td>
+                    </tr>
+                  ) : (
+                    details.map(det => (
+                      <tr key={det.id}>
+                        <td className="mono">{det.codigo}</td>
+                        <td>{det.nombre}</td>
+                        <td className="text-center">{det.cantidad}</td>
+                        <td className="text-right">{fmt(det.precioUnitario)}</td>
+                        <td className="text-right"><strong>{fmt(det.subtotal)}</strong></td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="venta-expanded-section venta-payments-section">
+              <h4><FiCreditCard /> Pagos realizados</h4>
+              {payments.length === 0 ? (
+                <p className="venta-empty-row">Sin pagos registrados</p>
+              ) : (
+                <table className="venta-payments-table">
+                  <thead>
+                    <tr>
+                      <th>Método</th>
+                      <th className="text-right">Monto</th>
+                      <th>Referencia</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {payments.map(pago => (
+                      <tr key={pago.id}>
+                        <td className="venta-payment-method">{pago.metodoPago}</td>
+                        <td className="text-right venta-payment-amount">{fmt(pago.monto)}</td>
+                        <td className="venta-payment-ref">{pago.codigoOperacion || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="ventas-section">
+      {error && <div className="ventas-alert-error">{error}</div>}
+
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiDollarSign /></div>
           <div className="erp-indicator-info">
-            <span className="erp-indicator-value">S/ {indicators.totalMonto.toFixed(2)}</span>
+            <span className="erp-indicator-value">{fmt(indicators.totalMonto)}</span>
             <span className="erp-indicator-label">Total Liquidado</span>
           </div>
         </div>
@@ -250,7 +303,7 @@ const VentasSection = () => {
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
+          <div className="ventas-filter-panel">
             <div className="erp-form-group">
               <label className="erp-form-label">Estado</label>
               <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
@@ -263,10 +316,9 @@ const VentasSection = () => {
         }
       />
 
-      {/* Main Table */}
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="erp-table-card ventas-table-card">
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando historial de ventas...</div>
+          <div className="ventas-loading">Cargando historial de ventas...</div>
         ) : (
           <>
             <DataTable
@@ -276,53 +328,7 @@ const VentasSection = () => {
               onSort={handleSort}
               rowKey={row => row.id}
               expandedRowKey={expandedRowId ?? undefined}
-              renderExpanded={row => (
-                <div style={{ padding: '12px', backgroundColor: '#f9fafb' }}>
-                  {/* Product Details */}
-                  <div style={{ marginBottom: '8px' }}>
-                    <strong>Detalle de Artículos</strong>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', marginTop: '4px' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '2px solid var(--erp-border)', backgroundColor: '#f1f5f9' }}>
-                          <th style={{ padding: '4px', fontWeight: 600 }}>Código</th>
-                          <th style={{ padding: '4px', fontWeight: 600 }}>Descripción</th>
-                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'center' }}>Cant.</th>
-                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'right' }}>P.Unit.</th>
-                          <th style={{ padding: '4px', fontWeight: 600, textAlign: 'right' }}>Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(rowDetailsMap[row.id] || []).map(det => (
-                          <tr key={det.id} style={{ borderBottom: '1px solid var(--erp-border)' }}>
-                            <td style={{ padding: '4px', fontFamily: 'monospace', fontWeight: 600 }}>{det.codigo}</td>
-                            <td style={{ padding: '4px' }}>{det.nombre}</td>
-                            <td style={{ padding: '4px', textAlign: 'center' }}>{det.cantidad}</td>
-                            <td style={{ padding: '4px', textAlign: 'right' }}>S/ {det.precioUnitario.toFixed(2)}</td>
-                            <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>S/ {det.subtotal.toFixed(2)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {/* Payments */}
-                  <div>
-                    <strong>Pagos</strong>
-                    <div style={{ marginTop: '4px' }}>
-                      {(rowPaymentsMap[row.id] || []).map(pago => (
-                        <div key={pago.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px', backgroundColor: '#f8fafc', border: '1px solid var(--erp-border)', borderRadius: '4px', marginBottom: '4px' }}>
-                          <span style={{ color: pago.metodoPago === 'YAPE' ? '#28a745' : pago.metodoPago === 'Plin' ? '#1e90ff' : '#555' }}>
-                            {pago.metodoPago}
-                          </span>
-                          <span>Monto: S/ {pago.monto.toFixed(2)}</span>
-                        </div>
-                      ))}
-                      {(rowPaymentsMap[row.id] || []).length === 0 && (
-                        <div style={{ color: 'var(--erp-text-muted)', fontSize: '12px' }}>Sin pagos registrados</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+              renderExpanded={renderExpanded}
               emptyMessage="No se encontraron comprobantes registrados"
             />
             <Pagination
@@ -336,9 +342,6 @@ const VentasSection = () => {
           </>
         )}
       </div>
-
-      {/* Invoice Details Dialog */}
-
     </div>
   );
 };

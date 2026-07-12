@@ -8,6 +8,10 @@
   flex: 1;
 }
 
+.page-with-header {
+  padding-top: 88px;
+}
+
 .public-footer {
   background: #111827;
   color: rgba(255, 255, 255, 0.65);

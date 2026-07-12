@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
 
 import { CategoriaService } from '../../../../Services/Admin/Inventario/Categoria';
-import { ImagenService } from '../../../../Services/ImagenService';
 import type {
   CategoriaSelectDto,
   CategoriaInsertDto,
@@ -36,11 +35,12 @@ const DEFAULT_FILTERS: CategoriaFilters = { estado: '' };
 
 const EMPTY_FORM: Partial<CategoriaSelectDto> = {
   nombre: '',
-  url: '',
+  urlImagen: '',
+  publicIdImagen: '',
   estado: true,
 };
 
-import { resolveImageUrl } from '../../../../Utils/imageUtils';
+import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
 
 const categoriaCrudService = {
   getAll: () => CategoriaService.getCategorias(),
@@ -61,9 +61,11 @@ const CategoriesSection = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [showDisabled, setShowDisabled] = useState(false);
   const [formState, setFormState] = useState<Partial<CategoriaSelectDto>>(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Ref para acceder al archivo pendiente al momento de guardar
   const imageUploadRef = useRef<ImageUploadHandle>(null);
+  const originalRutaRef = useRef('');
+  const originalPublicIdRef = useRef('');
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -110,9 +112,13 @@ const CategoriesSection = () => {
     if (record && (mode === 'view' || mode === 'edit')) {
       const detail = await fetchById(record.id, record);
       setFormState({ ...detail });
+      originalRutaRef.current = detail.urlImagen || '';
+      originalPublicIdRef.current = detail.publicIdImagen || '';
     } else if (mode === 'delete' && record) {
       setFormState({ ...record });
     } else {
+      originalRutaRef.current = '';
+      originalPublicIdRef.current = '';
       setFormState({ ...EMPTY_FORM });
     }
 
@@ -123,45 +129,40 @@ const CategoriesSection = () => {
   };
 
   const handleConfirm = async () => {
+    setSubmitting(true);
     try {
-      // ── 1. Si hay imagen pendiente, subirla con ImagenService ────────────────
-      let urlImagen = formState.url || '';
       const pending = imageUploadRef.current?.getPendingFile();
-      if (pending) {
-        try {
-          const resultado = await ImagenService.subirImagen(pending.file);
-          urlImagen = resultado.rutaImagen;
-        } catch {
-          throw new Error('No se pudo subir la imagen. Intente de nuevo.');
-        }
-      }
+      const { ruta } = await gestionarImagenAlGuardar({
+        pendingFile: pending?.file ?? null,
+        rutaFormulario: formState.urlImagen,
+        publicIdFormulario: formState.publicIdImagen,
+        rutaOriginal: originalRutaRef.current,
+        publicIdOriginal: originalPublicIdRef.current,
+        esEdicion: dialogState.mode === 'edit',
+      });
 
-      // ── 2. Guardar el registro ───────────────────────────────────────────────
-      // Nota: Categoría no tiene publicIdImagen, al actualizar sin imagen
-      // simplemente se guarda url vacío (sin llamar al delete de Cloudinary)
       if (dialogState.mode === 'create') {
-        const payload: CategoriaInsertDto = {
+        await createItem({
           nombre: formState.nombre || '',
-          url: urlImagen || '',
-        };
-        await createItem(payload);
+          urlImagen: ruta,
+        });
       } else if (dialogState.mode === 'edit' && dialogState.record) {
-        const payload: CategoriaUpdateDto = {
+        await updateItem({
           id: dialogState.record.id,
           nombre: formState.nombre || '',
           estado: formState.estado !== false,
-          url: urlImagen || '',
-        };
-        await updateItem(payload);
+          urlImagen: ruta,
+        });
       } else if (dialogState.mode === 'delete' && dialogState.record) {
         await deleteItem(dialogState.record.id);
       }
 
-      // ── 3. Limpiar imagen pendiente ──────────────────────────────────────────
       imageUploadRef.current?.clearPending();
       closeDialog();
     } catch {
-      // error shown via hook
+      // error via hook
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -178,7 +179,7 @@ const CategoriesSection = () => {
       header: 'Imagen',
       width: '52px',
       render: (row: CategoriaSelectDto) => {
-        const src = resolveImageUrl(row.url);
+        const src = resolveImageUrl(row.urlImagen);
         return src ? (
           <img
             src={src}
@@ -324,7 +325,7 @@ const CategoriesSection = () => {
         mode={dialogState.mode}
         onClose={closeDialog}
         onConfirm={handleConfirm}
-        loading={saving}
+        loading={saving || submitting}
         title={
           dialogState.mode === 'create' ? 'Agregar Categoría' :
           dialogState.mode === 'edit' ? 'Editar Categoría' :
@@ -370,9 +371,9 @@ const CategoriesSection = () => {
               {dialogState.mode === 'view' ? (
                 <div>
                   <label className="erp-form-label">Imagen</label>
-                  {resolveImageUrl(formState.url) ? (
+                  {resolveImageUrl(formState.urlImagen) ? (
                     <img
-                      src={resolveImageUrl(formState.url)!}
+                      src={resolveImageUrl(formState.urlImagen)!}
                       alt={formState.nombre}
                       style={{ width: '100%', maxHeight: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--erp-border)' }}
                     />
@@ -386,8 +387,8 @@ const CategoriesSection = () => {
               ) : (
                 <ImageUpload
                   ref={imageUploadRef}
-                  value={formState.url}
-                  onChange={url => setFormState(prev => ({ ...prev, url }))}
+                  value={formState.urlImagen}
+                  onChange={urlImagen => setFormState(prev => ({ ...prev, urlImagen }))}
                   folder="categorias"
                   label="Imagen de la categoría"
                   compact

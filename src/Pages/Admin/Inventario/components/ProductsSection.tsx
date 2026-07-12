@@ -5,7 +5,6 @@ import { CategoriaService } from '../../../../Services/Admin/Inventario/Categori
 import { MarcaService } from '../../../../Services/Admin/Inventario/Marca';
 import { UnidadMedidaService } from '../../../../Services/Admin/Inventario/UnidadMedida';
 import { ProveedorService } from '../../../../Services/Admin/Compras/Proveedor';
-import { ImagenService } from '../../../../Services/ImagenService';
 import type {
   ProductoSelectDto,
   ProductoInsertDto,
@@ -81,7 +80,7 @@ function generarCodigoProducto(): string {
   return `PROD-${dd}${mm}${yy}${HH}${MM}${SS}${ms}`;
 }
 
-import { resolveImageUrl } from '../../../../Utils/imageUtils';
+import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
 
 const ProductsSection = () => {
   const [products, setProducts] = useState<ProductoSelectDto[]>([]);
@@ -100,6 +99,7 @@ const ProductsSection = () => {
   const imageUploadRef = useRef<ImageUploadHandle>(null);
   // publicIdImagen original al abrir edición (para eliminar en Cloudinary si quita la foto)
   const originalPublicIdRef = useRef<string>('');
+  const originalRutaRef = useRef<string>('');
 
   const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
     useDialog<ProductoSelectDto>();
@@ -248,14 +248,17 @@ const ProductsSection = () => {
         const detail = await ProductoService.getProductoById(record.id);
         setFormState({ ...detail });
         originalPublicIdRef.current = detail.publicIdImagen || '';
+        originalRutaRef.current = detail.rutaImagen || '';
       } catch {
         setFormState({ ...record });
         originalPublicIdRef.current = record.publicIdImagen || '';
+        originalRutaRef.current = record.rutaImagen || '';
       }
     } else if (mode === 'delete' && record) {
       setFormState({ ...record });
     } else {
       originalPublicIdRef.current = '';
+      originalRutaRef.current = '';
       // Crear: generar código automático
       const codigo = generarCodigoProducto();
       setCodigoGenerado(codigo);
@@ -280,38 +283,16 @@ const ProductsSection = () => {
     setError(null);
 
     try {
-      let rutaImagen = formState.rutaImagen || '';
-      let publicIdImagen = formState.publicIdImagen || '';
-
-      // ── 1. Si hay imagen pendiente (archivo nuevo), subirla con ImagenService ──
       const pending = imageUploadRef.current?.getPendingFile();
-      if (pending) {
-        try {
-          const resultado = await ImagenService.subirImagen(pending.file);
-          rutaImagen = resultado.rutaImagen;
-          publicIdImagen = resultado.publicId;
-        } catch (uploadErr) {
-          console.warn('Error al subir imagen:', uploadErr);
-          throw new Error('No se pudo subir la imagen. Intente de nuevo.');
-        }
-      }
+      const { ruta: rutaImagen, publicId: publicIdImagen } = await gestionarImagenAlGuardar({
+        pendingFile: pending?.file ?? null,
+        rutaFormulario: formState.rutaImagen,
+        publicIdFormulario: formState.publicIdImagen,
+        rutaOriginal: originalRutaRef.current,
+        publicIdOriginal: originalPublicIdRef.current,
+        esEdicion: dialogState.mode === 'edit',
+      });
 
-      // ── 2. Al actualizar: si NO hay imagen ahora pero ANTES sí tenía publicId, eliminar ──
-      if (dialogState.mode === 'edit') {
-        const publicIdOriginal = originalPublicIdRef.current;
-        const imagenQuitada = !rutaImagen && !pending;
-        if (imagenQuitada && publicIdOriginal) {
-          try {
-            await ImagenService.eliminarImagen({ publicId: publicIdOriginal });
-          } catch (delErr) {
-            console.warn('No se pudo eliminar la imagen anterior en Cloudinary:', delErr);
-          }
-          rutaImagen = '';
-          publicIdImagen = '';
-        }
-      }
-
-      // ── 3. Guardar el registro ───────────────────────────────────────────────
       if (dialogState.mode === 'create') {
         const payload: ProductoInsertDto = {
           codigo: formState.codigo || codigoGenerado,

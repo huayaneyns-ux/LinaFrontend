@@ -1,0 +1,196 @@
+.ventas-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+}
+
+.ventas-alert-error {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  background: var(--erp-danger-light);
+  color: var(--erp-danger);
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.ventas-table-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ventas-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--erp-text-muted);
+}
+
+.ventas-filter-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.venta-expand-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--erp-border);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--erp-accent);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.venta-expand-btn:hover {
+  background: var(--erp-accent-light);
+}
+
+.venta-cell-main {
+  font-weight: 600;
+}
+.venta-cell-sub {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+}
+
+.venta-expanded {
+  padding: 16px 20px;
+  background: #e8f4fc;
+  border-top: 1px solid #bae6fd;
+}
+
+.ventas-table-card .erp-table tbody tr.row-expanded {
+  background-color: #e0f2fe;
+}
+
+.ventas-table-card .erp-table tbody tr.row-expanded td {
+  background-color: #e0f2fe;
+}
+
+.ventas-table-card .erp-table tbody tr.row-expanded:hover {
+  background-color: #dbeafe;
+}
+
+.ventas-table-card .erp-table tbody tr.row-expanded:hover td {
+  background-color: #dbeafe;
+}
+
+.venta-expanded-loading {
+  text-align: center;
+  color: var(--erp-text-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.venta-expanded-section h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+
+.venta-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--erp-border);
+}
+
+.venta-detail-table th {
+  background: #e2e8f0;
+  padding: 8px 10px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.venta-detail-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--erp-border);
+}
+
+.venta-detail-table .mono {
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.venta-detail-table .text-center { text-align: center; }
+.venta-detail-table .text-right { text-align: right; }
+
+.venta-empty-row {
+  text-align: center;
+  color: var(--erp-text-muted);
+  padding: 16px !important;
+}
+
+.venta-payments-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--erp-border);
+}
+
+.venta-payments-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #bae6fd;
+}
+
+.venta-payments-table th {
+  background: #dbeafe;
+  padding: 8px 12px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #1e40af;
+}
+
+.venta-payments-table td {
+  padding: 9px 12px;
+  border-top: 1px solid #e0f2fe;
+  vertical-align: middle;
+}
+
+.venta-payments-table tbody tr:hover {
+  background: #f0f9ff;
+}
+
+.venta-payment-method {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+
+.venta-payment-amount {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--erp-accent);
+  white-space: nowrap;
+}
+
+.venta-payments-table .text-right { text-align: right; }
+
+.venta-payment-ref {
+  font-size: 12px;
+  color: var(--erp-text-muted);
+}

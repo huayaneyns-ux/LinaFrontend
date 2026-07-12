@@ -20,7 +20,7 @@ const MarcasBanner = () => {
         <div className="marcas-track">
           {/* Duplicamos la lista para crear un efecto de scroll infinito continuo */}
           {[...marcasActivas, ...marcasActivas].map((marca, index) => {
-            const logoUrl = resolveImageUrl(marca.url);
+            const logoUrl = resolveImageUrl(marca.urlImagen || marca.url);
             return (
             <div key={`${marca.id}-${index}`} className="marca-item">
               {logoUrl ? (

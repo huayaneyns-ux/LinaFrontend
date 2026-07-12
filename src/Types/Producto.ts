@@ -4,10 +4,14 @@ export interface Producto {
   nombre: string;
   idCategoria: number;
   categoria: string;
+  idMarca?: number;
+  marca?: string;
   descripcion: string;
   precio: number;
   imagenUrl?: string;
-  estado?: string;
+  url?: string;
+  rutaImagen?: string;
+  estado?: string | boolean | number;
   stock?: number;
 }
 
@@ -15,5 +19,7 @@ export interface Categoria {
   id: number;
   nombre: string;
   estado: boolean;
-  url: string;
+  urlImagen?: string;
+  url?: string;
+  publicIdImagen?: string;
 }
