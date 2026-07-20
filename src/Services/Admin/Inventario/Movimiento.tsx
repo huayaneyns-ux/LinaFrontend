@@ -1,28 +1,76 @@
 import { api } from '../../../Services/apiService';
+
 import type {
-  MovimientoSelectDto,
-  MovimientoInsertDto,
-  MovimientoUpdateDto,
+  MovimientoSelectDto
 } from '../../../Types/Admin/Inventario/Movimiento';
 
+
 export const MovimientoService = {
-  getMovimientos: async (): Promise<MovimientoSelectDto[]> => {
-    return api.request<MovimientoSelectDto[]>('/Movimiento/Lista', { method: 'GET' });
-  },
 
-  getMovimientoById: async (id: number): Promise<MovimientoSelectDto> => {
-    return api.request<MovimientoSelectDto>(`/Movimiento/${id}`, { method: 'GET' });
-  },
 
-  createMovimiento: async (data: MovimientoInsertDto): Promise<string> => {
-    return api.request<string>('/Movimiento', { method: 'POST', body: JSON.stringify(data) });
-  },
+  //=========================================
+  // LISTAR MOVIMIENTOS
+  //=========================================
+  getMovimientos: async (
+    filtros?: {
+      idProducto?: number;
+      tipo?: number;
+      fechaDesde?: string;
+      fechaHasta?: string;
+    }
+  ): Promise<MovimientoSelectDto[]> => {
 
-  updateMovimiento: async (data: MovimientoUpdateDto): Promise<string> => {
-    return api.request<string>('/Movimiento', { method: 'PUT', body: JSON.stringify(data) });
-  },
 
-  deleteMovimiento: async (id: number): Promise<string> => {
-    return api.request<string>(`/Movimiento/${id}`, { method: 'DELETE' });
-  },
+    let url = '/Movimiento/Lista';
+
+
+    if (filtros) {
+
+      const params = new URLSearchParams();
+
+
+      if (filtros.idProducto)
+        params.append(
+          'idProducto',
+          filtros.idProducto.toString()
+        );
+
+
+      if (filtros.tipo)
+        params.append(
+          'tipo',
+          filtros.tipo.toString()
+        );
+
+
+      if (filtros.fechaDesde)
+        params.append(
+          'fechaDesde',
+          filtros.fechaDesde
+        );
+
+
+      if (filtros.fechaHasta)
+        params.append(
+          'fechaHasta',
+          filtros.fechaHasta
+        );
+
+
+      if(params.toString())
+        url += `?${params.toString()}`;
+
+    }
+
+
+    return api.request<MovimientoSelectDto[]>(
+      url,
+      {
+        method: 'GET'
+      }
+    );
+
+  }
+
+
 };

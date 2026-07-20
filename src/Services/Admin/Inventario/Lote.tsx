@@ -1,24 +1,139 @@
 import { api } from '../../../Services/apiService';
-import type { LoteSelectDto, LoteInsertDto, LoteUpdateDto } from '../../../Types/Admin/Inventario/Lote';
+
+import type {
+  LoteSelectDto,
+  LoteSelectListarDto,
+  LoteInsertDto,
+  MovimientoInsertDto
+} from '../../../Types/Admin/Inventario/Lote';
+
 
 export const LoteService = {
-  getLotes: async (): Promise<LoteSelectDto[]> => {
-    return api.request<LoteSelectDto[]>('/Lote/Lista', { method: 'GET' });
+
+
+  //=========================================
+  // LISTAR LOTES
+  //=========================================
+  getLotes: async (
+    filtros?: {
+      codigoLote?: string;
+      idProducto?: number;
+      idProveedor?: number;
+      fechaIngresoDesde?: string;
+      fechaIngresoHasta?: string;
+      fechaVencimientoDesde?: string;
+      fechaVencimientoHasta?: string;
+    }
+  ): Promise<LoteSelectListarDto[]> => {
+
+
+    let url = '/Lote/Lista';
+
+
+    if (filtros) {
+
+      const params = new URLSearchParams();
+
+
+      if (filtros.codigoLote) 
+        params.append('codigoLote', filtros.codigoLote);
+
+
+      if (filtros.idProducto)
+        params.append('idProducto', filtros.idProducto.toString());
+
+
+      if (filtros.idProveedor)
+        params.append('idProveedor', filtros.idProveedor.toString());
+
+
+      if (filtros.fechaIngresoDesde)
+        params.append('fechaIngresoDesde', filtros.fechaIngresoDesde);
+
+
+      if (filtros.fechaIngresoHasta)
+        params.append('fechaIngresoHasta', filtros.fechaIngresoHasta);
+
+
+      if (filtros.fechaVencimientoDesde)
+        params.append('fechaVencimientoDesde', filtros.fechaVencimientoDesde);
+
+
+      if (filtros.fechaVencimientoHasta)
+        params.append('fechaVencimientoHasta', filtros.fechaVencimientoHasta);
+
+
+
+      if (params.toString())
+        url += `?${params.toString()}`;
+
+    }
+
+
+
+    return api.request<LoteSelectListarDto[]>(url, {
+      method: 'GET'
+    });
+
   },
 
-  getLoteById: async (id: number): Promise<LoteSelectDto> => {
-    return api.request<LoteSelectDto>(`/Lote/${id}`, { method: 'GET' });
+
+
+  //=========================================
+  // OBTENER LOTE
+  //=========================================
+  getLoteById: async (
+    id: number
+  ): Promise<LoteSelectDto> => {
+
+    return api.request<LoteSelectDto>(
+      `/Lote/${id}`,
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  createLote: async (data: LoteInsertDto): Promise<string> => {
-    return api.request<string>('/Lote', { method: 'POST', body: JSON.stringify(data) });
+
+
+  //=========================================
+  // INSERTAR LOTE
+  //=========================================
+  createLote: async (
+    data: LoteInsertDto
+  ): Promise<any> => {
+
+
+    return api.request<any>(
+      '/Lote/Insertar',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
   },
 
-  updateLote: async (data: LoteUpdateDto): Promise<string> => {
-    return api.request<string>('/Lote', { method: 'PUT', body: JSON.stringify(data) });
-  },
 
-  deleteLote: async (id: number): Promise<string> => {
-    return api.request<string>(`/Lote/${id}`, { method: 'DELETE' });
-  },
+
+  //=========================================
+  // INSERTAR MOVIMIENTO
+  //=========================================
+  createMovimiento: async (
+    data: MovimientoInsertDto
+  ): Promise<any> => {
+
+
+    return api.request<any>(
+      '/Lote/InsertarMovimiento',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
+  }
+
+
 };

@@ -1,24 +1,85 @@
 import { api } from '../../../Services/apiService';
-import type { CompraSelectDto, CompraInsertDto, CompraUpdateDto } from '../../../Types/Admin/Compras/Compra';
+
+import type {
+  CompraSelectDto,
+  CompraCompletaInsertDto,
+  CompraListaDto
+} from '../../../Types/Admin/Compras/Compra';
+
 
 export const CompraService = {
+
+
+  //=========================================
+  // LISTAR COMPRAS
+  //=========================================
   getCompras: async (): Promise<CompraSelectDto[]> => {
-    return api.request<CompraSelectDto[]>('/Compra/Lista', { method: 'GET' });
+
+    return api.request<CompraSelectDto[]>(
+      '/Compra/Lista',
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  getCompraById: async (id: number): Promise<CompraSelectDto> => {
-    return api.request<CompraSelectDto>(`/Compra/${id}`, { method: 'GET' });
+
+  //=========================================
+  // OBTENER COMPRA POR ID
+  // CABECERA + DETALLE + LOTE
+  //=========================================
+  getCompraById: async (
+    id: number
+  ): Promise<CompraSelectDto> => {
+
+    return api.request<CompraSelectDto>(
+      `/Compra/${id}`,
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  createCompra: async (data: CompraInsertDto): Promise<string> => {
-    return api.request<string>('/Compra', { method: 'POST', body: JSON.stringify(data) });
+
+  //=========================================
+  // REGISTRAR COMPRA COMPLETA
+  // Compra + Detalle + Lote + Movimiento
+  //=========================================
+  createCompraCompleta: async (
+    data: CompraCompletaInsertDto
+  ): Promise<{ 
+    success: boolean;
+    mensaje: string;
+    idCompra: number;
+  }> => {
+
+    return api.request<{
+      success: boolean;
+      mensaje: string;
+      idCompra: number;
+    }>(
+      '/Compra/RegistrarCompleta',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
   },
 
-  updateCompra: async (data: CompraUpdateDto): Promise<string> => {
-    return api.request<string>('/Compra', { method: 'PUT', body: JSON.stringify(data) });
-  },
+  //=========================================
+  // LISTAR COMPRAS CABECERA
+  //=========================================
+  getComprasLista: async (): Promise<CompraListaDto[]> => {
 
-  deleteCompra: async (id: number): Promise<string> => {
-    return api.request<string>(`/Compra/${id}`, { method: 'DELETE' });
+    return api.request<CompraListaDto[]>(
+      '/Compra/Lista',
+      {
+        method:'GET'
+      }
+    );
+
   },
 };

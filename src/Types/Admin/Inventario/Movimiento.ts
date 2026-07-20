@@ -1,25 +1,39 @@
+//=========================================
+// LISTAR MOVIMIENTOS
+//=========================================
 export interface MovimientoSelectDto {
-  id: number;
-  tipo: string;
-  idProducto: number;
-  productoNombre: string;
-  cantidad: number;
-  motivo: string;
+
+  idMovimiento: number;
+
   fecha: string;
+
+
+  idTipoMovimiento: number;
+
+  tipoMovimiento: string;
+
+
+  idProducto: number;
+
+  codigoProducto: string;
+
+  producto: string;
+
+
+  idLote: number;
+
+  codigoLote: string;
+
+
+  idUsuario: number;
+
   usuario: string;
-}
 
-export interface MovimientoInsertDto {
-  tipo: string;
-  idProducto: number;
-  cantidad: number;
-  motivo: string;
-}
 
-export interface MovimientoUpdateDto {
-  id: number;
-  tipo: string;
-  idProducto: number;
   cantidad: number;
-  motivo: string;
+
+  motivo?: string;
+
+
+  stockActual: number;
 }

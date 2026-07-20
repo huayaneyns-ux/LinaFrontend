@@ -1,25 +1,120 @@
+//=========================================
+// LISTAR / OBTENER COMPRA
+//=========================================
 export interface CompraSelectDto {
-  id: number;
-  codigo: string;
+
+  idCompra: number;
+
+  idUsuario: number;
+  usuario: string;
+
   idProveedor: number;
   proveedor: string;
-  fecha: string;
-  estado: string;
-  total: number;
+
+  fechaCompra: string;
+
+  fechaRecepcion?: string;
+
+  totalCompra: number;
+
+  estado: boolean;
+
+  detalles: CompraDetalleSelectDto[];
+
 }
 
-export interface CompraInsertDto {
-  codigo: string;
-  idProveedor: number;
-  fecha: string;
-  total: number;
+
+//=========================================
+// DETALLE COMPRA
+//=========================================
+export interface CompraDetalleSelectDto {
+
+  idDetalleCompra: number;
+
+  idProducto: number;
+
+  codigoProducto: string;
+
+  producto: string;
+
+  cantidad: number;
+
+  costoTotal: number;
+
+  costoUnitario: number;
+
+
+  idLote?: number;
+
+  codigoLote?: string;
+
+  fechaVencimiento?: string;
+
+  stockActual?: number;
+
 }
 
-export interface CompraUpdateDto {
-  id: number;
-  codigo: string;
+
+//=========================================
+// REGISTRAR COMPRA COMPLETA
+//=========================================
+export interface CompraCompletaInsertDto {
+
+  idUsuario: number;
+
   idProveedor: number;
-  fecha: string;
-  estado: string;
-  total: number;
+
+  fechaCompra: string;
+
+  fechaRecepcion?: string;
+
+  detalles: DetalleCompraCompletaDto[];
+
+}
+
+
+//=========================================
+// DETALLE REGISTRO
+//=========================================
+export interface DetalleCompraCompletaDto {
+
+  idProducto: number;
+
+  cantidad: number;
+
+  costoTotal: number;
+
+  fechaFabricacion?: string;
+
+  fechaVencimiento?: string;
+
+}
+
+//=========================================
+// LISTAR COMPRA CABECERA
+//=========================================
+export interface CompraListaDto {
+
+  idCompra: number;
+
+  idUsuario: number;
+
+  usuario: string;
+
+
+  idProveedor: number;
+
+  proveedor: string;
+
+
+  fechaCompra: string;
+
+  fechaRecepcion?: string;
+
+
+  totalCompra: number;
+
+
+  estado: boolean;
+
 }
