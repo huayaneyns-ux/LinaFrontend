@@ -22,7 +22,7 @@ const Catalogo = () => {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
-  const { agregarAlCarrito } = useCart();
+  const { agregarAlCarrito, stockError, clearStockError } = useCart();
 
   const categoriaActual = searchParams.get('categoria') || 'todas';
   const marcaActual = searchParams.get('marca') || 'todas';
@@ -96,6 +96,13 @@ const Catalogo = () => {
       </section>
 
       <div className="container catalogo-inner">
+        {stockError && (
+          <div className="catalogo-stock-alert" role="alert">
+            <span>{stockError}</span>
+            <button type="button" onClick={clearStockError} aria-label="Cerrar">×</button>
+          </div>
+        )}
+
         <div className="catalogo-toolbar">
           <p className="catalogo-count">
             {productos.length} producto{productos.length !== 1 ? 's' : ''}

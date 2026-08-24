@@ -241,14 +241,29 @@ const CajaSection = () => {
 
   const handleAddToCart = (producto: ProductoSelectDto, cantidad: number) => {
     if (cartLocked) return;
+    const stock = Math.max(0, Number(producto.stock) || 0);
+    const qty = Math.max(1, cantidad);
+    const existing = cart.find(i => i.producto.id === producto.id);
+    const nuevaCantidad = existing ? existing.cantidad + qty : qty;
+
+    if (stock <= 0) {
+      setError(`No hay stock disponible de "${producto.nombre}".`);
+      return;
+    }
+    if (nuevaCantidad > stock) {
+      setError(`No hay suficiente stock de "${producto.nombre}". Disponible: ${stock}`);
+      return;
+    }
+
+    setError(null);
     setCart(prev => {
-      const existing = prev.find(i => i.producto.id === producto.id);
-      if (existing) {
+      const current = prev.find(i => i.producto.id === producto.id);
+      if (current) {
         return prev.map(i =>
-          i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + cantidad } : i
+          i.producto.id === producto.id ? { ...i, cantidad: i.cantidad + qty } : i
         );
       }
-      return [...prev, { producto, cantidad }];
+      return [...prev, { producto, cantidad: qty }];
     });
     setProductDialog(null);
     setDialogQty(1);
@@ -256,10 +271,24 @@ const CajaSection = () => {
 
   const updateQty = (id: number, delta: number) => {
     if (cartLocked) return;
+    const item = cart.find(i => i.producto.id === id);
+    if (!item) return;
+
+    const next = item.cantidad + delta;
+    if (next <= 0) {
+      setCart(prev => prev.filter(i => i.producto.id !== id));
+      return;
+    }
+
+    const stock = Math.max(0, Number(item.producto.stock) || 0);
+    if (next > stock) {
+      setError(`No hay suficiente stock de "${item.producto.nombre}". Disponible: ${stock}`);
+      return;
+    }
+
+    setError(null);
     setCart(prev =>
-      prev
-        .map(i => (i.producto.id === id ? { ...i, cantidad: i.cantidad + delta } : i))
-        .filter(i => i.cantidad > 0)
+      prev.map(i => (i.producto.id === id ? { ...i, cantidad: next } : i))
     );
   };
 
@@ -418,10 +447,12 @@ const CajaSection = () => {
                   type="button"
                   className="caja-product-row"
                   onClick={() => !cartLocked && setProductDialog(p)}
-                  disabled={cartLocked}
+                  disabled={cartLocked || (Number(p.stock) || 0) <= 0}
                 >
                   <span className="caja-product-name">{p.nombre}</span>
-                  <span className="caja-product-meta">{p.categoria} · S/ {p.precioVenta.toFixed(2)}</span>
+                  <span className="caja-product-meta">
+                    {p.categoria} · S/ {p.precioVenta.toFixed(2)} · Stock: {Number(p.stock) || 0}
+                  </span>
                 </button>
               ))
             )}
@@ -503,13 +534,24 @@ const CajaSection = () => {
                       </div>
                       <div className="caja-cart-info">
                         <strong>{item.producto.nombre}</strong>
-                        <span>S/ {item.producto.precioVenta.toFixed(2)} c/u</span>
+                        <span>S/ {item.producto.precioVenta.toFixed(2)} c/u · Stock: {Number(item.producto.stock) || 0}</span>
                       </div>
                       {!cartLocked ? (
                         <div className="caja-cart-qty">
                           <button type="button" onClick={() => updateQty(item.producto.id, -1)}><FiMinus /></button>
                           <span>{item.cantidad}</span>
-                          <button type="button" onClick={() => updateQty(item.producto.id, 1)}><FiPlus /></button>
+                          <button
+                            type="button"
+                            onClick={() => updateQty(item.producto.id, 1)}
+                            disabled={item.cantidad >= (Number(item.producto.stock) || 0)}
+                            title={
+                              item.cantidad >= (Number(item.producto.stock) || 0)
+                                ? 'No hay suficiente stock'
+                                : 'Aumentar'
+                            }
+                          >
+                            <FiPlus />
+                          </button>
                           <button type="button" className="danger" onClick={() => removeItem(item.producto.id)}><FiTrash2 /></button>
                         </div>
                       ) : (
@@ -657,16 +699,57 @@ const CajaSection = () => {
             <h3>{productDialog.nombre}</h3>
             <p className="caja-modal-desc">{productDialog.descripcion || 'Sin descripción'}</p>
             <p className="caja-modal-price">S/ {productDialog.precioVenta.toFixed(2)}</p>
+            <p className="caja-modal-desc">
+              {(Number(productDialog.stock) || 0) <= 0
+                ? 'Sin stock disponible'
+                : `${Number(productDialog.stock) || 0} ejemplar${(Number(productDialog.stock) || 0) !== 1 ? 'es' : ''} disponible${(Number(productDialog.stock) || 0) !== 1 ? 's' : ''}`}
+            </p>
             <div className="caja-modal-qty">
               <label>Cantidad</label>
               <div className="caja-qty-controls">
                 <button type="button" onClick={() => setDialogQty(q => Math.max(1, q - 1))}><FiMinus /></button>
-                <input type="number" min={1} value={dialogQty} onChange={e => setDialogQty(Math.max(1, Number(e.target.value) || 1))} />
-                <button type="button" onClick={() => setDialogQty(q => q + 1)}><FiPlus /></button>
+                <input
+                  type="number"
+                  min={1}
+                  max={Math.max(1, Number(productDialog.stock) || 1)}
+                  value={dialogQty}
+                  onChange={e => {
+                    const stock = Math.max(0, Number(productDialog.stock) || 0);
+                    const val = Math.max(1, Number(e.target.value) || 1);
+                    if (stock > 0 && val > stock) {
+                      setDialogQty(stock);
+                      setError(`No hay suficiente stock. Disponible: ${stock}`);
+                    } else {
+                      setError(null);
+                      setDialogQty(val);
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const stock = Math.max(0, Number(productDialog.stock) || 0);
+                    setDialogQty(q => {
+                      if (q + 1 > stock) {
+                        setError(`No hay suficiente stock. Disponible: ${stock}`);
+                        return q;
+                      }
+                      setError(null);
+                      return q + 1;
+                    });
+                  }}
+                >
+                  <FiPlus />
+                </button>
               </div>
             </div>
-            <button type="button" className="caja-btn-confirm" onClick={() => handleAddToCart(productDialog, dialogQty)}>
-              Agregar al carrito
+            <button
+              type="button"
+              className="caja-btn-confirm"
+              onClick={() => handleAddToCart(productDialog, dialogQty)}
+              disabled={(Number(productDialog.stock) || 0) <= 0}
+            >
+              {(Number(productDialog.stock) || 0) <= 0 ? 'Sin stock' : 'Agregar al carrito'}
             </button>
           </div>
         </div>

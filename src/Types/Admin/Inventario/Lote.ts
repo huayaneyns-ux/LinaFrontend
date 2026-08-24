@@ -2,15 +2,13 @@
 // INSERTAR LOTE
 //=========================================
 export interface LoteInsertDto {
-  idProducto: number;
+
   idDetalleCompra: number;
 
-  fechaIngreso: string;
   fechaFabricacion?: string;
+
   fechaVencimiento?: string;
 
-  costoUnitario: number;
-  cantidad: number;
 }
 
 //=========================================
@@ -89,15 +87,13 @@ export interface LoteMovimientoDto {
 }
 
 //=========================================
-// INSERTAR MOVIMIENTO LOTE
+// REGISTRAR MOVIMIENTO
 //=========================================
 export interface MovimientoInsertDto {
 
   idUsuario: number;
 
   idLote: number;
-
-  idProducto: number;
 
   tipo: number;
 

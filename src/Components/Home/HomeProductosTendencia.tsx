@@ -26,7 +26,7 @@ const HomeProductosTendencia: React.FC = () => {
       <div className="container">
         <div className="section-header">
           <div>
-            <h2 className="section-title-new">🔥 En Tendencia</h2>
+            <h2 className="section-title-new">  En Tendencia</h2>
             <p className="section-subtitle">Los productos más populares de la tienda</p>
           </div>
           <button className="section-link" onClick={() => navigate('/catalogo')}>

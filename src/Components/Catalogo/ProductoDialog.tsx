@@ -7,11 +7,13 @@ import { FiBox } from 'react-icons/fi';
 interface Props {
   producto: Producto;
   onClose: () => void;
-  onAgregar: (producto: Producto, cantidad: number) => void;
+  onAgregar: (producto: Producto, cantidad: number) => string | null | void;
 }
 
 const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
-  const [cantidad, setCantidad] = useState(1);
+  const stock = Math.max(0, Number(producto.stock) || 0);
+  const [cantidad, setCantidad] = useState(stock > 0 ? 1 : 0);
+  const [error, setError] = useState<string | null>(null);
   const [zoomStyle, setZoomStyle] = useState<React.CSSProperties>({});
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -31,8 +33,31 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
     });
   };
 
+  const handleCantidadChange = (value: number) => {
+    const next = Math.max(1, value || 1);
+    if (stock > 0 && next > stock) {
+      setCantidad(stock);
+      setError(`No hay suficiente stock. Disponible: ${stock}`);
+      return;
+    }
+    setError(null);
+    setCantidad(next);
+  };
+
   const handleAdd = () => {
-    onAgregar(producto, cantidad);
+    if (stock <= 0) {
+      setError('No hay stock disponible.');
+      return;
+    }
+    if (cantidad > stock) {
+      setError(`No hay suficiente stock. Disponible: ${stock}`);
+      return;
+    }
+    const msg = onAgregar(producto, cantidad);
+    if (msg) {
+      setError(msg);
+      return;
+    }
     onClose();
   };
 
@@ -43,9 +68,9 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>&times;</button>
         <div className="modal-body">
-          <div 
-            className="modal-image zoom-container" 
-            onMouseMove={handleMouseMove} 
+          <div
+            className="modal-image zoom-container"
+            onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
             {imgSrc ? (
@@ -60,24 +85,33 @@ const ProductoDialog: React.FC<Props> = ({ producto, onClose, onAgregar }) => {
             <p className="codigo-prod">Código: {producto.codigo}</p>
             <p className="precio-prod">S/ {producto.precio.toFixed(2)}</p>
             <p className="desc-prod">{producto.descripcion}</p>
-            
+
             <div className="cantidad-selector">
               <label htmlFor="cantidad">Cantidad:</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 id="cantidad"
-                min="1" 
-                max={producto.stock || 100}
+                min="1"
+                max={stock || 1}
                 value={cantidad}
-                onChange={(e) => setCantidad(Number(e.target.value))}
+                disabled={stock <= 0}
+                onChange={(e) => handleCantidadChange(Number(e.target.value))}
               />
-              {producto.stock !== undefined && (
-                <span className="stock-info">({producto.stock} disponibles)</span>
-              )}
+              <span className="stock-info">
+                {stock <= 0
+                  ? '(Sin stock)'
+                  : `(${stock} ejemplar${stock !== 1 ? 'es' : ''} disponible${stock !== 1 ? 's' : ''})`}
+              </span>
             </div>
-            
-            <button className="btn btn-primary btn-large" onClick={handleAdd}>
-              Agregar al carrito
+
+            {error && <p className="stock-error-msg">{error}</p>}
+
+            <button
+              className="btn btn-primary btn-large"
+              onClick={handleAdd}
+              disabled={stock <= 0}
+            >
+              {stock <= 0 ? 'Sin stock' : 'Agregar al carrito'}
             </button>
           </div>
         </div>

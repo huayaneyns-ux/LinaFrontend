@@ -36,6 +36,9 @@ export const mockUsuarios: Usuario[] = [
   { id: 'u3', username: 'jramos', nombres: 'Jorge', apellidos: 'Ramos Torres', rol: 'TRABAJADOR', email: 'jorge.ramos@lina.pe', estado: 'ACTIVO', sucursal: 'Sucursal Norte', telefono: '923456789', createdAt: '2024-03-12T10:00:00Z', updatedAt: '2024-05-20T09:15:00Z' },
   { id: 'u4', username: 'mflores', nombres: 'María', apellidos: 'Flores Vega', rol: 'CAJERO', email: 'maria.flores@lina.pe', estado: 'ACTIVO', sucursal: 'Sucursal Sur', telefono: '934567890', createdAt: '2024-03-18T08:30:00Z', updatedAt: '2024-06-01T14:00:00Z' },
   { id: 'u5', username: 'arojas', nombres: 'Andrés', apellidos: 'Rojas Castillo', rol: 'TRABAJADOR', email: 'andres.rojas@lina.pe', estado: 'INACTIVO', sucursal: 'Sucursal Norte', telefono: '945678901', createdAt: '2024-01-25T11:00:00Z', updatedAt: '2024-04-30T16:00:00Z' },
+  { id: 'c1', username: 'juancliente', nombres: 'Juan', apellidos: 'Pérez López', rol: 'CLIENTE', email: 'juan.perez@gmail.com', estado: 'ACTIVO', sucursal: '', telefono: '987123456', createdAt: '2024-06-01T08:00:00Z', updatedAt: '2024-06-01T08:00:00Z' },
+  { id: 'c2', username: 'anacliente', nombres: 'Ana María', apellidos: 'Solís Ramos', rol: 'CLIENTE', email: 'ana.solis@gmail.com', estado: 'ACTIVO', sucursal: '', telefono: '976543210', createdAt: '2024-06-05T09:00:00Z', updatedAt: '2024-06-05T09:00:00Z' },
+  { id: 'c3', username: 'diegocliente', nombres: 'Diego', apellidos: 'Cáceres Vidal', rol: 'CLIENTE', email: 'diego.caceres@gmail.com', estado: 'ACTIVO', sucursal: '', telefono: '965432109', createdAt: '2024-06-10T10:00:00Z', updatedAt: '2024-06-10T10:00:00Z' },
 ];
 
 export const mockLotes = [

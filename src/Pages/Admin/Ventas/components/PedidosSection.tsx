@@ -1,21 +1,13 @@
-import { useState, useCallback, useMemo } from 'react';
-
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { PedidoService } from '../../../../Services/Admin/Ventas/Pedido';
-import type {
-  PedidoSelectDto,
-  PedidoInsertDto,
-  PedidoUpdateDto,
-} from '../../../../Types/Admin/Ventas/Pedido';
-
-import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
+import { resolveImageUrl } from '../../../../Utils/imageUtils';
+import type { PedidoSelectDto, PedidoSelectIdDto } from '../../../../Types/Admin/Ventas/Pedido';
 import { useDataTable } from '../../../../Hooks/useDataTable';
-import { useDialog } from '../../../../Hooks/useDialog';
 import { formatDate } from '../../../../Utils/formatters';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
-import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
 import {
   FiFileText,
@@ -23,53 +15,79 @@ import {
   FiClock,
   FiActivity,
   FiEye,
-  FiEdit2,
-  FiTrash2,
+  FiRefreshCw,
+  FiImage,
+  FiX,
+  FiPackage,
 } from 'react-icons/fi';
+import './PedidosSection.css';
+
+const ESTADOS: Record<number, { label: string; tone: string }> = {
+  1: { label: 'Pendiente de Validación', tone: 'warning' },
+  2: { label: 'Pago Rechazado', tone: 'danger' },
+  3: { label: 'Pago Aprobado', tone: 'info' },
+  4: { label: 'Alistando Pedido', tone: 'info' },
+  5: { label: 'En Camino', tone: 'primary' },
+  6: { label: 'Listo para Recoger', tone: 'primary' },
+  7: { label: 'Entregado', tone: 'success' },
+  8: { label: 'Cancelado', tone: 'danger' },
+};
+
+const fmt = (n?: number | null) => `S/ ${(Number(n) || 0).toFixed(2)}`;
+
+const labelTipoEntrega = (tipo?: string | null) => {
+  if (tipo === 'RECOJO_TIENDA') return 'Recojo en Tienda';
+  if (tipo === 'ENVIO_DOMICILIO') return 'Envío a Domicilio';
+  return tipo || '—';
+};
+
+const estadoLabel = (codigo?: number | null, nombreApi?: string | null) => {
+  const code = Number(codigo) || 0;
+  return ESTADOS[code]?.label || nombreApi || (code ? `Estado ${code}` : '—');
+};
+
+const estadoTone = (codigo?: number | null) => ESTADOS[Number(codigo) || 0]?.tone || 'warning';
 
 interface PedidoFilters {
   estado: string;
   tipoEntrega: string;
 }
 
+type DialogMode = 'view' | 'estado' | null;
+
 const DEFAULT_FILTERS: PedidoFilters = { estado: '', tipoEntrega: '' };
 
-const EMPTY_FORM: Partial<PedidoSelectDto> = {
-  codigo: '',
-  clienteId: '',
-  tipoEntrega: 'RECOJO_TIENDA',
-  estado: 'PENDIENTE_PAGO',
-  subtotal: 0,
-  igv: 0,
-  total: 0,
-  pagoPendiente: 0,
-};
-
-const pedidoCrudService = {
-  getAll: () => PedidoService.getPedidos(),
-  getById: (id: number) => PedidoService.getPedidoById(id),
-  create: (data: PedidoInsertDto) => PedidoService.createPedido(data),
-  update: (data: PedidoUpdateDto) => PedidoService.updatePedido(data),
-  delete: (id: number) => PedidoService.deletePedido(id),
-};
-
-const getBadgeStatus = (status: string) => {
-  if (status === 'ENTREGADO') return 'ACTIVO';
-  if (status === 'CANCELADO') return 'INACTIVO';
-  if (status === 'PENDIENTE_PAGO') return 'PENDIENTE';
-  return 'SUSPENDIDO';
-};
-
 const PedidosSection = () => {
-  const { items: orders, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
-    useAdminCrud<PedidoSelectDto, PedidoInsertDto, PedidoUpdateDto>(pedidoCrudService);
+  const [pedidos, setPedidos] = useState<PedidoSelectDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<PedidoSelectDto>();
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+  const [detalle, setDetalle] = useState<PedidoSelectIdDto | null>(null);
+  const [nuevoEstado, setNuevoEstado] = useState(1);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<PedidoFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [formState, setFormState] = useState<Partial<PedidoSelectDto>>(EMPTY_FORM);
+
+  const loadPedidos = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await PedidoService.getPedidos();
+      setPedidos(Array.isArray(data) ? data : []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cargar la lista de pedidos');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadPedidos();
+  }, [loadPedidos]);
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -78,8 +96,8 @@ const PedidosSection = () => {
 
   const externalFilter = useCallback(
     (order: PedidoSelectDto) => {
-      if (filters.estado && order.estado !== filters.estado) return false;
-      if (filters.tipoEntrega && order.tipoEntrega !== filters.tipoEntrega) return false;
+      if (filters.estado && String(order.estado_pedido) !== filters.estado) return false;
+      if (filters.tipoEntrega && order.tipo_entrega !== filters.tipoEntrega) return false;
       return true;
     },
     [filters]
@@ -97,143 +115,193 @@ const PedidosSection = () => {
     setPage,
     setPageSize,
   } = useDataTable<PedidoSelectDto>({
-    data: orders,
-    searchKeys: ['codigo', 'cliente'],
+    data: pedidos,
+    searchKeys: ['id_pedido', 'cliente', 'telefono', 'metodo_pago'],
     defaultPageSize: 8,
     externalFilter,
   });
 
   const indicators = useMemo(() => {
-    const total = orders.length;
-    const entregados = orders.filter(o => o.estado === 'ENTREGADO').length;
-    const pendientes = orders.filter(o => o.estado !== 'ENTREGADO' && o.estado !== 'CANCELADO').length;
-    const montoTotal = orders.reduce((sum, o) => sum + o.total, 0);
+    const total = pedidos.length;
+    const entregados = pedidos.filter(o => Number(o.estado_pedido) === 7).length;
+    const pendientes = pedidos.filter(o => {
+      const e = Number(o.estado_pedido);
+      return e !== 7 && e !== 8;
+    }).length;
+    const montoTotal = pedidos.reduce((sum, o) => sum + (Number(o.monto) || 0), 0);
     return { total, entregados, pendientes, montoTotal };
-  }, [orders]);
+  }, [pedidos]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: PedidoSelectDto) => {
-    if (record && (mode === 'view' || mode === 'edit')) {
-      const detail = await fetchById(record.id, record);
-      setFormState({ ...detail });
-    } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
-    } else {
-      setFormState({ ...EMPTY_FORM });
-    }
-
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const closeDialog = () => {
+    setDialogMode(null);
+    setDetalle(null);
+    setError(null);
   };
 
-  const handleConfirm = async () => {
+  const openPedidoDialog = async (mode: 'view' | 'estado', record: PedidoSelectDto) => {
+    setSuccessMsg(null);
+    setError(null);
+    setSaving(true);
+    setDialogMode(mode);
+    setDetalle(null);
     try {
-      if (dialogState.mode === 'create') {
-        const payload: PedidoInsertDto = {
-          codigo: formState.codigo || '',
-          clienteId: formState.clienteId || '',
-          tipoEntrega: formState.tipoEntrega || 'RECOJO_TIENDA',
-          subtotal: Number(formState.subtotal) || 0,
-          igv: Number(formState.igv) || 0,
-          total: Number(formState.total) || 0,
-        };
-        await createItem(payload);
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
-        const payload: PedidoUpdateDto = {
-          id: dialogState.record.id,
-          codigo: formState.codigo || '',
-          clienteId: formState.clienteId || '',
-          estado: formState.estado || 'PENDIENTE_PAGO',
-          tipoEntrega: formState.tipoEntrega || 'RECOJO_TIENDA',
-          subtotal: Number(formState.subtotal) || 0,
-          igv: Number(formState.igv) || 0,
-          total: Number(formState.total) || 0,
-          pagoPendiente: Number(formState.pagoPendiente) || 0,
-        };
-        await updateItem(payload);
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await deleteItem(dialogState.record.id);
-      }
-      closeDialog();
-    } catch {
-      // error shown via hook
+      const detail = await PedidoService.getPedidoById(record.id_pedido);
+      // Si el detalle no trae id, conservar el de la lista
+      const merged: PedidoSelectIdDto = {
+        ...detail,
+        id_pedido: detail.id_pedido || record.id_pedido,
+        estado_pedido: detail.estado_pedido || record.estado_pedido,
+        monto: detail.monto ?? record.monto,
+        metodo_pago: detail.metodo_pago ?? record.metodo_pago,
+        codigo_operacion: detail.codigo_operacion ?? record.codigo_operacion,
+        ruta_comprobante: detail.ruta_comprobante ?? record.ruta_comprobante,
+        cliente: detail.cliente || record.cliente,
+      };
+      setDetalle(merged);
+      setNuevoEstado(Number(merged.estado_pedido) || 1);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'No se pudo cargar el detalle del pedido');
+      setDialogMode(null);
+    } finally {
+      setSaving(false);
     }
   };
+
+  const estadosDisponibles = useMemo(() => {
+    const tipo = detalle?.tipo_entrega || '';
+    return Object.entries(ESTADOS).filter(([idStr]) => {
+      const id = Number(idStr);
+      if (tipo === 'ENVIO_DOMICILIO' && id === 6) return false;
+      if (tipo === 'RECOJO_TIENDA' && id === 5) return false;
+      return true;
+    });
+  }, [detalle?.tipo_entrega]);
+
+  const handleCambiarEstado = async () => {
+    if (!detalle) return;
+    if (nuevoEstado === Number(detalle.estado_pedido)) {
+      closeDialog();
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await PedidoService.cambiarEstado({
+        id_pedido: detalle.id_pedido,
+        estado_pedido: nuevoEstado,
+      });
+      if (res.success) {
+        setSuccessMsg(res.mensaje || `Estado del pedido #${detalle.id_pedido} actualizado.`);
+        closeDialog();
+        await loadPedidos();
+      } else {
+        setError(res.mensaje || 'No se pudo cambiar el estado.');
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cambiar el estado');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const comprobanteUrl = detalle?.ruta_comprobante
+    ? resolveImageUrl(detalle.ruta_comprobante)
+    : null;
 
   const columns = [
     {
-      key: 'codigo',
-      header: 'Pedido ID',
+      key: 'id_pedido',
+      header: 'Pedido',
       sortable: true,
-      width: '120px',
-      render: (row: PedidoSelectDto) => (
-        <strong style={{ color: 'var(--erp-text-primary)' }}>{row.codigo}</strong>
-      ),
+      width: '100px',
+      render: (row: PedidoSelectDto) => <strong>#{row.id_pedido}</strong>,
     },
     {
-      key: 'fecha',
-      header: 'Fecha de Registro',
+      key: 'fecha_pedido',
+      header: 'Fecha',
       sortable: true,
-      width: '140px',
-      render: (row: PedidoSelectDto) => formatDate(row.fecha),
+      width: '130px',
+      render: (row: PedidoSelectDto) => formatDate(row.fecha_pedido),
     },
     {
-      key: 'tipoEntrega',
-      header: 'Método Entrega',
+      key: 'cliente',
+      header: 'Cliente',
       sortable: true,
       render: (row: PedidoSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>
-            {row.tipoEntrega === 'RECOJO_TIENDA' ? 'Recojo en Tienda' : 'Envío a Domicilio'}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>
-            Pago Pendiente: S/ {(row.pagoPendiente || 0).toFixed(2)}
-          </div>
+          <div className="pedido-cell-main">{row.cliente || '—'}</div>
+          <div className="pedido-cell-sub">Tel: {row.telefono || '—'}</div>
         </div>
       ),
     },
     {
-      key: 'total',
-      header: 'Total Cobrado',
+      key: 'tipo_entrega',
+      header: 'Entrega / Pago',
+      sortable: true,
+      render: (row: PedidoSelectDto) => (
+        <div>
+          <div className="pedido-cell-main">{labelTipoEntrega(row.tipo_entrega)}</div>
+          <div className="pedido-cell-sub">{row.metodo_pago || '—'}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'monto',
+      header: 'Total',
       sortable: true,
       align: 'right' as const,
       width: '110px',
-      render: (row: PedidoSelectDto) => `S/ ${(row.total || 0).toFixed(2)}`,
+      render: (row: PedidoSelectDto) => fmt(row.monto),
     },
     {
-      key: 'estado',
-      header: 'Estado de Pedido',
+      key: 'estado_pedido',
+      header: 'Estado',
       sortable: true,
-      width: '140px',
-      render: (row: PedidoSelectDto) => (
-        <StatusBadge status={getBadgeStatus(row.estado)} showDot />
-      ),
+      width: '190px',
+      render: (row: PedidoSelectDto) => {
+        const codigo = Number(row.estado_pedido) || 0;
+        return (
+          <span className={`pedido-estado-badge pedido-estado-badge--${estadoTone(codigo)}`}>
+            {estadoLabel(codigo, row.estado_pedido_nombre)}
+          </span>
+        );
+      },
     },
     {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
+      width: '90px',
       render: (row: PedidoSelectDto) => (
         <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
+          <IconButton
+            icon={<FiEye />}
+            tooltip="Ver pedido"
+            variant="primary"
+            onClick={() => openPedidoDialog('view', row)}
+          />
+          <IconButton
+            icon={<FiRefreshCw />}
+            tooltip="Cambiar estado"
+            variant="warning"
+            onClick={() => openPedidoDialog('estado', row)}
+          />
         </div>
       ),
     },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
+    <div className="pedidos-section">
+      {error && !dialogMode && (
+        <div className="pedidos-alert pedidos-alert-error">{error}</div>
+      )}
+      {successMsg && (
+        <div className="pedidos-alert pedidos-alert-success">{successMsg}</div>
       )}
 
-      <div className="erp-indicators-grid">
+      <div className="erp-indicators-grid" style={{ marginBottom: '12px' }}>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiFileText /></div>
           <div className="erp-indicator-info">
@@ -245,21 +313,21 @@ const PedidosSection = () => {
           <div className="erp-indicator-icon success"><FiCheckCircle /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.entregados}</span>
-            <span className="erp-indicator-label">Pedidos Entregados</span>
+            <span className="erp-indicator-label">Entregados</span>
           </div>
         </div>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon warning"><FiClock /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.pendientes}</span>
-            <span className="erp-indicator-label">En Curso / Pendiente</span>
+            <span className="erp-indicator-label">En proceso</span>
           </div>
         </div>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiActivity /></div>
           <div className="erp-indicator-info">
-            <span className="erp-indicator-value">S/ {indicators.montoTotal.toFixed(2)}</span>
-            <span className="erp-indicator-label">Monto de Pedidos</span>
+            <span className="erp-indicator-value">{fmt(indicators.montoTotal)}</span>
+            <span className="erp-indicator-label">Total recaudado</span>
           </div>
         </div>
       </div>
@@ -267,31 +335,34 @@ const PedidosSection = () => {
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por código de pedido..."
-        onNew={() => handleOpenDialog('create')}
-        newLabel="Nuevo Pedido"
+        searchPlaceholder="Buscar por ID, cliente o teléfono..."
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado de Pedido</label>
-              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
-                <option value="">Todos los estados</option>
-                <option value="PENDIENTE_PAGO">Pendiente de Pago</option>
-                <option value="PAGADO">Pagado</option>
-                <option value="EN_PROCESO">En Proceso</option>
-                <option value="ENVIADO">Enviado</option>
-                <option value="ENTREGADO">Entregado</option>
-                <option value="CANCELADO">Cancelado</option>
+          <div className="pedidos-filter-panel">
+            <div className="erp-form-group" style={{ margin: 0 }}>
+              <label className="erp-form-label">Estado</label>
+              <select
+                className="erp-input"
+                value={filters.estado}
+                onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}
+              >
+                <option value="">Todos</option>
+                {Object.entries(ESTADOS).map(([id, item]) => (
+                  <option key={id} value={id}>{item.label}</option>
+                ))}
               </select>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Tipo de Entrega</label>
-              <select className="erp-input" value={filters.tipoEntrega} onChange={e => setFilters(prev => ({ ...prev, tipoEntrega: e.target.value }))}>
-                <option value="">Todos los tipos</option>
+            <div className="erp-form-group" style={{ margin: 0 }}>
+              <label className="erp-form-label">Entrega</label>
+              <select
+                className="erp-input"
+                value={filters.tipoEntrega}
+                onChange={e => setFilters(prev => ({ ...prev, tipoEntrega: e.target.value }))}
+              >
+                <option value="">Todos</option>
                 <option value="RECOJO_TIENDA">Recojo en Tienda</option>
                 <option value="ENVIO_DOMICILIO">Envío a Domicilio</option>
               </select>
@@ -300,92 +371,239 @@ const PedidosSection = () => {
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="erp-table-card pedidos-table-card">
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando pedidos...</div>
+          <div className="pedidos-loading">Cargando pedidos...</div>
         ) : (
           <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron pedidos registrados" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            <DataTable
+              columns={columns}
+              data={processedData}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              rowKey={row => row.id_pedido}
+              emptyMessage="No se encontraron pedidos"
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>
 
+      {/* Ver detalle */}
       <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
+        isOpen={dialogMode === 'view'}
+        mode="view"
         onClose={closeDialog}
-        onConfirm={handleConfirm}
-        loading={saving}
-        title={
-          dialogState.mode === 'create' ? 'Crear Pedido' :
-          dialogState.mode === 'edit' ? 'Editar Pedido' :
-          dialogState.mode === 'view' ? 'Ver Detalles de Pedido' : 'Eliminar Pedido'
-        }
+        onConfirm={closeDialog}
+        loading={saving && !detalle}
+        title={detalle ? `Pedido #${detalle.id_pedido}` : 'Detalle del pedido'}
+        subtitle="Cabecera y detalle de artículos"
         size="lg"
-        deleteMessage={
-          dialogState.record ? (
-            <>¿Está seguro de eliminar el pedido <strong>{dialogState.record.codigo}</strong>?</>
-          ) : undefined
-        }
+        confirmLabel="Cerrar"
       >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-form-grid">
-            <div className="erp-form-group">
-              <label className="erp-form-label">Código de Pedido</label>
-              <input type="text" className="erp-input" value={formState.codigo || ''} onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))} disabled={dialogState.mode === 'view'} />
+        {detalle && (
+          <div className="pedido-dialog">
+            <div className="pedido-dialog-header">
+              <div>
+                <span>Cliente</span>
+                <strong>{detalle.cliente || '—'}</strong>
+                <em>{detalle.telefono || '—'}</em>
+              </div>
+              <div>
+                <span>Fecha pedido</span>
+                <strong>{formatDate(detalle.fecha_pedido)}</strong>
+              </div>
+              <div>
+                <span>Fecha entrega</span>
+                <strong>{detalle.fecha_entrega ? formatDate(detalle.fecha_entrega) : '—'}</strong>
+              </div>
+              <div>
+                <span>Tipo entrega</span>
+                <strong>{labelTipoEntrega(detalle.tipo_entrega)}</strong>
+              </div>
+              <div>
+                <span>Estado</span>
+                <strong>
+                  <span className={`pedido-estado-badge pedido-estado-badge--${estadoTone(detalle.estado_pedido)}`}>
+                    {estadoLabel(detalle.estado_pedido, detalle.estado_pedido_nombre)}
+                  </span>
+                </strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong className="pedido-dialog-total">{fmt(detalle.monto)}</strong>
+              </div>
+              <div>
+                <span>IGV</span>
+                <strong>{fmt(detalle.igv)}</strong>
+              </div>
+              <div>
+                <span>Método de pago</span>
+                <strong>{detalle.metodo_pago || '—'}</strong>
+              </div>
+              <div>
+                <span>Cód. operación</span>
+                <strong>{detalle.codigo_operacion || '—'}</strong>
+              </div>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">ID Cliente</label>
-              <input type="text" className="erp-input" value={formState.clienteId || ''} onChange={e => setFormState(prev => ({ ...prev, clienteId: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: c1" />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Tipo de Entrega</label>
-              <select className="erp-input" value={formState.tipoEntrega || 'RECOJO_TIENDA'} onChange={e => setFormState(prev => ({ ...prev, tipoEntrega: e.target.value }))} disabled={dialogState.mode === 'view'}>
-                <option value="RECOJO_TIENDA">Recojo en Tienda</option>
-                <option value="ENVIO_DOMICILIO">Envío a Domicilio</option>
-              </select>
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Subtotal (S/)</label>
-              <input type="number" className="erp-input" value={formState.subtotal || 0} onChange={e => setFormState(prev => ({ ...prev, subtotal: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">IGV (18%)</label>
-              <input type="number" className="erp-input" value={formState.igv || 0} onChange={e => setFormState(prev => ({ ...prev, igv: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Total Neto (S/)</label>
-              <input type="number" className="erp-input" value={formState.total || 0} onChange={e => setFormState(prev => ({ ...prev, total: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
-              <>
-                <div className="erp-form-group">
-                  <label className="erp-form-label">Pago Pendiente (S/)</label>
-                  <input type="number" className="erp-input" value={formState.pagoPendiente || 0} onChange={e => setFormState(prev => ({ ...prev, pagoPendiente: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
-                </div>
-                <div className="erp-form-group">
-                  <label className="erp-form-label">Estado de Despacho</label>
-                  {dialogState.mode === 'view' ? (
-                    <div style={{ paddingTop: '6px' }}>
-                      <StatusBadge status={getBadgeStatus(formState.estado || '')} showDot />
-                    </div>
+
+            <h4 className="pedido-dialog-title">Artículos</h4>
+            <div className="pedido-dialog-table-wrap">
+              <table className="pedido-detail-table">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th className="text-center">Cant.</th>
+                    <th className="text-right">P. Unit.</th>
+                    <th className="text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detalle.detalle?.length ? (
+                    detalle.detalle.map(d => (
+                      <tr key={d.id_detalle_pedido}>
+                        <td>
+                          <div className="pedido-prod-cell">
+                            {resolveImageUrl(d.ruta_imagen) ? (
+                              <img src={resolveImageUrl(d.ruta_imagen)!} alt={d.producto} />
+                            ) : (
+                              <span className="pedido-prod-ph"><FiPackage /></span>
+                            )}
+                            <div>
+                              <strong>{d.producto}</strong>
+                              <span>{d.codigo}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-center">{d.cantidad}</td>
+                        <td className="text-right">{fmt(d.precio_venta)}</td>
+                        <td className="text-right">
+                          <strong>{fmt(d.cantidad * d.precio_venta)}</strong>
+                        </td>
+                      </tr>
+                    ))
                   ) : (
-                    <select className="erp-input" value={formState.estado || 'PENDIENTE_PAGO'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}>
-                      <option value="PENDIENTE_PAGO">Pendiente de Pago</option>
-                      <option value="PAGADO">Pagado</option>
-                      <option value="EN_PROCESO">En Proceso (Almacén)</option>
-                      <option value="ENVIADO">Enviado (Ruta)</option>
-                      <option value="ENTREGADO">Entregado al Cliente</option>
-                      <option value="CANCELADO">Cancelado</option>
-                    </select>
+                    <tr>
+                      <td colSpan={4} className="pedido-empty-row">Sin artículos</td>
+                    </tr>
                   )}
-                </div>
-              </>
-            )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </CrudDialog>
+
+      {/* Cambiar estado */}
+      <CrudDialog
+        isOpen={dialogMode === 'estado'}
+        mode="edit"
+        onClose={closeDialog}
+        onConfirm={handleCambiarEstado}
+        loading={saving}
+        title={detalle ? `Cambiar estado — Pedido #${detalle.id_pedido}` : 'Cambiar estado'}
+        subtitle="Revise el total y el comprobante antes de actualizar"
+        size="lg"
+        confirmLabel="Guardar estado"
+        cancelLabel="Cancelar"
+      >
+        {error && dialogMode === 'estado' && (
+          <div className="pedidos-alert pedidos-alert-error">{error}</div>
+        )}
+
+        {detalle && (
+          <div className="pedido-estado-dialog">
+            <div className="pedido-estado-layout">
+              <div className="pedido-estado-left">
+                <div className="pedido-estado-summary">
+                  <div>
+                    <span>Cliente</span>
+                    <strong>{detalle.cliente || '—'}</strong>
+                  </div>
+                  <div>
+                    <span>Total del pedido</span>
+                    <strong className="pedido-dialog-total">{fmt(detalle.monto)}</strong>
+                  </div>
+                  <div>
+                    <span>Método de pago</span>
+                    <strong>{detalle.metodo_pago || '—'}</strong>
+                  </div>
+                  <div>
+                    <span>Cód. operación</span>
+                    <strong>{detalle.codigo_operacion || '—'}</strong>
+                  </div>
+                </div>
+
+                <div className="pedido-estado-box">
+                  <div className="pedido-estado-box-current">
+                    <span>Estado actual</span>
+                    <span className={`pedido-estado-badge pedido-estado-badge--${estadoTone(detalle.estado_pedido)}`}>
+                      {estadoLabel(detalle.estado_pedido, detalle.estado_pedido_nombre)}
+                    </span>
+                  </div>
+                  <label className="erp-form-label">Nuevo estado</label>
+                  <select
+                    className="erp-input"
+                    value={nuevoEstado}
+                    onChange={e => setNuevoEstado(Number(e.target.value))}
+                  >
+                    {estadosDisponibles.map(([id, item]) => (
+                      <option key={id} value={id}>{item.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="pedido-estado-right">
+                <h4><FiImage /> Comprobante</h4>
+                {comprobanteUrl ? (
+                  <button
+                    type="button"
+                    className="pedido-comprobante-btn"
+                    onClick={() => setLightboxUrl(comprobanteUrl)}
+                    title="Ver en pantalla completa"
+                  >
+                    <img src={comprobanteUrl} alt="Comprobante de pago" />
+                    <span>Clic para ampliar</span>
+                  </button>
+                ) : (
+                  <p className="pedido-empty-hint">Sin comprobante adjunto</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </CrudDialog>
+
+      {lightboxUrl && (
+        <div
+          className="pedido-lightbox"
+          onClick={() => setLightboxUrl(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <button
+            type="button"
+            className="pedido-lightbox-close"
+            onClick={() => setLightboxUrl(null)}
+            aria-label="Cerrar"
+          >
+            <FiX />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Comprobante ampliado"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 };

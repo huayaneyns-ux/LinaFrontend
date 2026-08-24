@@ -1,73 +1,171 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
-
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { CompraService } from '../../../../Services/Admin/Compras/Compra';
 import { ProveedorService } from '../../../../Services/Admin/Compras/Proveedor';
+import { ProductoService } from '../../../../Services/Admin/Inventario/Producto';
+import { useAuth } from '../../../../Context/AuthContext';
 import type {
-  CompraSelectDto,
-  CompraInsertDto,
-  CompraUpdateDto,
+  CompraListaDto,
+  CompraDetalleSelectDto,
+  CompraCompletaInsertDto,
 } from '../../../../Types/Admin/Compras/Compra';
 import type { Proveedor } from '../../../../Types/Admin/Compras/Proveedor';
-
-import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
+import type { ProductoSelectDto } from '../../../../Types/Admin/Inventario/Producto';
 import { useDataTable } from '../../../../Hooks/useDataTable';
 import { useDialog } from '../../../../Hooks/useDialog';
 import { formatDate } from '../../../../Utils/formatters';
+import { isActivoEstado } from '../../../../Utils/imageUtils';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
-import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
+import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import {
   FiShoppingCart,
   FiCheckCircle,
-  FiClock,
-  FiActivity,
-  FiEye,
-  FiEdit2,
   FiTrash2,
+  FiEye,
+  FiPlus,
 } from 'react-icons/fi';
+import './ComprasSection.css';
 
 interface CompraFilters {
-  estado: string;
+  idProveedor: string;
 }
 
-const DEFAULT_FILTERS: CompraFilters = { estado: '' };
+interface DetalleRow {
+  key: string;
+  idProducto: number;
+  cantidad: number;
+  costoTotal: string;
+  fechaFabricacion: string;
+  fechaVencimiento: string;
+}
 
-const EMPTY_FORM: Partial<CompraSelectDto> = {
-  codigo: '',
-  idProveedor: 0,
-  fecha: new Date().toISOString(),
-  estado: 'PENDIENTE',
-  total: 0,
-};
+const DEFAULT_FILTERS: CompraFilters = { idProveedor: '' };
+const todayStr = () => new Date().toISOString().split('T')[0];
+const fmt = (n?: number | null) => `S/ ${(n ?? 0).toFixed(2)}`;
+const newRowKey = () => `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-const compraCrudService = {
-  getAll: () => CompraService.getCompras(),
-  getById: (id: number) => CompraService.getCompraById(id),
-  create: (data: CompraInsertDto) => CompraService.createCompra(data),
-  update: (data: CompraUpdateDto) => CompraService.updateCompra(data),
-  delete: (id: number) => CompraService.deleteCompra(id),
+const createEmptyRow = (): DetalleRow => ({
+  key: newRowKey(),
+  idProducto: 0,
+  cantidad: 1,
+  costoTotal: '',
+  fechaFabricacion: todayStr(),
+  fechaVencimiento: '',
+});
+
+const proveedorLabel = (p: Proveedor) => {
+  const nombre = p.razonSocial || (p as unknown as { razon_social?: string }).razon_social || 'Sin nombre';
+  return p.ruc ? `${nombre} — ${p.ruc}` : nombre;
 };
 
 const ComprasSection = () => {
-  const { items: purchases, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
-    useAdminCrud<CompraSelectDto, CompraInsertDto, CompraUpdateDto>(compraCrudService);
+  const { usuario } = useAuth();
+  const { dialogState, openCreate, openView, closeDialog } = useDialog<CompraListaDto>();
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<CompraSelectDto>();
-
+  const [compras, setCompras] = useState<CompraListaDto[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [productos, setProductos] = useState<ProductoSelectDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const [detalleItems, setDetalleItems] = useState<CompraDetalleSelectDto[]>([]);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+
   const [filters, setFilters] = useState<CompraFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [formState, setFormState] = useState<Partial<CompraSelectDto>>(EMPTY_FORM);
+
+  // Borrador del registro (se conserva al cerrar el diálogo)
+  const [filas, setFilas] = useState<DetalleRow[]>([createEmptyRow()]);
+  const [idProveedor, setIdProveedor] = useState(0);
+  const [fechaCompra, setFechaCompra] = useState(todayStr());
+  const [fechaRecepcion, setFechaRecepcion] = useState(todayStr());
+  const [saving, setSaving] = useState(false);
+
+  const loadCompras = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await CompraService.getCompras();
+      setCompras(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cargar las compras');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCatalogos = useCallback(async (): Promise<Proveedor[]> => {
+    try {
+      const [provs, prods] = await Promise.all([
+        ProveedorService.getProveedores(),
+        ProductoService.getProductos(),
+      ]);
+
+      const listaProv = Array.isArray(provs) ? provs : [];
+      const activos = listaProv.filter(p => isActivoEstado(p.estado));
+      const proveedoresFinal = activos.length > 0 ? activos : listaProv;
+      setProveedores(proveedoresFinal);
+
+      const listaProd = Array.isArray(prods) ? prods : [];
+      setProductos(listaProd.filter(p => isActivoEstado(p.estado)));
+      return proveedoresFinal;
+    } catch {
+      setProveedores([]);
+      setProductos([]);
+      return [];
+    }
+  }, []);
 
   useEffect(() => {
-    ProveedorService.getProveedores()
-      .then(setProveedores)
-      .catch(() => setProveedores([]));
-  }, []);
+    loadCompras();
+    loadCatalogos();
+  }, [loadCompras, loadCatalogos]);
+
+  const handleOpenView = async (record: CompraListaDto) => {
+    openView(record);
+    setDetalleItems([]);
+    setLoadingDetalle(true);
+    setError(null);
+    try {
+      const details = await CompraService.getCompraDetalle(record.id_compra);
+      setDetalleItems(details);
+    } catch (err: unknown) {
+      setDetalleItems([]);
+      setError(err instanceof Error ? err.message : 'Error al cargar el detalle de la compra');
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
+  const handleOpenCreate = async () => {
+    setSuccessMsg(null);
+    setFormError(null);
+    const lista = proveedores.length > 0 ? proveedores : await loadCatalogos();
+    // Solo asigna proveedor por defecto si aún no hay uno guardado en el borrador
+    if (!idProveedor && lista.length > 0) {
+      setIdProveedor(lista[0].id);
+    }
+    openCreate();
+  };
+
+  const handleCloseCreate = () => {
+    // Conserva el borrador; solo cierra el diálogo
+    setFormError(null);
+    closeDialog();
+  };
+
+  const resetCreateForm = useCallback(() => {
+    setFilas([createEmptyRow()]);
+    setFechaCompra(todayStr());
+    setFechaRecepcion(todayStr());
+    setIdProveedor(proveedores[0]?.id || 0);
+    setFormError(null);
+  }, [proveedores]);
 
   const filterCount = useMemo(
     () => Object.values(filters).filter(v => v !== '').length,
@@ -75,8 +173,8 @@ const ComprasSection = () => {
   );
 
   const externalFilter = useCallback(
-    (purchase: CompraSelectDto) => {
-      if (filters.estado && purchase.estado !== filters.estado) return false;
+    (compra: CompraListaDto) => {
+      if (filters.idProveedor && compra.id_proveedor.toString() !== filters.idProveedor) return false;
       return true;
     },
     [filters]
@@ -93,136 +191,207 @@ const ComprasSection = () => {
     pagination,
     setPage,
     setPageSize,
-  } = useDataTable<CompraSelectDto>({
-    data: purchases,
-    searchKeys: ['codigo', 'proveedor'],
+  } = useDataTable<CompraListaDto>({
+    data: compras,
+    searchKeys: ['id_compra', 'proveedor', 'usuario'],
     defaultPageSize: 8,
     externalFilter,
   });
 
   const indicators = useMemo(() => {
-    const total = purchases.length;
-    const activos = purchases.filter(c => c.estado === 'ACTIVO').length;
-    const pendientes = total - activos;
-    const montoTotal = purchases.reduce((sum, c) => sum + c.total, 0);
-    return { total, activos, pendientes, montoTotal };
-  }, [purchases]);
+    const total = compras.length;
+    const montoTotal = compras.reduce((sum, c) => sum + (c.total_compra || 0), 0);
+    return { total, montoTotal };
+  }, [compras]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: CompraSelectDto) => {
-    if (record && (mode === 'view' || mode === 'edit')) {
-      const detail = await fetchById(record.id, record);
-      setFormState({ ...detail });
-    } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
-    } else {
-      const firstProveedor = proveedores.find(p => p.estado)?.id ?? proveedores[0]?.id ?? 0;
-      setFormState({ ...EMPTY_FORM, idProveedor: firstProveedor, fecha: new Date().toISOString() });
-    }
+  const productosDelProveedor = useMemo(() => {
+    if (!idProveedor) return [];
+    return productos.filter(p => p.idProveedor === idProveedor);
+  }, [productos, idProveedor]);
 
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const selectedProductIds = useMemo(
+    () => new Set(filas.map(f => f.idProducto).filter(id => id > 0)),
+    [filas]
+  );
+
+  const productosDisponiblesPara = useCallback(
+    (currentId: number) =>
+      productosDelProveedor.filter(p => p.id === currentId || !selectedProductIds.has(p.id)),
+    [productosDelProveedor, selectedProductIds]
+  );
+
+  const totalCompra = useMemo(
+    () => filas.reduce((sum, f) => sum + (parseFloat(f.costoTotal) || 0), 0),
+    [filas]
+  );
+
+  const handleChangeProveedor = (nextId: number) => {
+    setIdProveedor(nextId);
+    // Limpia productos que no pertenecen al nuevo proveedor
+    setFilas(prev =>
+      prev.map(f => {
+        if (!f.idProducto) return f;
+        const prod = productos.find(p => p.id === f.idProducto);
+        if (prod && prod.idProveedor === nextId) return f;
+        return { ...f, idProducto: 0 };
+      })
+    );
   };
 
-  const handleConfirm = async () => {
+  const updateFila = (key: string, patch: Partial<DetalleRow>) => {
+    setFilas(prev => prev.map(f => (f.key === key ? { ...f, ...patch } : f)));
+  };
+
+  const handleAddFila = () => {
+    setFilas(prev => [...prev, createEmptyRow()]);
+  };
+
+  const handleRemoveFila = (key: string) => {
+    setFilas(prev => (prev.length <= 1 ? [createEmptyRow()] : prev.filter(f => f.key !== key)));
+  };
+
+  const handleRegistrar = async () => {
+    if (!idProveedor) {
+      setFormError('Seleccione un proveedor.');
+      return;
+    }
+    if (!fechaCompra) {
+      setFormError('Ingrese la fecha de compra.');
+      return;
+    }
+
+    const validas = filas.filter(f => f.idProducto > 0);
+    if (validas.length === 0) {
+      setFormError('Agregue al menos un producto.');
+      return;
+    }
+
+    const invalid = validas.find(
+      f =>
+        f.cantidad <= 0 ||
+        !f.costoTotal ||
+        isNaN(parseFloat(f.costoTotal)) ||
+        parseFloat(f.costoTotal) <= 0
+    );
+    if (invalid) {
+      const prod = productos.find(p => p.id === invalid.idProducto);
+      setFormError(`Revise cantidad y costo total de: ${prod?.nombre || 'producto'}`);
+      return;
+    }
+
+    const idUsuario = usuario?.id ? Number(usuario.id) : 1;
+
+    const payload: CompraCompletaInsertDto = {
+      id_usuario: isNaN(idUsuario) ? 1 : idUsuario,
+      id_proveedor: idProveedor,
+      fecha_compra: new Date(fechaCompra).toISOString(),
+      fecha_recepcion: fechaRecepcion ? new Date(fechaRecepcion).toISOString() : null,
+      detalles: validas.map(f => ({
+        id_producto: f.idProducto,
+        cantidad: f.cantidad,
+        costo_total: parseFloat(f.costoTotal),
+        fecha_fabricacion: f.fechaFabricacion ? new Date(f.fechaFabricacion).toISOString() : null,
+        fecha_vencimiento: f.fechaVencimiento ? new Date(f.fechaVencimiento).toISOString() : null,
+      })),
+    };
+
+    setSaving(true);
+    setFormError(null);
     try {
-      if (dialogState.mode === 'create') {
-        const payload: CompraInsertDto = {
-          codigo: formState.codigo || '',
-          idProveedor: Number(formState.idProveedor) || 0,
-          fecha: formState.fecha || new Date().toISOString(),
-          total: Number(formState.total) || 0,
-        };
-        await createItem(payload);
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
-        const payload: CompraUpdateDto = {
-          id: dialogState.record.id,
-          codigo: formState.codigo || '',
-          idProveedor: Number(formState.idProveedor) || 0,
-          fecha: formState.fecha || dialogState.record.fecha,
-          estado: formState.estado || 'PENDIENTE',
-          total: Number(formState.total) || 0,
-        };
-        await updateItem(payload);
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await deleteItem(dialogState.record.id);
+      const res = await CompraService.createCompra(payload);
+      if (res.success) {
+        setSuccessMsg(res.mensaje || `Compra #${res.idCompra} registrada correctamente.`);
+        resetCreateForm();
+        closeDialog();
+        await loadCompras();
+      } else {
+        setFormError(res.mensaje || 'No se pudo registrar la compra.');
       }
-      closeDialog();
-    } catch {
-      // error shown via hook
+    } catch (err: unknown) {
+      setFormError(err instanceof Error ? err.message : 'Error al registrar la compra');
+    } finally {
+      setSaving(false);
     }
   };
 
   const columns = [
     {
-      key: 'codigo',
-      header: 'Orden Compra',
+      key: 'id_compra',
+      header: 'Orden',
       sortable: true,
-      width: '130px',
-      render: (row: CompraSelectDto) => (
-        <strong style={{ color: 'var(--erp-text-primary)' }}>{row.codigo}</strong>
-      ),
+      width: '100px',
+      render: (row: CompraListaDto) => <strong>#{row.id_compra}</strong>,
     },
     {
       key: 'proveedor',
       header: 'Proveedor',
       sortable: true,
-      render: (row: CompraSelectDto) => (
+      render: (row: CompraListaDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{row.proveedor}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>ID: {row.id}</div>
+          <div className="compra-cell-main">{row.proveedor || '—'}</div>
+          <div className="compra-cell-sub">Por: {row.usuario || 'Sistema'}</div>
         </div>
       ),
     },
     {
-      key: 'fecha',
-      header: 'Fecha Registro',
+      key: 'fecha_compra',
+      header: 'Fecha',
       sortable: true,
-      width: '120px',
-      render: (row: CompraSelectDto) => formatDate(row.fecha),
+      width: '140px',
+      render: (row: CompraListaDto) => formatDate(row.fecha_compra),
     },
     {
-      key: 'total',
-      header: 'Importe Total',
+      key: 'fecha_recepcion',
+      header: 'Recepción',
+      sortable: true,
+      width: '130px',
+      render: (row: CompraListaDto) =>
+        row.fecha_recepcion ? formatDate(row.fecha_recepcion) : (
+          <span style={{ color: 'var(--erp-text-muted)' }}>—</span>
+        ),
+    },
+    {
+      key: 'total_compra',
+      header: 'Total',
       sortable: true,
       align: 'right' as const,
       width: '110px',
-      render: (row: CompraSelectDto) => `S/ ${(row.total || 0).toFixed(2)}`,
+      render: (row: CompraListaDto) => fmt(row.total_compra),
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '120px',
-      render: (row: CompraSelectDto) => (
-        <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
+      width: '110px',
+      render: (row: CompraListaDto) => (
+        <StatusBadge status={row.estado ? 'ACTIVO' : 'PENDIENTE'} showDot />
       ),
     },
     {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
-      render: (row: CompraSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
-        </div>
+      width: '60px',
+      render: (row: CompraListaDto) => (
+        <IconButton
+          icon={<FiEye />}
+          tooltip="Ver comprobante"
+          variant="primary"
+          onClick={() => handleOpenView(row)}
+        />
       ),
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
-      )}
+  const isCreateOpen = dialogState.isOpen && dialogState.mode === 'create';
+  const isViewOpen = dialogState.isOpen && dialogState.mode === 'view';
 
-      <div className="erp-indicators-grid">
+  return (
+    <div className="compras-section">
+      {error && !isViewOpen && <div className="compras-alert compras-alert-error">{error}</div>}
+      {successMsg && <div className="compras-alert compras-alert-success">{successMsg}</div>}
+
+      <div className="erp-indicators-grid" style={{ marginBottom: '12px' }}>
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiShoppingCart /></div>
           <div className="erp-indicator-info">
@@ -233,22 +402,8 @@ const ComprasSection = () => {
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon success"><FiCheckCircle /></div>
           <div className="erp-indicator-info">
-            <span className="erp-indicator-value">{indicators.activos}</span>
-            <span className="erp-indicator-label">Órdenes Pagadas</span>
-          </div>
-        </div>
-        <div className="erp-indicator-card">
-          <div className="erp-indicator-icon warning"><FiClock /></div>
-          <div className="erp-indicator-info">
-            <span className="erp-indicator-value">{indicators.pendientes}</span>
-            <span className="erp-indicator-label">Por Despachar</span>
-          </div>
-        </div>
-        <div className="erp-indicator-card">
-          <div className="erp-indicator-icon"><FiActivity /></div>
-          <div className="erp-indicator-info">
-            <span className="erp-indicator-value">S/ {indicators.montoTotal.toFixed(2)}</span>
-            <span className="erp-indicator-label">Monto Invertido</span>
+            <span className="erp-indicator-value">{fmt(indicators.montoTotal)}</span>
+            <span className="erp-indicator-label">Total Invertido</span>
           </div>
         </div>
       </div>
@@ -256,99 +411,294 @@ const ComprasSection = () => {
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por código de orden o proveedor..."
-        onNew={() => handleOpenDialog('create')}
-        newLabel="Nueva Orden Compra"
+        searchPlaceholder="Buscar por ID, proveedor o registrador..."
+        onNew={handleOpenCreate}
+        newLabel="Registrar Compra"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado de Compra</label>
-              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
+          <div className="compras-filter-panel">
+            <div className="erp-form-group" style={{ margin: 0 }}>
+              <label className="erp-form-label">Proveedor</label>
+              <select
+                className="erp-input"
+                value={filters.idProveedor}
+                onChange={e => setFilters(prev => ({ ...prev, idProveedor: e.target.value }))}
+              >
                 <option value="">Todos</option>
-                <option value="ACTIVO">Aprobada / Pagada</option>
-                <option value="PENDIENTE">Pendiente / Emitida</option>
+                {proveedores.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.razonSocial || (p as unknown as { razon_social?: string }).razon_social}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div className="erp-table-card compras-table-card">
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando compras...</div>
+          <div className="compras-loading">Cargando compras...</div>
         ) : (
           <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron compras registradas" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            <DataTable
+              columns={columns}
+              data={processedData}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              rowKey={row => row.id_compra}
+              emptyMessage="No se encontraron compras registradas"
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>
 
+      {/* Dialog: Registrar compra */}
       <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
-        onClose={closeDialog}
-        onConfirm={handleConfirm}
+        isOpen={isCreateOpen}
+        mode="create"
+        onClose={handleCloseCreate}
+        onConfirm={handleRegistrar}
+        title="Registrar compra"
+        subtitle="Los datos se conservan si cierra el diálogo por accidente"
+        size="xl"
+        confirmLabel={saving ? 'Registrando...' : 'Registrar'}
+        cancelLabel="Cerrar"
         loading={saving}
-        title={
-          dialogState.mode === 'create' ? 'Crear Orden de Compra' :
-          dialogState.mode === 'edit' ? 'Editar Orden' :
-          dialogState.mode === 'view' ? 'Ver Detalles Orden' : 'Eliminar Registro'
-        }
-        size="md"
-        deleteMessage={
-          dialogState.record ? (
-            <>¿Está seguro de eliminar la orden <strong>{dialogState.record.codigo}</strong>?</>
-          ) : undefined
-        }
       >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-form-grid">
-            <div className="erp-form-group">
-              <label className="erp-form-label">Código Orden Compra</label>
-              <input type="text" className="erp-input" value={formState.codigo || ''} onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Proveedor</label>
+        <div className="compra-form">
+          {formError && <div className="compras-alert compras-alert-error">{formError}</div>}
+
+          <div className="compra-form-grid">
+            <div className="compra-form-group compra-form-span-2">
+              <label>Proveedor *</label>
               <select
                 className="erp-input"
-                value={formState.idProveedor ?? 0}
-                onChange={e => setFormState(prev => ({ ...prev, idProveedor: Number(e.target.value) }))}
-                disabled={dialogState.mode === 'view'}
+                value={idProveedor}
+                onChange={e => handleChangeProveedor(Number(e.target.value))}
               >
-                <option value={0}>Seleccionar proveedor</option>
-                {proveedores.filter(p => p.estado).map(p => (
-                  <option key={p.id} value={p.id}>{p.razonSocial}</option>
+                <option value={0}>Seleccione proveedor...</option>
+                {proveedores.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {proveedorLabel(p)}
+                  </option>
                 ))}
               </select>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Importe Negociado (S/)</label>
-              <input type="number" step="0.01" className="erp-input" value={formState.total || 0} onChange={e => setFormState(prev => ({ ...prev, total: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
+            <div className="compra-form-group">
+              <label>Fecha compra *</label>
+              <input
+                type="date"
+                className="erp-input"
+                value={fechaCompra}
+                onChange={e => setFechaCompra(e.target.value)}
+              />
             </div>
-            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
-              <div className="erp-form-group">
-                <label className="erp-form-label">Estado</label>
-                {dialogState.mode === 'view' ? (
-                  <div style={{ paddingTop: '6px' }}>
-                    <StatusBadge status={formState.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
-                  </div>
-                ) : (
-                  <select className="erp-input" value={formState.estado || 'PENDIENTE'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}>
-                    <option value="PENDIENTE">Emitida (Pendiente de pago / entrega)</option>
-                    <option value="ACTIVO">Liquidada (Almacén abastecido)</option>
-                  </select>
-                )}
+            <div className="compra-form-group">
+              <label>Fecha recepción</label>
+              <input
+                type="date"
+                className="erp-input"
+                value={fechaRecepcion}
+                onChange={e => setFechaRecepcion(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="compra-detalle-head">
+            <span>Detalle de productos</span>
+            <strong>{fmt(totalCompra)}</strong>
+          </div>
+
+          <div className="compra-table-wrap">
+            <table className="compra-form-table">
+              <thead>
+                <tr>
+                  <th style={{ width: '36px' }}>#</th>
+                  <th>Producto</th>
+                  <th style={{ width: '80px' }}>Cant.</th>
+                  <th style={{ width: '110px' }}>Costo total</th>
+                  <th style={{ width: '130px' }}>Fabricación</th>
+                  <th style={{ width: '130px' }}>Vencimiento</th>
+                  <th style={{ width: '40px' }} />
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((fila, index) => {
+                  const opciones = productosDisponiblesPara(fila.idProducto);
+                  return (
+                    <tr key={fila.key}>
+                      <td className="compra-row-num">{index + 1}</td>
+                      <td>
+                        <select
+                          className="erp-input"
+                          value={fila.idProducto}
+                          disabled={!idProveedor}
+                          onChange={e => updateFila(fila.key, { idProducto: Number(e.target.value) })}
+                        >
+                          <option value={0}>
+                            {!idProveedor
+                              ? 'Seleccione proveedor primero...'
+                              : opciones.length === 0 && !fila.idProducto
+                                ? 'Sin productos de este proveedor'
+                                : 'Seleccione producto...'}
+                          </option>
+                          {opciones.map(p => (
+                            <option key={p.id} value={p.id}>
+                              {p.codigo} — {p.nombre}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="erp-input"
+                          min={1}
+                          value={fila.cantidad}
+                          onChange={e =>
+                            updateFila(fila.key, { cantidad: Math.max(1, Number(e.target.value) || 1) })
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          className="erp-input"
+                          min={0}
+                          step="0.01"
+                          placeholder="0.00"
+                          value={fila.costoTotal}
+                          onChange={e => updateFila(fila.key, { costoTotal: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          className="erp-input"
+                          value={fila.fechaFabricacion}
+                          onChange={e => updateFila(fila.key, { fechaFabricacion: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="date"
+                          className="erp-input"
+                          value={fila.fechaVencimiento}
+                          onChange={e => updateFila(fila.key, { fechaVencimiento: e.target.value })}
+                        />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="compra-row-remove"
+                          onClick={() => handleRemoveFila(fila.key)}
+                          title="Quitar"
+                          aria-label="Quitar fila"
+                        >
+                          <FiTrash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <button type="button" className="compra-add-row" onClick={handleAddFila}>
+            <FiPlus size={14} /> Agregar otra línea
+          </button>
+        </div>
+      </CrudDialog>
+
+      {/* Dialog: Ver comprobante */}
+      <CrudDialog
+        isOpen={isViewOpen}
+        mode="view"
+        onClose={closeDialog}
+        onConfirm={closeDialog}
+        title={`Comprobante de compra #${dialogState.record?.id_compra ?? ''}`}
+        subtitle="Cabecera y detalle de artículos ingresados"
+        size="lg"
+        confirmLabel="Cerrar"
+      >
+        {dialogState.record && (
+          <div className="compra-dialog-body">
+            <div className="compra-dialog-header-card">
+              <div><span>Proveedor</span><strong>{dialogState.record.proveedor || '—'}</strong></div>
+              <div><span>Registrado por</span><strong>{dialogState.record.usuario || '—'}</strong></div>
+              <div><span>Fecha compra</span><strong>{formatDate(dialogState.record.fecha_compra)}</strong></div>
+              <div>
+                <span>Fecha recepción</span>
+                <strong>
+                  {dialogState.record.fecha_recepcion
+                    ? formatDate(dialogState.record.fecha_recepcion)
+                    : '—'}
+                </strong>
               </div>
-            )}
-            {(dialogState.mode === 'view' || dialogState.mode === 'edit') && formState.fecha && (
-              <div className="erp-form-group">
-                <label className="erp-form-label">Fecha Registro</label>
-                <input type="text" className="erp-input" value={formatDate(formState.fecha)} disabled />
+              <div><span>Total</span><strong>{fmt(dialogState.record.total_compra)}</strong></div>
+              <div>
+                <span>Estado</span>
+                <strong>{dialogState.record.estado ? 'Activo' : 'Pendiente'}</strong>
+              </div>
+            </div>
+
+            <h4 className="compra-dialog-detail-title">Detalle de artículos</h4>
+
+            {loadingDetalle ? (
+              <p className="compra-empty">Cargando detalle...</p>
+            ) : (
+              <div className="compra-dialog-table-wrap">
+                <table className="compra-detail-table">
+                  <thead>
+                    <tr>
+                      <th>Código</th>
+                      <th>Producto</th>
+                      <th className="text-center">Cant.</th>
+                      <th className="text-right">C. Unit.</th>
+                      <th className="text-right">C. Total</th>
+                      <th>Lote</th>
+                      <th>Stock</th>
+                      <th>Vencimiento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detalleItems.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="compra-empty-row">Sin artículos registrados</td>
+                      </tr>
+                    ) : (
+                      detalleItems.map(det => (
+                        <tr key={det.id_detalle_compra}>
+                          <td className="mono">{det.codigo_producto}</td>
+                          <td>{det.producto}</td>
+                          <td className="text-center">{det.cantidad}</td>
+                          <td className="text-right">{fmt(det.costo_unitario)}</td>
+                          <td className="text-right"><strong>{fmt(det.costo_total)}</strong></td>
+                          <td className="mono">{det.codigo_lote || '—'}</td>
+                          <td className="text-center">{det.stock_actual ?? '—'}</td>
+                          <td>
+                            {det.fecha_vencimiento
+                              ? formatDate(det.fecha_vencimiento)
+                              : <span style={{ color: 'var(--erp-text-muted)' }}>—</span>}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

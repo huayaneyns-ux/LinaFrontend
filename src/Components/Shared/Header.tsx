@@ -4,6 +4,7 @@ import { FiShoppingCart, FiUser, FiMenu, FiX } from 'react-icons/fi';
 import { useCart } from '../../Context/CartContext';
 import { useAuth } from '../../Context/AuthContext';
 import SocialLinks from './SocialLinks';
+import OrdersBubble from './OrdersBubble';
 import '../../Styles/Components/Header.css';
 
 const NAV_LINKS = [
@@ -13,7 +14,7 @@ const NAV_LINKS = [
 ];
 
 const Header = () => {
-  const { totalItems } = useCart();
+  const { totalItems, addedProductId } = useCart();
   const { usuario, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,7 +66,13 @@ const Header = () => {
         <div className="header-actions">
           <SocialLinks variant="header" />
 
-          <button className="icon-btn" onClick={() => navigate('/carrito')} title="Mi carrito">
+          {isAuthenticated && <OrdersBubble />}
+
+          <button
+            className={`icon-btn${addedProductId !== null ? ' cart-bump' : ''}`}
+            onClick={() => navigate('/carrito')}
+            title="Mi carrito"
+          >
             <FiShoppingCart size={20} />
             {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
           </button>

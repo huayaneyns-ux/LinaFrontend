@@ -166,3 +166,345 @@
   color: var(--erp-text-muted);
   white-space: nowrap;
 }
+
+/* ============================================
+   LOTES CARD VIEW & TIMELINE STYLES
+   ============================================ */
+
+/* View switcher */
+.view-switcher {
+  display: inline-flex;
+  background-color: var(--erp-bg-light);
+  border: 1px solid var(--erp-border-color);
+  padding: 2px;
+  border-radius: 8px;
+  margin-right: 8px;
+}
+
+.view-switcher-btn {
+  background: none;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  color: var(--erp-text-secondary);
+  cursor: pointer;
+  transition: all var(--erp-transition);
+}
+
+.view-switcher-btn:hover {
+  color: var(--erp-accent);
+}
+
+.view-switcher-btn.active {
+  background-color: #ffffff;
+  color: var(--erp-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Lote Cards Grid */
+.lote-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 4px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.lote-card {
+  background: #ffffff;
+  border: 1px solid var(--erp-border-color);
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all var(--erp-transition);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.lote-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
+  border-color: var(--erp-accent-light);
+}
+
+.lote-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.lote-card-code {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--erp-text-primary);
+  background-color: var(--erp-bg-light);
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--erp-border-color);
+}
+
+.lote-card-product {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--erp-text-primary);
+  margin: 4px 0 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  height: 38px;
+  line-height: 1.3;
+}
+
+.lote-card-prodcode {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+}
+
+.lote-card-provider {
+  font-size: 12px;
+  color: var(--erp-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.lote-card-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--erp-text-secondary);
+  border-top: 1px dashed var(--erp-border-color);
+  border-bottom: 1px dashed var(--erp-border-color);
+  padding: 6px 0;
+}
+
+.lote-card-date-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Stock Progress */
+.lote-card-stock-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lote-card-stock-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.stock-progress-bar {
+  height: 6px;
+  background-color: var(--erp-bg-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.stock-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.lote-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.lote-card-cost {
+  display: flex;
+  flex-direction: column;
+}
+
+.lote-card-cost-value {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--erp-text-primary);
+}
+
+.lote-card-cost-label {
+  font-size: 10px;
+  color: var(--erp-text-muted);
+}
+
+/* Vertical Timeline for Movements inside Lote Detail */
+.movimiento-timeline {
+  position: relative;
+  padding: 10px 0 10px 20px;
+  margin: 10px 0;
+}
+
+.movimiento-timeline::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 8px;
+  width: 2px;
+  background-color: var(--erp-border-color);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -20px;
+  top: 4px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 2px solid var(--erp-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.timeline-content {
+  background-color: var(--erp-bg-light);
+  border: 1px solid var(--erp-border-color);
+  border-radius: 6px;
+  padding: 8px 12px;
+  transition: all var(--erp-transition);
+}
+
+.timeline-content:hover {
+  background-color: #ffffff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.03);
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.timeline-type {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.timeline-date {
+  font-size: 10px;
+  color: var(--erp-text-muted);
+}
+
+.timeline-body {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.timeline-desc {
+  color: var(--erp-text-secondary);
+}
+
+.timeline-qty {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* Quick pills filter */
+.quick-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 0 2px;
+}
+
+.quick-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: var(--erp-bg-light);
+  border: 1px solid var(--erp-border-color);
+  color: var(--erp-text-secondary);
+  cursor: pointer;
+  transition: all var(--erp-transition);
+}
+
+.quick-pill:hover {
+  border-color: var(--erp-accent-light);
+  color: var(--erp-accent);
+}
+
+.quick-pill.active {
+  background-color: var(--erp-accent-light);
+  border-color: var(--erp-accent);
+  color: var(--erp-accent);
+}
+
+/* Master-Detail split pane additions */
+.erp-row-selected {
+  background-color: rgba(0, 119, 182, 0.05) !important;
+  border-left: 3px solid var(--erp-primary) !important;
+}
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.detail-item .icon {
+  color: var(--erp-accent);
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.detail-item span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--erp-text-secondary);
+}
+
+.detail-item strong {
+  color: var(--erp-text-primary);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

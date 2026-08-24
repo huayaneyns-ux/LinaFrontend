@@ -17,6 +17,7 @@ function mapProducto(p: ProductoSelectDto): Producto {
     url: p.rutaImagen,
     imagenUrl: p.rutaImagen,
     estado: p.estado,
+    stock: Number(p.stock) || 0,
   };
 }
 

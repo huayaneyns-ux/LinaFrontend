@@ -1,0 +1,293 @@
+.compras-section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: 0;
+  min-height: 0;
+}
+
+.compras-alert {
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.compras-alert-error {
+  background: var(--erp-danger-light);
+  color: var(--erp-danger);
+}
+
+.compras-alert-success {
+  background: var(--erp-success-light);
+  color: var(--erp-success);
+}
+
+.compras-table-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compras-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--erp-text-muted);
+}
+
+.compras-filter-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  width: 100%;
+}
+
+.compra-cell-main {
+  font-weight: 600;
+}
+
+.compra-cell-sub {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+}
+
+.compra-empty {
+  text-align: center;
+  color: var(--erp-text-muted);
+  font-size: 13px;
+  padding: 16px 8px;
+  margin: 0;
+}
+
+.compra-empty-row {
+  text-align: center;
+  color: var(--erp-text-muted);
+  padding: 16px !important;
+}
+
+/* ===== Dialog ver detalle ===== */
+
+.compra-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.compra-dialog-header-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+}
+
+.compra-dialog-header-card > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.compra-dialog-header-card span {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.compra-dialog-header-card strong {
+  font-size: 13px;
+  color: var(--erp-text-primary);
+}
+
+.compra-dialog-detail-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+
+.compra-dialog-table-wrap {
+  overflow-x: auto;
+}
+
+.compra-detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--erp-border);
+}
+
+.compra-detail-table th {
+  background: #e2e8f0;
+  padding: 8px 10px;
+  font-weight: 700;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.compra-detail-table td {
+  padding: 8px 10px;
+  border-top: 1px solid var(--erp-border);
+}
+
+.compra-detail-table .mono {
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.compra-detail-table .text-center { text-align: center; }
+.compra-detail-table .text-right { text-align: right; }
+
+/* ===== Formulario registrar (compacto) ===== */
+
+.compra-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compra-form-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .compra-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.compra-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.compra-form-group label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--erp-text-secondary);
+}
+
+.compra-form-span-2 {
+  grid-column: span 2;
+}
+
+@media (max-width: 900px) {
+  .compra-form-span-2 {
+    grid-column: 1 / -1;
+  }
+}
+
+.compra-detalle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+  border-top: 1px solid var(--erp-border);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--erp-text-primary);
+}
+
+.compra-detalle-head strong {
+  color: var(--erp-accent, #0284c7);
+  font-size: 15px;
+}
+
+.compra-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--erp-border);
+  border-radius: 8px;
+}
+
+.compra-form-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 680px;
+}
+
+.compra-form-table thead th {
+  background: #f1f5f9;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--erp-text-secondary);
+  border-bottom: 1px solid var(--erp-border);
+  white-space: nowrap;
+}
+
+.compra-form-table tbody td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: middle;
+}
+
+.compra-form-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.compra-form-table .erp-input {
+  padding: 5px 7px !important;
+  font-size: 12px !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
+.compra-row-num {
+  text-align: center;
+  font-weight: 700;
+  color: var(--erp-text-muted);
+  font-size: 11px;
+}
+
+.compra-row-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--erp-danger);
+  cursor: pointer;
+}
+
+.compra-row-remove:hover {
+  background: #fef2f2;
+}
+
+.compra-add-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 6px 12px;
+  border: 1px dashed #7dd3fc;
+  border-radius: 6px;
+  background: #f0f9ff;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.compra-add-row:hover {
+  background: #e0f2fe;
+}

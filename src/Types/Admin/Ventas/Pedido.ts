@@ -1,112 +1,164 @@
-//==============================
+//=========================================
 // INSERTAR PEDIDO
-//==============================
+//=========================================
+
 export interface PedidoInsertDto {
-  // Pedido
+  // PEDIDO
   idCliente: number;
+  idDireccion: number;
+  idVenta?: number | null;
   fechaPedido: string;
-  fechaEntrega?: string;
+  fechaEntrega?: string | null;
   tipoEntrega: string;
   igv: number;
 
-  // Pago
+  // PAGO
   idMetodoPago: number;
   monto: number;
-  codigoOperacion?: string;
-  rutaComprobante?: string;
+  codigoOperacion?: string | null;
+  rutaComprobante?: string | null;
 
-  // Detalle
+  // DETALLE
   detalle: PedidoDetalleInsertDto[];
 }
+
 
 export interface PedidoDetalleInsertDto {
   idProducto: number;
   cantidad: number;
 }
 
-//==============================
+
+//=========================================
 // LISTAR PEDIDOS
-//==============================
+// GET: /PedidosRecibidos/Lista
+//=========================================
+
 export interface PedidoSelectDto {
-  idPedido: number;
 
-  fechaPedido: string;
-  fechaEntrega?: string;
+  id_pedido: number;
 
-  tipoEntrega: string;
+  fecha_pedido: string;
+
+  fecha_entrega?: string | null;
+
+  tipo_entrega: string;
 
   igv: number;
 
-  rutaComprobante?: string;
+  ruta_comprobante?: string | null;
 
-  estadoPedido: number;
-  estadoPedidoNombre: string;
 
-  idCliente: number;
+  // ESTADO
+  estado_pedido: number;
+
+  estado_pedido_nombre?: string;
+
+
+  // CLIENTE
+  id_cliente: number;
+
   cliente: string;
+
   telefono: string;
 
-  idPago?: number;
-  monto?: number;
 
-  idMetodoPago?: number;
-  metodoPago?: string;
+  // PAGO
+  id_pago?: number | null;
 
-  codigoOperacion?: string;
+  monto?: number | null;
+
+  codigo_operacion?: string | null;
+
+
+  // METODO PAGO
+  id_metodo_pago?: number | null;
+
+  metodo_pago?: string | null;
 }
 
-//==============================
+
+//=========================================
 // ACTUALIZAR ESTADO
-//==============================
+// PUT: /PedidosRecibidos/CambiarEstado
+//=========================================
+
 export interface PedidoUpdateEstadoDto {
-  idPedido: number;
-  estadoPedido: number;
+
+  id_pedido: number;
+
+  estado_pedido: number;
 }
 
-//==============================
-// OBTENER PEDIDO POR ID
-//==============================
-export interface PedidoSelectIdDto {
-  idPedido: number;
 
-  idCliente: number;
+//=========================================
+// OBTENER PEDIDO POR ID
+// GET: /PedidosRecibidos/{id}
+//=========================================
+
+export interface PedidoSelectIdDto {
+
+  id_pedido: number;
+
+
+  // CLIENTE
+  id_cliente: number;
+
   cliente: string;
+
   telefono: string;
 
-  fechaPedido: string;
-  fechaEntrega?: string;
 
-  tipoEntrega: string;
+  // PEDIDO
+  fecha_pedido: string;
+
+  fecha_entrega?: string | null;
+
+  tipo_entrega: string;
 
   igv: number;
 
-  rutaComprobante?: string;
+  ruta_comprobante?: string | null;
 
-  estadoPedido: number;
-  estadoPedidoNombre: string;
 
-  idPago?: number;
-  monto?: number;
+  // ESTADO
+  estado_pedido: number;
 
-  idMetodoPago?: number;
-  metodoPago?: string;
+  estado_pedido_nombre?: string;
 
-  codigoOperacion?: string;
 
+  // PAGO
+  id_pago?: number | null;
+
+  monto?: number | null;
+
+  metodo_pago?: string | null;
+
+  codigo_operacion?: string | null;
+
+
+  // DETALLE
   detalle: PedidoDetalleDto[];
 }
 
-export interface PedidoDetalleDto {
-  idDetallePedido: number;
 
-  idProducto: number;
+//=========================================
+// DETALLE PEDIDO
+//=========================================
+
+export interface PedidoDetalleDto {
+
+  id_detalle_pedido: number;
+
+  id_producto: number;
 
   producto: string;
+
   codigo: string;
 
-  rutaImagen?: string;
+  ruta_imagen?: string | null;
 
   cantidad: number;
 
-  precioVenta: number;
+  precio_venta: number;
 }

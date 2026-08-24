@@ -1,120 +1,112 @@
 //=========================================
-// LISTAR / OBTENER COMPRA
+// REGISTRAR COMPRA
 //=========================================
-export interface CompraSelectDto {
 
-  idCompra: number;
-
-  idUsuario: number;
-  usuario: string;
-
-  idProveedor: number;
-  proveedor: string;
-
-  fechaCompra: string;
-
-  fechaRecepcion?: string;
-
-  totalCompra: number;
-
-  estado: boolean;
-
-  detalles: CompraDetalleSelectDto[];
-
-}
-
-
-//=========================================
-// DETALLE COMPRA
-//=========================================
-export interface CompraDetalleSelectDto {
-
-  idDetalleCompra: number;
-
-  idProducto: number;
-
-  codigoProducto: string;
-
-  producto: string;
-
-  cantidad: number;
-
-  costoTotal: number;
-
-  costoUnitario: number;
-
-
-  idLote?: number;
-
-  codigoLote?: string;
-
-  fechaVencimiento?: string;
-
-  stockActual?: number;
-
-}
-
-
-//=========================================
-// REGISTRAR COMPRA COMPLETA
-//=========================================
 export interface CompraCompletaInsertDto {
 
-  idUsuario: number;
+    id_usuario: number;
 
-  idProveedor: number;
+    id_proveedor: number;
 
-  fechaCompra: string;
+    fecha_compra: string;
 
-  fechaRecepcion?: string;
+    fecha_recepcion?: string | null;
 
-  detalles: DetalleCompraCompletaDto[];
+    detalles: CompraDetalleInsertDto[];
+
+}
+
+
+//=========================================
+// DETALLE PARA REGISTRAR COMPRA
+//=========================================
+
+export interface CompraDetalleInsertDto {
+
+    id_producto: number;
+
+    cantidad: number;
+
+    costo_total: number;
+
+    fecha_fabricacion?: string | null;
+
+    fecha_vencimiento?: string | null;
 
 }
 
 
-//=========================================
-// DETALLE REGISTRO
-//=========================================
-export interface DetalleCompraCompletaDto {
-
-  idProducto: number;
-
-  cantidad: number;
-
-  costoTotal: number;
-
-  fechaFabricacion?: string;
-
-  fechaVencimiento?: string;
-
-}
 
 //=========================================
-// LISTAR COMPRA CABECERA
+// LISTA DE COMPRAS
 //=========================================
+
 export interface CompraListaDto {
 
-  idCompra: number;
+    id_compra: number;
 
-  idUsuario: number;
+    id_usuario: number;
 
-  usuario: string;
+    usuario: string;
+
+    id_proveedor: number;
+
+    proveedor: string;
+
+    fecha_compra: string;
+
+    fecha_recepcion?: string | null;
+
+    total_compra: number;
+
+    estado: boolean;
+
+}
 
 
-  idProveedor: number;
 
-  proveedor: string;
+//=========================================
+// DETALLE DE COMPRA
+//=========================================
+
+export interface CompraDetalleSelectDto {
+
+    id_detalle_compra: number;
+
+    id_producto: number;
+
+    codigo_producto: string;
+
+    producto: string;
+
+    cantidad: number;
+
+    costo_total: number;
+
+    costo_unitario: number;
+
+    id_lote?: number | null;
+
+    codigo_lote?: string | null;
+
+    fecha_vencimiento?: string | null;
+
+    stock_actual?: number | null;
+
+}
 
 
-  fechaCompra: string;
 
-  fechaRecepcion?: string;
+//=========================================
+// RESPUESTA REGISTRO
+//=========================================
 
+export interface CompraResponseDto {
 
-  totalCompra: number;
+    success: boolean;
 
+    mensaje: string;
 
-  estado: boolean;
+    idCompra: number;
 
 }
