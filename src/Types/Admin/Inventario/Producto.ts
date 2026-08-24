@@ -8,6 +8,7 @@ export interface ProductoSelectDto {
     precioVenta: number;
     factorConversion?: number;
     stockMinimo: number;
+    stock: number;
 
     rutaImagen?: string;
     publicIdImagen?: string;

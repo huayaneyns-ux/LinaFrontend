@@ -279,3 +279,14 @@
   .burger-btn { display: flex; }
   .mobile-menu { display: flex; }
 }
+
+@keyframes cartBump {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.4); }
+  70% { transform: scale(0.88); }
+}
+
+.cart-bump {
+  animation: cartBump 0.5s ease;
+}
+

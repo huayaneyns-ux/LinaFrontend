@@ -1,84 +1,56 @@
-import { useState, useCallback, useMemo, useEffect } from 'react';
-
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { MovimientoService } from '../../../../Services/Admin/Inventario/Movimiento';
-import { ProductoService } from '../../../../Services/Admin/Inventario/Producto';
-import type {
-  MovimientoSelectDto,
-  MovimientoInsertDto,
-} from '../../../../Types/Admin/Inventario/Movimiento';
-import type { ProductoSelectDto } from '../../../../Types/Admin/Inventario/Producto';
-
-import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
+import type { MovimientoSelectDto } from '../../../../Types/Admin/Inventario/Movimiento';
 import { useDataTable } from '../../../../Hooks/useDataTable';
-import { useDialog } from '../../../../Hooks/useDialog';
-import { formatDateTime } from '../../../../Utils/formatters';
+import { formatDate, formatDateTime } from '../../../../Utils/formatters';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
-import CrudDialog from '../../../../Components/ERP/CrudDialog';
-import IconButton from '../../../../Components/ERP/IconButton';
-import { FiActivity, FiArrowUpRight, FiArrowDownLeft, FiEye } from 'react-icons/fi';
+import {
+  FiArrowUpRight,
+  FiArrowDownLeft,
+} from 'react-icons/fi';
 
-interface MovimientoFilters {
-  tipo: string;
-  usuario: string;
-}
-
-const DEFAULT_FILTERS: MovimientoFilters = { tipo: '', usuario: '' };
-
-const EMPTY_FORM: Partial<MovimientoSelectDto> = {
-  tipo: 'INGRESO',
-  idProducto: 0,
-  cantidad: 10,
-  motivo: 'Reabastecimiento local',
-};
-
-const movimientoCrudService = {
-  getAll: () => MovimientoService.getMovimientos(),
-  getById: (id: number) => MovimientoService.getMovimientoById(id),
-  create: (data: MovimientoInsertDto) => MovimientoService.createMovimiento(data),
-  update: (data: never) => MovimientoService.updateMovimiento(data),
-  delete: (id: number) => MovimientoService.deleteMovimiento(id),
+/** 10 tipos de movimiento de inventario */
+const TIPOS_MOVIMIENTO: Record<number, { label: string; color: string; bg: string; isInput: boolean }> = {
+  1: { label: 'Entrada Compra', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', isInput: true },
+  2: { label: 'Venta', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isInput: false },
+  3: { label: 'Devolución Cliente', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', isInput: true },
+  4: { label: 'Devolución Proveedor', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isInput: false },
+  5: { label: 'Merma', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isInput: false },
+  6: { label: 'Ajuste Positivo', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', isInput: true },
+  7: { label: 'Ajuste Negativo', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', isInput: false },
+  8: { label: 'Paquete Abierto', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', isInput: false },
+  9: { label: 'Reserva', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', isInput: false },
+  10: { label: 'Liberación Reserva', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.1)', isInput: true },
 };
 
 const MovementsSection = () => {
-  const { items: movements, loading, saving, error, fetchById, createItem } =
-    useAdminCrud<MovimientoSelectDto, MovimientoInsertDto, never>(movimientoCrudService);
+  const [movements, setMovements] = useState<MovimientoSelectDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [tipoFiltro, setTipoFiltro] = useState('');
+  const [showFilters, setShowFilters] = useState(true);
 
-  const { dialogState, openCreate, openView, closeDialog } = useDialog<MovimientoSelectDto>();
-
-  const [productos, setProductos] = useState<ProductoSelectDto[]>([]);
-  const [filters, setFilters] = useState<MovimientoFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
-  const [formState, setFormState] = useState<Partial<MovimientoSelectDto>>(EMPTY_FORM);
+  const loadMovements = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await MovimientoService.getMovimientos(
+        tipoFiltro ? { tipo: Number(tipoFiltro) } : undefined
+      );
+      setMovements(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al cargar el historial de movimientos');
+      setMovements([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tipoFiltro]);
 
   useEffect(() => {
-    const loadProductos = async () => {
-      try {
-        const data = await ProductoService.getProductos();
-        setProductos(data.filter(p => p.estado));
-      } catch {
-        // dropdown vacío si falla la carga
-      }
-    };
-    loadProductos();
-  }, []);
-
-  const filterCount = useMemo(
-    () => Object.values(filters).filter(v => v !== '').length,
-    [filters]
-  );
-
-  const externalFilter = useCallback(
-    (mov: MovimientoSelectDto) => {
-      if (filters.tipo && mov.tipo !== filters.tipo) return false;
-      if (filters.usuario && !mov.usuario.toLowerCase().includes(filters.usuario.toLowerCase())) {
-        return false;
-      }
-      return true;
-    },
-    [filters]
-  );
+    loadMovements();
+  }, [loadMovements]);
 
   const {
     processedData,
@@ -93,95 +65,92 @@ const MovementsSection = () => {
     setPageSize,
   } = useDataTable<MovimientoSelectDto>({
     data: movements,
-    searchKeys: ['id', 'productoNombre', 'motivo', 'usuario'],
-    defaultPageSize: 8,
-    externalFilter,
+    searchKeys: ['idMovimiento', 'producto', 'codigoProducto', 'codigoLote', 'usuario', 'motivo', 'tipoMovimiento'],
+    defaultPageSize: 10,
   });
 
   const indicators = useMemo(() => {
     const total = movements.length;
-    const ingresos = movements.filter(m => m.tipo === 'INGRESO').reduce((sum, m) => sum + m.cantidad, 0);
-    const salidas = movements.filter(m => m.tipo === 'SALIDA').reduce((sum, m) => sum + m.cantidad, 0);
+    const ingresos = movements.filter(m => TIPOS_MOVIMIENTO[m.idTipoMovimiento]?.isInput).length;
+    const salidas = total - ingresos;
     return { total, ingresos, salidas };
   }, [movements]);
 
-  const handleOpenDialog = async (mode: 'create' | 'view', record?: MovimientoSelectDto) => {
-    if (record && mode === 'view') {
-      const detail = await fetchById(record.id, record);
-      setFormState({ ...detail });
-      openView(record);
-    } else {
-      const defaultProductoId = productos[0]?.id ?? 0;
-      setFormState({
-        ...EMPTY_FORM,
-        idProducto: defaultProductoId,
-      });
-      openCreate();
-    }
-  };
+  const renderTipoBadge = (tipoId: number, tipoNombre?: string) => {
+    const config = TIPOS_MOVIMIENTO[tipoId] || {
+      label: tipoNombre || `Tipo ${tipoId}`,
+      color: '#6b7280',
+      bg: '#f3f4f6',
+      isInput: true,
+    };
+    const Icon = config.isInput ? FiArrowDownLeft : FiArrowUpRight;
 
-  const handleConfirm = async () => {
-    try {
-      if (dialogState.mode === 'create') {
-        const payload: MovimientoInsertDto = {
-          tipo: formState.tipo || 'INGRESO',
-          idProducto: Number(formState.idProducto) || productos[0]?.id || 0,
-          cantidad: Number(formState.cantidad) || 0,
-          motivo: formState.motivo || '',
-        };
-        await createItem(payload);
-      }
-      closeDialog();
-    } catch {
-      // error shown via hook
-    }
+    return (
+      <span
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '4px',
+          color: config.color,
+          backgroundColor: config.bg,
+          padding: '3px 10px',
+          borderRadius: '12px',
+          fontSize: '11px',
+          fontWeight: 'bold',
+        }}
+      >
+        <Icon size={12} />
+        {config.label}
+      </span>
+    );
   };
 
   const columns = [
     {
-      key: 'id',
-      header: 'Kardex ID',
+      key: 'idMovimiento',
+      header: 'ID',
       sortable: true,
-      width: '100px',
+      width: '80px',
       render: (row: MovimientoSelectDto) => (
-        <strong style={{ color: 'var(--erp-text-primary)' }}>#{row.id}</strong>
+        <strong style={{ color: 'var(--erp-primary)' }}>#{row.idMovimiento}</strong>
       ),
     },
     {
-      key: 'tipo',
-      header: 'Operación',
+      key: 'fecha',
+      header: 'Fecha',
       sortable: true,
-      width: '120px',
-      render: (row: MovimientoSelectDto) => {
-        const isIngreso = row.tipo === 'INGRESO';
-        return (
-          <span style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '11px',
-            fontWeight: 700,
-            padding: '2px 8px',
-            borderRadius: '4px',
-            backgroundColor: isIngreso ? 'var(--erp-success-light)' : 'rgba(239, 68, 68, 0.08)',
-            color: isIngreso ? 'var(--erp-success)' : '#ef4444'
-          }}>
-            {isIngreso ? <FiArrowDownLeft /> : <FiArrowUpRight />}
-            {row.tipo}
-          </span>
-        );
-      },
+      width: '150px',
+      render: (row: MovimientoSelectDto) =>
+        row.fecha?.includes('T') ? formatDateTime(row.fecha) : formatDate(row.fecha),
     },
     {
-      key: 'productoNombre',
-      header: 'Producto / Ítem',
+      key: 'idTipoMovimiento',
+      header: 'Tipo',
+      sortable: true,
+      width: '180px',
+      render: (row: MovimientoSelectDto) =>
+        renderTipoBadge(row.idTipoMovimiento, row.tipoMovimiento),
+    },
+    {
+      key: 'producto',
+      header: 'Producto',
       sortable: true,
       render: (row: MovimientoSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>{row.productoNombre}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>{row.motivo}</div>
+          <div style={{ fontWeight: 600 }}>{row.producto || '—'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>
+            {row.codigoProducto || '—'}
+            {row.codigoLote ? ` · Lote: ${row.codigoLote}` : ''}
+          </div>
         </div>
       ),
+    },
+    {
+      key: 'usuario',
+      header: 'Usuario',
+      sortable: true,
+      width: '130px',
+      render: (row: MovimientoSelectDto) => row.usuario || '—',
     },
     {
       key: 'cantidad',
@@ -189,66 +158,75 @@ const MovementsSection = () => {
       sortable: true,
       align: 'right' as const,
       width: '100px',
-      render: (row: MovimientoSelectDto) => (
-        <span style={{ fontWeight: 700, color: row.tipo === 'INGRESO' ? 'var(--erp-success)' : '#ef4444' }}>
-          {row.tipo === 'INGRESO' ? '+' : '-'}{row.cantidad}
-        </span>
-      ),
+      render: (row: MovimientoSelectDto) => {
+        const config = TIPOS_MOVIMIENTO[row.idTipoMovimiento];
+        const esIngreso = config ? config.isInput : true;
+        return (
+          <strong style={{ color: esIngreso ? '#10b981' : '#ef4444' }}>
+            {esIngreso ? '+' : '-'}
+            {row.cantidad}
+          </strong>
+        );
+      },
     },
     {
-      key: 'fecha',
-      header: 'Fecha y Hora',
+      key: 'stockActual',
+      header: 'Stock act.',
       sortable: true,
-      width: '160px',
-      render: (row: MovimientoSelectDto) => formatDateTime(row.fecha),
-    },
-    {
-      key: 'usuario',
-      header: 'Registrado por',
-      sortable: true,
-      width: '140px',
-    },
-    {
-      key: 'actions',
-      header: '',
       align: 'right' as const,
-      width: '60px',
-      render: (row: MovimientoSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalles" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-        </div>
-      ),
+      width: '100px',
+      render: (row: MovimientoSelectDto) => `${row.stockActual ?? 0} und`,
+    },
+    {
+      key: 'motivo',
+      header: 'Motivo',
+      sortable: true,
+      render: (row: MovimientoSelectDto) =>
+        row.motivo ? (
+          <span style={{ fontSize: '12px', color: 'var(--erp-text-secondary)' }}>{row.motivo}</span>
+        ) : (
+          <span style={{ color: 'var(--erp-text-muted)' }}>—</span>
+        ),
     },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '12px' }}>
       {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
+        <div
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'var(--erp-danger-light)',
+            color: 'var(--erp-danger)',
+            borderRadius: '6px',
+            fontSize: '13px',
+          }}
+        >
           {error}
         </div>
       )}
 
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
-          <div className="erp-indicator-icon"><FiActivity /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.total}</span>
-            <span className="erp-indicator-label">Total Movimientos</span>
+            <span className="erp-indicator-label">Total movimientos</span>
           </div>
         </div>
         <div className="erp-indicator-card">
-          <div className="erp-indicator-icon success"><FiArrowDownLeft /></div>
           <div className="erp-indicator-info">
-            <span className="erp-indicator-value">+{indicators.ingresos} und</span>
-            <span className="erp-indicator-label">Ingresos Registrados</span>
+            <span className="erp-indicator-value" style={{ color: '#10b981' }}>
+              {indicators.ingresos}
+            </span>
+            <span className="erp-indicator-label">Entradas (+)</span>
           </div>
         </div>
         <div className="erp-indicator-card">
-          <div className="erp-indicator-icon danger"><FiArrowUpRight /></div>
           <div className="erp-indicator-info">
-            <span className="erp-indicator-value">-{indicators.salidas} und</span>
-            <span className="erp-indicator-label">Salidas Registradas</span>
+            <span className="erp-indicator-value" style={{ color: '#ef4444' }}>
+              {indicators.salidas}
+            </span>
+            <span className="erp-indicator-label">Salidas (-)</span>
           </div>
         </div>
       </div>
@@ -256,122 +234,68 @@ const MovementsSection = () => {
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por kardex ID, producto o motivo..."
-        onNew={() => handleOpenDialog('create')}
-        newLabel="Registrar Movimiento"
+        searchPlaceholder="Buscar por producto, lote, usuario o motivo..."
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
-        filterCount={filterCount}
-        onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        filterCount={tipoFiltro ? 1 : 0}
+        onResetFilters={tipoFiltro ? () => setTipoFiltro('') : undefined}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Tipo de Movimiento</label>
-              <select className="erp-input" value={filters.tipo} onChange={e => setFilters(prev => ({ ...prev, tipo: e.target.value }))}>
-                <option value="">Todos</option>
-                <option value="INGRESO">Ingresos (Ingreso físico)</option>
-                <option value="SALIDA">Salidas (Despacho / Consumo)</option>
-              </select>
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Usuario</label>
-              <input
-                type="text"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: '10px',
+              width: '100%',
+            }}
+          >
+            <div className="erp-form-group" style={{ margin: 0 }}>
+              <label className="erp-form-label">Tipo de movimiento</label>
+              <select
                 className="erp-input"
-                placeholder="Nombre de usuario..."
-                value={filters.usuario}
-                onChange={e => setFilters(prev => ({ ...prev, usuario: e.target.value }))}
-              />
+                value={tipoFiltro}
+                onChange={e => setTipoFiltro(e.target.value)}
+              >
+                <option value="">Todos los tipos</option>
+                {Object.entries(TIPOS_MOVIMIENTO).map(([id, info]) => (
+                  <option key={id} value={id}>
+                    {id}. {info.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div
+        className="erp-table-card"
+        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      >
         {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando movimientos...</div>
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>
+            Cargando movimientos...
+          </div>
         ) : (
           <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron movimientos en la bitácora" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            <DataTable
+              columns={columns}
+              data={processedData}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              rowKey={row => row.idMovimiento}
+              emptyMessage="No se encontraron movimientos"
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>
-
-      <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
-        onClose={closeDialog}
-        onConfirm={handleConfirm}
-        loading={saving}
-        title={dialogState.mode === 'create' ? 'Registrar Transacción Física' : 'Detalles de Transacción'}
-        size="lg"
-      >
-        <div className="erp-form-grid">
-          <div className="erp-form-group">
-            <label className="erp-form-label">Tipo de Transacción</label>
-            <select
-              className="erp-input"
-              value={formState.tipo || 'INGRESO'}
-              onChange={e => setFormState(prev => ({ ...prev, tipo: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-            >
-              <option value="INGRESO">INGRESO (Sumar al stock)</option>
-              <option value="SALIDA">SALIDA (Restar del stock)</option>
-            </select>
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Producto</label>
-            {dialogState.mode === 'create' ? (
-              <select
-                className="erp-input"
-                value={formState.idProducto ?? 0}
-                onChange={e => setFormState(prev => ({ ...prev, idProducto: Number(e.target.value) }))}
-              >
-                {productos.length === 0 && <option value={0}>Sin productos disponibles</option>}
-                {productos.map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre} ({p.codigo})</option>
-                ))}
-              </select>
-            ) : (
-              <input type="text" className="erp-input" value={formState.productoNombre || ''} disabled />
-            )}
-          </div>
-          <div className="erp-form-group">
-            <label className="erp-form-label">Cantidad</label>
-            <input
-              type="number"
-              className="erp-input"
-              value={formState.cantidad ?? 0}
-              onChange={e => setFormState(prev => ({ ...prev, cantidad: Number(e.target.value) }))}
-              disabled={dialogState.mode === 'view'}
-            />
-          </div>
-          {dialogState.mode === 'view' && (
-            <>
-              <div className="erp-form-group">
-                <label className="erp-form-label">Responsable</label>
-                <input type="text" className="erp-input" value={formState.usuario || ''} disabled />
-              </div>
-              <div className="erp-form-group">
-                <label className="erp-form-label">Fecha y Hora</label>
-                <input type="text" className="erp-input" value={formState.fecha ? formatDateTime(formState.fecha) : ''} disabled />
-              </div>
-            </>
-          )}
-          <div className="erp-form-group col-span-2">
-            <label className="erp-form-label">Motivo o Justificación</label>
-            <input
-              type="text"
-              className="erp-input"
-              value={formState.motivo || ''}
-              onChange={e => setFormState(prev => ({ ...prev, motivo: e.target.value }))}
-              disabled={dialogState.mode === 'view'}
-              placeholder="Ej: Inventario cíclico trimestral"
-            />
-          </div>
-        </div>
-      </CrudDialog>
     </div>
   );
 };

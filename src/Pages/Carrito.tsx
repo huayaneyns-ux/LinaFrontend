@@ -1,14 +1,14 @@
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../Context/CartContext';
 import { useAuth } from '../Context/AuthContext';
-import { FiTrash2, FiBox } from 'react-icons/fi';
+import { FiTrash2, FiBox, FiMinus, FiPlus } from 'react-icons/fi';
 import { FaCheckCircle } from 'react-icons/fa';
 import { resolveImageUrl, getProductoImagenPath } from '../Utils/imageUtils';
 import ImagePlaceholder from '../Components/Shared/ImagePlaceholder';
 import '../Styles/Pages/Carrito.css';
 
 const Carrito = () => {
-  const { carrito, removerDelCarrito, subtotal, igv, total } = useCart();
+  const { carrito, removerDelCarrito, actualizarCantidad, subtotal, igv, total, stockError, clearStockError } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -47,6 +47,12 @@ const Carrito = () => {
 
         <h1>Tu Carrito de Compras</h1>
 
+        {stockError && (
+          <div className="catalogo-stock-alert" role="alert" style={{ marginBottom: '12px' }}>
+            <span>{stockError}</span>
+            <button type="button" onClick={clearStockError} aria-label="Cerrar">×</button>
+          </div>
+        )}
         {!isAuthenticated && (
           <div className="login-warning">
             <p>
@@ -88,8 +94,30 @@ const Carrito = () => {
                       <h3>{item.producto.nombre}</h3>
                       <p className="item-precio">S/ {item.precioUnitario.toFixed(2)} c/u</p>
                     </div>
-                    <div className="item-cantidad">
-                      <p>Cant: {item.cantidad}</p>
+                    <div className="item-cantidad-ctrl">
+                      <button
+                        type="button"
+                        className="qty-btn"
+                        onClick={() => actualizarCantidad(item.producto.id, item.cantidad - 1)}
+                        disabled={item.cantidad <= 1}
+                        title="Reducir"
+                      >
+                        <FiMinus size={14} />
+                      </button>
+                      <span className="qty-value">{item.cantidad}</span>
+                      <button
+                        type="button"
+                        className="qty-btn"
+                        onClick={() => actualizarCantidad(item.producto.id, item.cantidad + 1)}
+                        disabled={item.cantidad >= (Number(item.producto.stock) || 0)}
+                        title={
+                          item.cantidad >= (Number(item.producto.stock) || 0)
+                            ? 'No hay suficiente stock'
+                            : 'Aumentar'
+                        }
+                      >
+                        <FiPlus size={14} />
+                      </button>
                     </div>
                     <div className="item-subtotal">
                       <p>S/ {item.subtotal.toFixed(2)}</p>

@@ -1,28 +1,91 @@
+
 import { api } from '../../../Services/apiService';
+
 import type {
   UsuarioSelectDto,
-  UsuarioInsertDto,
-  UsuarioUpdateDto,
+  UsuarioGuardarDto
 } from '../../../Types/Admin/Seguridad/Usuario';
 
+
+
 export const UsuarioService = {
+
+
+  // =====================================
+  // LISTAR USUARIOS
+  // GET api/Usuario/Lista
+  // =====================================
+
   getUsuarios: async (): Promise<UsuarioSelectDto[]> => {
-    return api.request<UsuarioSelectDto[]>('/Usuario/Lista', { method: 'GET' });
+
+    return api.request<UsuarioSelectDto[]>(
+      '/Usuario/Lista',
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  getUsuarioById: async (id: number): Promise<UsuarioSelectDto> => {
-    return api.request<UsuarioSelectDto>(`/Usuario/${id}`, { method: 'GET' });
+
+
+  // =====================================
+  // OBTENER USUARIO POR ID
+  // GET api/Usuario/{id}
+  // =====================================
+
+  getUsuarioById: async (
+    id: number
+  ): Promise<UsuarioSelectDto> => {
+
+    return api.request<UsuarioSelectDto>(
+      `/Usuario/${id}`,
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  createUsuario: async (data: UsuarioInsertDto): Promise<string> => {
-    return api.request<string>('/Usuario', { method: 'POST', body: JSON.stringify(data) });
+
+
+  // =====================================
+  // INSERTAR / ACTUALIZAR USUARIO
+  // POST api/Usuario/Guardar
+  // =====================================
+
+  guardarUsuario: async (
+    data: UsuarioGuardarDto
+  ): Promise<any> => {
+
+    return api.request<any>(
+      '/Usuario/Guardar',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
   },
 
-  updateUsuario: async (data: UsuarioUpdateDto): Promise<string> => {
-    return api.request<string>('/Usuario', { method: 'PUT', body: JSON.stringify(data) });
-  },
 
-  deleteUsuario: async (id: number): Promise<string> => {
-    return api.request<string>(`/Usuario/${id}`, { method: 'DELETE' });
-  },
+
+  // =====================================
+  // ELIMINAR USUARIO
+  // DELETE api/Usuario/Eliminar/{id}
+  // =====================================
+
+  deleteUsuario: async (
+    id: number
+  ): Promise<any> => {
+
+    return api.request<any>(
+      `/Usuario/Eliminar/${id}`,
+      {
+        method: 'DELETE'
+      }
+    );
+
+  }
+
 };

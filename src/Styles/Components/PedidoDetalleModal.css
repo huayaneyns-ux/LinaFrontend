@@ -1,0 +1,328 @@
+.voucher-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(5px);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.voucher-ticket-container {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  animation: ticketPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+@keyframes ticketPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.voucher-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: #f1f5f9;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.15s ease;
+}
+
+.voucher-close-btn:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.voucher-ticket-loading,
+.voucher-ticket-error {
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.voucher-ticket {
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #1e293b;
+  background: #ffffff;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+/* Header del Ticket */
+.ticket-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.ticket-logo {
+  font-size: 1.15rem;
+  color: #2563eb;
+  margin-bottom: 2px;
+}
+
+.ticket-sub {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticket-code-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.ticket-number {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.5px;
+}
+
+.voucher-status-badge {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ticket-date {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 4px 0 0 0;
+}
+
+.ticket-divider {
+  border-bottom: 2px dashed #e2e8f0;
+  margin: 14px 0;
+}
+
+/* Grid de Info */
+.ticket-info-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.ticket-info-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.info-label {
+  color: #64748b;
+}
+
+.info-val {
+  font-weight: 600;
+  color: #0f172a;
+  text-align: right;
+}
+
+/* Lista de Productos Ticket */
+.ticket-items-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+}
+
+.ticket-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ticket-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 0.85rem;
+}
+
+.item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  max-width: 72%;
+}
+
+.item-qty {
+  font-weight: 700;
+  color: #2563eb;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.item-name-block {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+.item-unit-price {
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+.item-total-price {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.85rem;
+}
+
+.ticket-empty-msg {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  text-align: center;
+  margin: 8px 0;
+}
+
+/* Totales */
+.ticket-totals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  color: #64748b;
+}
+
+.total-main {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.total-main span:last-child {
+  color: #2563eb;
+}
+
+/* Voucher Adjunto */
+.ticket-voucher-attachment {
+  text-align: center;
+}
+
+.attachment-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.attachment-box {
+  border: 1.5px dashed #93c5fd;
+  border-radius: 10px;
+  padding: 6px;
+  background: #f0f9ff;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.attachment-box:hover {
+  border-color: #2563eb;
+  transform: translateY(-1px);
+}
+
+.attachment-img {
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  border-radius: 6px;
+  display: block;
+  margin: 0 auto;
+}
+
+.attachment-hint {
+  display: block;
+  font-size: 0.72rem;
+  color: #2563eb;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
+/* Footer del Ticket */
+.ticket-footer {
+  text-align: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ticket-footer p {
+  margin: 0 0 2px 0;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+.ticket-footer span {
+  font-size: 0.72rem;
+  color: #94a3b8;
+}

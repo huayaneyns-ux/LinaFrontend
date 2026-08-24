@@ -1,24 +1,78 @@
+//=========================================
+// SERVICE COMPRA
+//=========================================
+
 import { api } from '../../../Services/apiService';
-import type { CompraSelectDto, CompraInsertDto, CompraUpdateDto } from '../../../Types/Admin/Compras/Compra';
+
+import type {
+  CompraListaDto,
+  CompraDetalleSelectDto,
+  CompraCompletaInsertDto,
+  CompraResponseDto
+} from '../../../Types/Admin/Compras/Compra';
+
 
 export const CompraService = {
-  getCompras: async (): Promise<CompraSelectDto[]> => {
-    return api.request<CompraSelectDto[]>('/Compra/Lista', { method: 'GET' });
+
+
+  //=========================================
+  // LISTAR COMPRAS
+  // GET /Compra/Lista
+  //=========================================
+  getCompras: async (): Promise<CompraListaDto[]> => {
+
+    return api.request<CompraListaDto[]>(
+      '/Compra/Lista',
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  getCompraById: async (id: number): Promise<CompraSelectDto> => {
-    return api.request<CompraSelectDto>(`/Compra/${id}`, { method: 'GET' });
+
+
+  //=========================================
+  // OBTENER DETALLE DE COMPRA
+  // GET /Compra/{id}/Detalle
+  //=========================================
+  getCompraDetalle: async (
+    id: number
+  ): Promise<CompraDetalleSelectDto[]> => {
+
+    return api.request<CompraDetalleSelectDto[]>(
+      `/Compra/${id}/Detalle`,
+      {
+        method: 'GET'
+      }
+    );
+
   },
 
-  createCompra: async (data: CompraInsertDto): Promise<string> => {
-    return api.request<string>('/Compra', { method: 'POST', body: JSON.stringify(data) });
-  },
 
-  updateCompra: async (data: CompraUpdateDto): Promise<string> => {
-    return api.request<string>('/Compra', { method: 'PUT', body: JSON.stringify(data) });
-  },
 
-  deleteCompra: async (id: number): Promise<string> => {
-    return api.request<string>(`/Compra/${id}`, { method: 'DELETE' });
-  },
+  //=========================================
+  // REGISTRAR COMPRA
+  // Cabecera + Detalle
+  //
+  // Backend genera:
+  // DetalleCompra
+  // Lote
+  // MovimientoInventario
+  //=========================================
+  createCompra: async (
+    data: CompraCompletaInsertDto
+  ): Promise<CompraResponseDto> => {
+
+    return api.request<CompraResponseDto>(
+      '/Compra/RegistrarCompleta',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
+  }
+
+
 };

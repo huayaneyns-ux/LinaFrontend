@@ -9,11 +9,11 @@
 
 .login-wrapper {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 48px;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 40px;
   align-items: center;
   width: 100%;
-  max-width: 900px;
+  max-width: 800px;
 }
 
 .login-brand {
@@ -27,7 +27,7 @@
 }
 
 .login-brand h1 {
-  font-size: 2.4rem;
+  font-size: 2.2rem;
   font-weight: 800;
   color: var(--text-dark);
   letter-spacing: -0.02em;
@@ -40,26 +40,30 @@
 }
 
 .login-brand p {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: var(--text-muted);
   line-height: 1.6;
   margin: 0;
-  max-width: 340px;
+  max-width: 320px;
 }
 
 .login-card {
   background: var(--bg-white);
-  padding: 36px 32px;
+  padding: 32px 28px;
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
   border: 1px solid var(--border-color);
+  max-width: 380px;
+  width: 100%;
+  justify-self: center;
 }
 
 .login-card h2 {
-  font-size: 1.5rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: var(--text-dark);
-  margin: 0 0 24px;
+  margin: 0 0 20px;
+  text-align: center;
 }
 
 .form-group {

@@ -1,36 +1,58 @@
+
+// =======================================
+// RESPUESTA LISTAR / OBTENER USUARIO
+// GET api/Usuario/Lista
+// GET api/Usuario/{id}
+// =======================================
+
 export interface UsuarioSelectDto {
   id: number;
-  username: string;
-  nombres: string;
-  apellidos: string;
+  nombreApellido: string;
+  dni: string;
+  sexo?: string;
+  telefono?: string;
+  correo: string;
+  idRol: number;
   rol: string;
-  email: string;
   estado: boolean;
-  sucursal: string;
-  telefono: string;
-  createdAt?: string;
-  updatedAt?: string;
 }
 
-export interface UsuarioInsertDto {
-  username: string;
-  nombres: string;
-  apellidos: string;
-  rol: string;
-  email: string;
-  sucursal: string;
-  telefono: string;
-  password: string;
+
+
+// =======================================
+// GUARDAR USUARIO
+// POST api/Usuario/Guardar
+// INSERTAR / ACTUALIZAR
+// =======================================
+
+export interface UsuarioGuardarDto {
+
+  idUsuario?: number | null;
+
+  nombreApellido: string;
+
+  dni: string;
+
+  sexo?: string;
+
+  telefono?: string | null;
+
+  correo: string;
+
+  contrasena?: string;
+
+  idRol: number;
+
+  estado: boolean;
 }
 
-export interface UsuarioUpdateDto {
-  id: number;
-  username: string;
-  nombres: string;
-  apellidos: string;
-  rol: string;
-  email: string;
-  estado: boolean;
-  sucursal: string;
-  telefono: string;
+
+
+// =======================================
+// ELIMINAR USUARIO
+// DELETE api/Usuario/Eliminar/{id}
+// =======================================
+
+export interface UsuarioEliminarDto {
+  idUsuario: number;
 }

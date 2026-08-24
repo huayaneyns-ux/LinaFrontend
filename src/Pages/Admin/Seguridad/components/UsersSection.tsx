@@ -4,11 +4,9 @@ import { UsuarioService } from '../../../../Services/Admin/Seguridad/Usuario';
 import { RolService } from '../../../../Services/Admin/Seguridad/Rol';
 import type {
   UsuarioSelectDto,
-  UsuarioInsertDto,
-  UsuarioUpdateDto,
+  UsuarioGuardarDto,
 } from '../../../../Types/Admin/Seguridad/Usuario';
 import type { RolSelectDto } from '../../../../Types/Admin/Seguridad/Rol';
-import type { RolUsuario } from '../../../../Types/Usuario';
 
 import { useAdminCrud } from '../../../../Hooks/useAdminCrud';
 import { useDataTable } from '../../../../Hooks/useDataTable';
@@ -17,7 +15,7 @@ import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
-import { StatusBadge, RoleBadge } from '../../../../Components/ERP/StatusBadge';
+import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
 import {
   FiUsers,
@@ -29,39 +27,60 @@ import {
   FiEyeOff,
 } from 'react-icons/fi';
 
-const SUCURSALES = ['Sede Central', 'Sucursal Norte', 'Sucursal Sur', 'Sucursal Este'];
-
 interface UsuarioFilters {
   estado: string;
-  rol: string;
-  sucursal: string;
+  idRol: string;
 }
 
-const DEFAULT_FILTERS: UsuarioFilters = { estado: '', rol: '', sucursal: '' };
+interface UsuarioFormState {
+  idUsuario?: number | null;
+  nombreApellido: string;
+  dni: string;
+  sexo: string;
+  telefono: string;
+  correo: string;
+  contrasena: string;
+  idRol: number;
+  estado: boolean;
+}
 
-const EMPTY_FORM: Partial<UsuarioSelectDto> & { password?: string } = {
-  username: '',
-  nombres: '',
-  apellidos: '',
-  rol: 'TRABAJADOR',
-  email: '',
-  estado: true,
-  sucursal: 'Sede Central',
+const DEFAULT_FILTERS: UsuarioFilters = { estado: '', idRol: '' };
+
+const EMPTY_FORM: UsuarioFormState = {
+  idUsuario: null,
+  nombreApellido: '',
+  dni: '',
+  sexo: 'M',
   telefono: '',
-  password: '',
+  correo: '',
+  contrasena: '',
+  idRol: 0,
+  estado: true,
 };
+
+const toFormState = (u: UsuarioSelectDto): UsuarioFormState => ({
+  idUsuario: u.id,
+  nombreApellido: u.nombreApellido || '',
+  dni: u.dni || '',
+  sexo: u.sexo || 'M',
+  telefono: u.telefono || '',
+  correo: u.correo || '',
+  contrasena: '',
+  idRol: u.idRol || 0,
+  estado: u.estado !== false,
+});
 
 const usuarioCrudService = {
   getAll: () => UsuarioService.getUsuarios(),
   getById: (id: number) => UsuarioService.getUsuarioById(id),
-  create: (data: UsuarioInsertDto) => UsuarioService.createUsuario(data),
-  update: (data: UsuarioUpdateDto) => UsuarioService.updateUsuario(data),
+  create: (data: UsuarioGuardarDto) => UsuarioService.guardarUsuario(data),
+  update: (data: UsuarioGuardarDto) => UsuarioService.guardarUsuario(data),
   delete: (id: number) => UsuarioService.deleteUsuario(id),
 };
 
 const UsersSection = () => {
   const { items: users, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
-    useAdminCrud<UsuarioSelectDto, UsuarioInsertDto, UsuarioUpdateDto>(usuarioCrudService);
+    useAdminCrud<UsuarioSelectDto, UsuarioGuardarDto, UsuarioGuardarDto>(usuarioCrudService);
 
   const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
     useDialog<UsuarioSelectDto>();
@@ -70,11 +89,12 @@ const UsersSection = () => {
   const [filters, setFilters] = useState<UsuarioFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [showDisabled, setShowDisabled] = useState(false);
-  const [formState, setFormState] = useState<Partial<UsuarioSelectDto> & { password?: string }>(EMPTY_FORM);
+  const [formState, setFormState] = useState<UsuarioFormState>(EMPTY_FORM);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     RolService.getRoles()
-      .then(setRoles)
+      .then(data => setRoles(Array.isArray(data) ? data.filter(r => r.estado) : []))
       .catch(() => setRoles([]));
   }, []);
 
@@ -90,8 +110,7 @@ const UsersSection = () => {
         if (filters.estado === 'ACTIVO' && !user.estado) return false;
         if (filters.estado === 'INACTIVO' && user.estado) return false;
       }
-      if (filters.rol && user.rol !== filters.rol) return false;
-      if (filters.sucursal && user.sucursal !== filters.sucursal) return false;
+      if (filters.idRol && user.idRol.toString() !== filters.idRol) return false;
       return true;
     },
     [filters, showDisabled]
@@ -110,7 +129,7 @@ const UsersSection = () => {
     setPageSize,
   } = useDataTable<UsuarioSelectDto>({
     data: users,
-    searchKeys: ['username', 'nombres', 'apellidos', 'email', 'sucursal'],
+    searchKeys: ['nombreApellido', 'dni', 'correo', 'rol', 'telefono'],
     defaultPageSize: 8,
     externalFilter,
   });
@@ -121,20 +140,18 @@ const UsersSection = () => {
     return { total, activos, inactivos: total - activos };
   }, [users]);
 
-  const roleOptions = useMemo(() => {
-    const fromApi = roles.filter(r => r.estado).map(r => r.nombre);
-    if (fromApi.length > 0) return fromApi;
-    return ['ADMINISTRADOR', 'SUPERVISOR', 'CAJERO', 'TRABAJADOR', 'CLIENTE'];
-  }, [roles]);
-
   const handleOpenDialog = async (mode: typeof dialogState.mode, record?: UsuarioSelectDto) => {
+    setFormError(null);
     if (record && (mode === 'view' || mode === 'edit')) {
       const detail = await fetchById(record.id, record);
-      setFormState({ ...detail, password: '' });
+      setFormState(toFormState(detail));
     } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
+      setFormState(toFormState(record));
     } else {
-      setFormState({ ...EMPTY_FORM });
+      setFormState({
+        ...EMPTY_FORM,
+        idRol: roles[0]?.id || 0,
+      });
     }
 
     if (mode === 'create') openCreate();
@@ -143,78 +160,113 @@ const UsersSection = () => {
     else if (mode === 'delete') openDelete(record!);
   };
 
+  const buildPayload = (): UsuarioGuardarDto => {
+    const payload: UsuarioGuardarDto = {
+      idUsuario: dialogState.mode === 'edit' ? formState.idUsuario ?? dialogState.record?.id ?? null : null,
+      nombreApellido: formState.nombreApellido.trim(),
+      dni: formState.dni.trim(),
+      sexo: formState.sexo || undefined,
+      telefono: formState.telefono.trim() || null,
+      correo: formState.correo.trim(),
+      idRol: Number(formState.idRol),
+      estado: formState.estado !== false,
+    };
+
+    if (formState.contrasena.trim()) {
+      payload.contrasena = formState.contrasena;
+    }
+
+    return payload;
+  };
+
   const handleConfirm = async () => {
     try {
-      if (dialogState.mode === 'create') {
-        const payload: UsuarioInsertDto = {
-          username: formState.username || '',
-          nombres: formState.nombres || '',
-          apellidos: formState.apellidos || '',
-          rol: formState.rol || 'TRABAJADOR',
-          email: formState.email || '',
-          sucursal: formState.sucursal || 'Sede Central',
-          telefono: formState.telefono || '',
-          password: formState.password || '',
-        };
-        await createItem(payload);
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
-        const payload: UsuarioUpdateDto = {
-          id: dialogState.record.id,
-          username: formState.username || '',
-          nombres: formState.nombres || '',
-          apellidos: formState.apellidos || '',
-          rol: formState.rol || 'TRABAJADOR',
-          email: formState.email || '',
-          estado: formState.estado !== false,
-          sucursal: formState.sucursal || '',
-          telefono: formState.telefono || '',
-        };
-        await updateItem(payload);
+      if (dialogState.mode === 'create' || dialogState.mode === 'edit') {
+        if (!formState.nombreApellido.trim()) {
+          setFormError('Ingrese el nombre y apellido.');
+          return;
+        }
+        if (!formState.dni.trim()) {
+          setFormError('Ingrese el DNI.');
+          return;
+        }
+        if (!formState.correo.trim()) {
+          setFormError('Ingrese el correo.');
+          return;
+        }
+        if (!formState.idRol) {
+          setFormError('Seleccione un rol.');
+          return;
+        }
+        if (dialogState.mode === 'create' && !formState.contrasena.trim()) {
+          setFormError('Ingrese la contraseña.');
+          return;
+        }
+        setFormError(null);
+        if (dialogState.mode === 'create') {
+          await createItem(buildPayload());
+        } else {
+          await updateItem(buildPayload());
+        }
       } else if (dialogState.mode === 'delete' && dialogState.record) {
         await deleteItem(dialogState.record.id);
       }
       closeDialog();
     } catch {
-      // error shown via hook
+      // error via hook
     }
   };
 
+  const isReadOnly = dialogState.mode === 'view';
+
   const columns = [
     {
-      key: 'username',
-      header: 'Usuario',
+      key: 'nombreApellido',
+      header: 'Nombre',
       sortable: true,
       render: (row: UsuarioSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600 }}>@{row.username}</div>
-          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>{row.email}</div>
+          <div style={{ fontWeight: 600 }}>{row.nombreApellido || '—'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>{row.correo}</div>
         </div>
       ),
     },
     {
-      key: 'nombres',
-      header: 'Nombre Completo',
+      key: 'dni',
+      header: 'DNI',
       sortable: true,
-      render: (row: UsuarioSelectDto) => `${row.nombres} ${row.apellidos}`,
+      width: '110px',
+      render: (row: UsuarioSelectDto) => row.dni || '—',
+    },
+    {
+      key: 'telefono',
+      header: 'Teléfono',
+      sortable: true,
+      width: '120px',
+      render: (row: UsuarioSelectDto) => row.telefono || '—',
     },
     {
       key: 'rol',
-      header: 'Rol de Sistema',
+      header: 'Rol',
       sortable: true,
       width: '140px',
-      render: (row: UsuarioSelectDto) => <RoleBadge role={row.rol as RolUsuario} />,
+      render: (row: UsuarioSelectDto) => (
+        <span className="erp-badge erp-badge-role">{row.rol || '—'}</span>
+      ),
     },
     {
-      key: 'sucursal',
-      header: 'Sucursal asignada',
+      key: 'sexo',
+      header: 'Sexo',
       sortable: true,
-      width: '150px',
+      width: '80px',
+      render: (row: UsuarioSelectDto) =>
+        row.sexo === 'M' ? 'M' : row.sexo === 'F' ? 'F' : row.sexo || '—',
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '120px',
+      width: '110px',
       render: (row: UsuarioSelectDto) => (
         <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
       ),
@@ -269,7 +321,7 @@ const UsersSection = () => {
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por nombre, usuario, email o sucursal..."
+        searchPlaceholder="Buscar por nombre, DNI, correo o rol..."
         onNew={() => handleOpenDialog('create')}
         newLabel="Nuevo Usuario"
         showFilters={showFilters}
@@ -290,25 +342,24 @@ const UsersSection = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
             <div className="erp-form-group">
               <label className="erp-form-label">Rol</label>
-              <select className="erp-input" value={filters.rol} onChange={e => setFilters(prev => ({ ...prev, rol: e.target.value }))}>
+              <select
+                className="erp-input"
+                value={filters.idRol}
+                onChange={e => setFilters(prev => ({ ...prev, idRol: e.target.value }))}
+              >
                 <option value="">Todos</option>
-                {roleOptions.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Sucursal</label>
-              <select className="erp-input" value={filters.sucursal} onChange={e => setFilters(prev => ({ ...prev, sucursal: e.target.value }))}>
-                <option value="">Todas</option>
-                {SUCURSALES.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
                 ))}
               </select>
             </div>
             <div className="erp-form-group">
               <label className="erp-form-label">Estado</label>
-              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
+              <select
+                className="erp-input"
+                value={filters.estado}
+                onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}
+              >
                 <option value="">Todos</option>
                 <option value="ACTIVO">Activo</option>
                 <option value="INACTIVO">Inactivo</option>
@@ -323,8 +374,22 @@ const UsersSection = () => {
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando usuarios...</div>
         ) : (
           <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron cuentas registradas" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+            <DataTable
+              columns={columns}
+              data={processedData}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              rowKey={row => row.id}
+              emptyMessage="No se encontraron usuarios registrados"
+            />
+            <Pagination
+              page={pagination.page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pagination.pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>
@@ -336,70 +401,129 @@ const UsersSection = () => {
         onConfirm={handleConfirm}
         loading={saving}
         title={
-          dialogState.mode === 'create' ? 'Agregar Usuario' :
-          dialogState.mode === 'edit' ? 'Editar Usuario' :
-          dialogState.mode === 'view' ? 'Ver Detalles de Cuenta' : 'Eliminar Usuario'
+          dialogState.mode === 'create' ? 'Nuevo usuario' :
+          dialogState.mode === 'edit' ? 'Editar usuario' :
+          dialogState.mode === 'view' ? 'Detalle de usuario' : 'Eliminar usuario'
         }
         size="lg"
         deleteMessage={
           dialogState.record ? (
-            <>¿Está seguro de eliminar al usuario <strong>@{dialogState.record.username}</strong>?</>
+            <>¿Está seguro de eliminar a <strong>{dialogState.record.nombreApellido}</strong> ({dialogState.record.correo})?</>
           ) : undefined
         }
       >
         {dialogState.mode !== 'delete' && (
           <div className="erp-form-grid">
+            {formError && (
+              <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
+                {formError}
+              </div>
+            )}
             <div className="erp-form-group">
-              <label className="erp-form-label">Nombre de Usuario (Username)</label>
-              <input type="text" className="erp-input" value={formState.username || ''} onChange={e => setFormState(prev => ({ ...prev, username: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: jsmith" />
+              <label className="erp-form-label">Nombre y apellido *</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.nombreApellido}
+                onChange={e => setFormState(prev => ({ ...prev, nombreApellido: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="Ej: Ana Pérez"
+              />
             </div>
             <div className="erp-form-group">
-              <label className="erp-form-label">Nombres</label>
-              <input type="text" className="erp-input" value={formState.nombres || ''} onChange={e => setFormState(prev => ({ ...prev, nombres: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: John" />
+              <label className="erp-form-label">DNI *</label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.dni}
+                maxLength={8}
+                onChange={e => setFormState(prev => ({ ...prev, dni: e.target.value.replace(/\D/g, '').slice(0, 8) }))}
+                disabled={isReadOnly}
+                placeholder="8 dígitos"
+              />
             </div>
             <div className="erp-form-group">
-              <label className="erp-form-label">Apellidos</label>
-              <input type="text" className="erp-input" value={formState.apellidos || ''} onChange={e => setFormState(prev => ({ ...prev, apellidos: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: Smith" />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Correo Electrónico</label>
-              <input type="email" className="erp-input" value={formState.email || ''} onChange={e => setFormState(prev => ({ ...prev, email: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="email@lina.pe" />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Rol del Sistema</label>
-              <select className="erp-input" value={formState.rol || 'TRABAJADOR'} onChange={e => setFormState(prev => ({ ...prev, rol: e.target.value }))} disabled={dialogState.mode === 'view'}>
-                {roleOptions.map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Sucursal Asignada</label>
-              <select className="erp-input" value={formState.sucursal || 'Sede Central'} onChange={e => setFormState(prev => ({ ...prev, sucursal: e.target.value }))} disabled={dialogState.mode === 'view'}>
-                {SUCURSALES.map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
+              <label className="erp-form-label">Correo *</label>
+              <input
+                type="email"
+                className="erp-input"
+                value={formState.correo}
+                onChange={e => setFormState(prev => ({ ...prev, correo: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="correo@ejemplo.com"
+              />
             </div>
             <div className="erp-form-group">
               <label className="erp-form-label">Teléfono</label>
-              <input type="text" className="erp-input" value={formState.telefono || ''} onChange={e => setFormState(prev => ({ ...prev, telefono: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: 999888777" />
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.telefono}
+                onChange={e => setFormState(prev => ({ ...prev, telefono: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="999888777"
+              />
             </div>
-            {dialogState.mode === 'create' && (
+            <div className="erp-form-group">
+              <label className="erp-form-label">Sexo</label>
+              {isReadOnly ? (
+                <div style={{ paddingTop: '6px' }}>
+                  {formState.sexo === 'M' ? 'Masculino' : formState.sexo === 'F' ? 'Femenino' : formState.sexo || '—'}
+                </div>
+              ) : (
+                <select
+                  className="erp-input"
+                  value={formState.sexo}
+                  onChange={e => setFormState(prev => ({ ...prev, sexo: e.target.value }))}
+                >
+                  <option value="M">Masculino</option>
+                  <option value="F">Femenino</option>
+                </select>
+              )}
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Rol *</label>
+              <select
+                className="erp-input"
+                value={formState.idRol}
+                onChange={e => setFormState(prev => ({ ...prev, idRol: Number(e.target.value) }))}
+                disabled={isReadOnly}
+              >
+                <option value={0}>Seleccione rol...</option>
+                {roles.map(r => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                ))}
+              </select>
+            </div>
+
+            {(dialogState.mode === 'create' || dialogState.mode === 'edit') && (
               <div className="erp-form-group">
-                <label className="erp-form-label">Contraseña</label>
-                <input type="password" className="erp-input" value={formState.password || ''} onChange={e => setFormState(prev => ({ ...prev, password: e.target.value }))} placeholder="Contraseña inicial" />
+                <label className="erp-form-label">
+                  Contraseña {dialogState.mode === 'create' ? '*' : '(opcional)'}
+                </label>
+                <input
+                  type="password"
+                  className="erp-input"
+                  value={formState.contrasena}
+                  onChange={e => setFormState(prev => ({ ...prev, contrasena: e.target.value }))}
+                  placeholder={dialogState.mode === 'create' ? 'Contraseña inicial' : 'Dejar vacío para no cambiar'}
+                />
               </div>
             )}
+
             {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
               <div className="erp-form-group">
-                <label className="erp-form-label">Estado de la cuenta</label>
-                {dialogState.mode === 'view' ? (
+                <label className="erp-form-label">Estado</label>
+                {isReadOnly ? (
                   <div style={{ paddingTop: '6px' }}>
-                    <StatusBadge status={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'} />
+                    <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} />
                   </div>
                 ) : (
-                  <select className="erp-input" value={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}>
+                  <select
+                    className="erp-input"
+                    value={formState.estado ? 'ACTIVO' : 'INACTIVO'}
+                    onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}
+                  >
                     <option value="ACTIVO">Activo</option>
                     <option value="INACTIVO">Inactivo</option>
                   </select>

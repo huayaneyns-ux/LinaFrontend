@@ -23,6 +23,8 @@ interface DataTableProps<T extends Record<string, any>> {
   rowKey?: (row: T) => string | number;
   expandedRowKey?: string | number;
   renderExpanded?: (row: T) => ReactNode;
+  onRowClick?: (row: T) => void;
+  rowClassName?: (row: T) => string;
 }
 
 function DataTable<T extends Record<string, any>>({
@@ -35,6 +37,8 @@ function DataTable<T extends Record<string, any>>({
   rowKey,
   expandedRowKey,
   renderExpanded,
+  onRowClick,
+  rowClassName,
 }: DataTableProps<T>) {
   const getSortIcon = (colKey: string) => {
     if (sortConfig.key !== colKey) return <FiCode className="erp-sort-icon" style={{ opacity: 0.35, fontSize: '11px' }} />;
@@ -84,7 +88,11 @@ function DataTable<T extends Record<string, any>>({
           ) : (
             data.map((row, idx) => (
               <React.Fragment key={rowKey ? rowKey(row) : idx}>
-                <tr className={expandedRowKey !== undefined && rowKey && rowKey(row) === expandedRowKey ? 'row-expanded' : ''}>
+                <tr
+                  className={`${expandedRowKey !== undefined && rowKey && rowKey(row) === expandedRowKey ? 'row-expanded' : ''} ${rowClassName ? rowClassName(row) : ''}`}
+                  onClick={() => onRowClick && onRowClick(row)}
+                  style={{ cursor: onRowClick ? 'pointer' : undefined }}
+                >
                   {columns.map(col => (
                     <td
                       key={col.key}
