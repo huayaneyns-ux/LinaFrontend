@@ -5,13 +5,14 @@ import {
 } from '../../../Constantes/Data/MockComprobantes';
 import type {
   ComprobanteFormData,
-  ComprobanteEstadoSunat,
   ComprobanteSelectDto,
   ProductoComprobanteMockDto,
   VentaOrigenComprobanteDto,
   NotaFormData,
   NotaComprobanteSelectDto,
 } from '../../../Types/Admin/Comprobantes/Comprobante';
+import { buildSunatPayload } from './sunatPayloadBuilder';
+import { SunatService } from './SunatService';
 
 const MOCK_LOADING_DELAY_MS = 450;
 const MOCK_SUNAT_DELAY_MS = 850;
@@ -20,15 +21,15 @@ const MOCK_GENERATION_DELAY_MS = 700;
 let comprobantesStore = mockComprobantes.map(comprobante => ({ ...comprobante }));
 
 const wait = () => new Promise<void>(resolve => {
-  window.setTimeout(resolve, MOCK_LOADING_DELAY_MS);
+  setTimeout(resolve, MOCK_LOADING_DELAY_MS);
 });
 
 const waitForSunat = () => new Promise<void>(resolve => {
-  window.setTimeout(resolve, MOCK_SUNAT_DELAY_MS);
+  setTimeout(resolve, MOCK_SUNAT_DELAY_MS);
 });
 
 const waitForGeneration = () => new Promise<void>(resolve => {
-  window.setTimeout(resolve, MOCK_GENERATION_DELAY_MS);
+  setTimeout(resolve, MOCK_GENERATION_DELAY_MS);
 });
 
 const cloneVenta = (venta: VentaOrigenComprobanteDto): VentaOrigenComprobanteDto => ({
@@ -66,11 +67,6 @@ const getNextDocumentNumber = (tipo: ComprobanteFormData['tipo'] | NotaFormData[
   return { serie, numero: String(lastNumber + 1).padStart(8, '0') };
 };
 
-const getNextSunatStatus = (status: ComprobanteEstadoSunat): ComprobanteEstadoSunat => {
-  if (status === 'PENDIENTE' || status === 'ENVIADO' || status === 'OBSERVADO') return 'ACEPTADO';
-  return status;
-};
-
 export const ComprobanteMockService = {
   async getComprobantes(): Promise<ComprobanteSelectDto[]> {
     await wait();
@@ -94,14 +90,25 @@ export const ComprobanteMockService = {
     const igv = Number(formData.detalle.reduce((sum, item) => sum + item.igv, 0).toFixed(2));
     const total = Number((subtotal + igv).toFixed(2));
     const id = Math.max(...comprobantesStore.map(comprobante => comprobante.id), 0) + 1;
-    const fechaEnvioSunat = new Date().toISOString();
+
+    // 1. Construir el payload JSON SUNAT exacto (contrato UBL 2.1)
+    const sunatPayload = buildSunatPayload({
+      formData,
+      serie,
+      numero,
+    });
+
+    // 2. Enviar al API SUNAT
+    const sunatResult = await SunatService.sendDocument(sunatPayload);
+
+    // 3. Crear el comprobante con la respuesta SUNAT
     const nuevoComprobante: ComprobanteSelectDto = {
       id,
       tipo: formData.tipo,
       serie,
       numero,
       fechaEmision: formData.fechaEmision,
-      cliente: formData.cliente.nombre || 'Cliente general',
+      cliente: formData.cliente.nombre || (formData.tipo === 'FACTURA' ? 'Empresa' : 'Cliente general'),
       documentoCliente: formData.cliente.documento,
       tipoDocumentoCliente: formData.cliente.tipoDocumento,
       direccionCliente: formData.cliente.direccion,
@@ -109,12 +116,13 @@ export const ComprobanteMockService = {
       subtotal,
       igv,
       total,
-      estado: 'EMITIDO',
-      estadoSunat: 'PENDIENTE',
-      codigoRespuestaSunat: '98',
-      mensajeSunat: 'Pendiente de consulta SUNAT (simulado).',
-      fechaConsultaSunat: '',
-      fechaEnvioSunat,
+      estado: sunatResult.success ? 'EMITIDO' : 'RECHAZADO',
+      estadoSunat: sunatResult.status,
+      codigoRespuestaSunat: sunatResult.codigoRespuestaSunat,
+      mensajeSunat: sunatResult.mensajeSunat,
+      fechaConsultaSunat: sunatResult.responseTime,
+      fechaEnvioSunat: sunatResult.responseTime,
+      pdfUrl: sunatResult.pdfUrl,
       ventaOrigenId: formData.origen === 'VENTA' ? formData.ventaOrigenId : undefined,
       fechaVencimiento: formData.fechaVencimiento || undefined,
       observaciones: formData.observaciones || undefined,
@@ -196,13 +204,15 @@ export const ComprobanteMockService = {
       throw new Error('No se encontró el comprobante seleccionado.');
     }
 
-    const estadoSunat = getNextSunatStatus(comprobante.estadoSunat);
-    const fechaConsultaSunat = new Date().toISOString();
+    const fileName = `${comprobante.serie}-${comprobante.numero}`;
+    const sunatResult = await SunatService.consultarEstado(fileName);
+    const estadoSunat = comprobante.estadoSunat === 'RECHAZADO' ? 'RECHAZADO' : sunatResult.status;
+    const fechaConsultaSunat = sunatResult.responseTime || new Date().toISOString();
     const actualizado: ComprobanteSelectDto = {
       ...comprobante,
       estadoSunat,
       codigoRespuestaSunat: estadoSunat === 'ACEPTADO' ? '0' : comprobante.codigoRespuestaSunat,
-      mensajeSunat: estadoSunat === 'ACEPTADO' ? 'Comprobante aceptado por SUNAT (simulado).' : comprobante.mensajeSunat,
+      mensajeSunat: estadoSunat === 'ACEPTADO' ? 'Comprobante verificado y aceptado por SUNAT.' : comprobante.mensajeSunat,
       fechaConsultaSunat,
       fechaEnvioSunat: comprobante.fechaEnvioSunat || fechaConsultaSunat,
     };

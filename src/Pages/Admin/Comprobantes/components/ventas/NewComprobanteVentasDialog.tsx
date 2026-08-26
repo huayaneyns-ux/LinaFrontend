@@ -82,11 +82,20 @@ const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onG
   const selectSale = (saleId: string) => {
     const sale = ventas.find(venta => venta.id === saleId);
     if (!sale) return;
+    const isRuc = sale.cliente.documento && sale.cliente.documento.length === 11;
+    const initialTipo: ComprobanteEmitibleTipo = isRuc ? 'FACTURA' : 'BOLETA';
     setForm(previous => ({
       ...previous,
+      tipo: initialTipo,
       origen: 'VENTA',
       ventaOrigenId: sale.id,
-      cliente: { ...sale.cliente },
+      cliente: {
+        tipoDocumento: isRuc ? 'RUC' : (sale.cliente.tipoDocumento || 'DNI'),
+        documento: sale.cliente.documento || '',
+        nombre: sale.cliente.nombre || '',
+        direccion: sale.cliente.direccion || '',
+        correo: sale.cliente.correo || '',
+      },
       detalle: sale.detalle.map(item => ({ ...item })),
     }));
     setErrors({});
@@ -97,7 +106,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onG
       let nextTipoDoc = prev.cliente.tipoDocumento;
       if (newTipo === 'FACTURA') {
         nextTipoDoc = 'RUC';
-      } else if (prev.cliente.tipoDocumento === 'RUC') {
+      } else if (prev.cliente.tipoDocumento === 'RUC' && newTipo === 'BOLETA') {
         nextTipoDoc = 'DNI';
       }
       return {
@@ -277,6 +286,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onG
                 ) : (
                   <>
                     <option value="DNI">DNI</option>
+                    <option value="RUC">RUC</option>
                     <option value="CE">Carnet de Extranjería (CE)</option>
                     {form.tipo === 'BOLETA' && <option value="PASAPORTE">Pasaporte</option>}
                   </>
@@ -315,7 +325,15 @@ const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onG
           {errors.detalle && <div className="erp-form-error" style={{ marginTop: '8px' }}>{errors.detalle}</div>}
           <div className="erp-table-wrapper" style={{ marginTop: '10px' }}>
             <table className="erp-table">
-              <thead><tr><th>Código</th><th>Producto / Servicio</th><th>Cantidad</th><th>Precio unitario</th><th>IGV</th><th>Importe</th>{form.origen === 'MANUAL' && <th />}</tr></thead>
+              <thead>
+                  <tr><th>Código</th>
+                  <th>Producto / Servicio</th>
+                  <th>Cantidad</th>
+                  <th>Precio unitario</th>
+                  <th>IGV</th>
+                  <th>Importe</th>
+                  {form.origen === 'MANUAL' && <th />}</tr>
+                </thead>
               <tbody>
                 {form.detalle.length === 0 ? <tr><td colSpan={form.origen === 'MANUAL' ? 7 : 6} className="text-muted">Selecciona una venta o agrega un ítem manual.</td></tr> : form.detalle.map((item, index) => (
                   <tr key={`${item.codigo}-${index}`}>

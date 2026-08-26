@@ -35,33 +35,21 @@ import NewNotaDialog from "./NewComprobanteNotaDialog";
 interface NotaComprobanteFilters {
 
   estado: ComprobanteEstado | '';
-
   estadoSunat: ComprobanteEstadoSunat | '';
-
   tipo: 'NOTA_CREDITO' | 'NOTA_DEBITO' | '';
-
   fechaDesde: string;
-
   fechaHasta: string;
 
 }
 
 const DEFAULT_FILTERS: NotaComprobanteFilters = {
-
   estado: '',
-
   estadoSunat: '',
-
   tipo: '',
-
   fechaDesde: '',
-
   fechaHasta: '',
 
 };
-
-
-
 
 
 const formatAmount = (amount: number) =>
@@ -87,27 +75,16 @@ export const ComprobanteNotaVentas = () => {
 
 
   const {
-
     comprobantes,
-
     productosDisponibles,
-
     loading,
-
     generating,
-
     updatingSunatId,
-
     error,
-
     successMessage,
-
     actualizarEstadoSunat,
-
     crearNota,
-
     clearSuccessMessage,
-
   } = useComprobantes();
 
 
@@ -185,71 +162,71 @@ export const ComprobanteNotaVentas = () => {
   const sharedColumns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    {
+      {
 
-      key: 'tipo',
+        key: 'tipo',
 
-      header: 'Tipo',
+        header: 'Tipo',
 
-      sortable: true,
+        sortable: true,
 
-      width: '150px',
+        width: '150px',
 
-      render: row => {
-        const labels: Record<string, string> = {
-          NOTA_CREDITO: 'Nota de Crédito',
-          NOTA_DEBITO: 'Nota de Débito',
-        };
-        return labels[row.tipo] || row.tipo;
+        render: row => {
+          const labels: Record<string, string> = {
+            NOTA_CREDITO: 'Nota de Crédito',
+            NOTA_DEBITO: 'Nota de Débito',
+          };
+          return labels[row.tipo] || row.tipo;
+        },
+
       },
 
-    },
+      {
 
-    {
+        key: 'serie',
 
-      key: 'serie',
+        header: 'Serie',
 
-      header: 'Serie',
+        sortable: true,
 
-      sortable: true,
+        width: '75px',
 
-      width: '75px',
+        render: row => (
+          <strong>
+            {row.serie}
+          </strong>
+        ),
 
-      render: row => (
-        <strong>
-          {row.serie}
-        </strong>
-      ),
+      },
 
-    },
+      {
 
-    {
+        key: 'numero',
 
-      key: 'numero',
+        header: 'Número',
 
-      header: 'Número',
+        sortable: true,
 
-      sortable: true,
+        width: '110px',
 
-      width: '110px',
+      },
 
-    },
+      {
 
-    {
+        key: 'fechaEmision',
 
-      key: 'fechaEmision',
+        header: 'Fecha',
 
-      header: 'Fecha',
+        sortable: true,
 
-      sortable: true,
+        width: '115px',
 
-      width: '115px',
+        render: row => formatDate(row.fechaEmision),
 
-      render: row => formatDate(row.fechaEmision),
+      },
 
-    },
-
-  ];
+    ];
 
 
   /*
@@ -259,81 +236,81 @@ export const ComprobanteNotaVentas = () => {
   const statusColumns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    {
+      {
 
-      key: 'estado',
+        key: 'estado',
 
-      header: 'Estado',
+        header: 'Estado',
 
-      sortable: true,
+        sortable: true,
 
-      width: '110px',
+        width: '110px',
 
-      render: row => (
-        <ComprobanteStatusBadge
-          status={row.estado}
-        />
-      ),
+        render: row => (
+          <ComprobanteStatusBadge
+            status={row.estado}
+          />
+        ),
 
-    },
+      },
 
-    {
+      {
 
-      key: 'estadoSunat',
+        key: 'estadoSunat',
 
-      header: 'Estado SUNAT',
+        header: 'Estado SUNAT',
 
-      sortable: true,
+        sortable: true,
 
-      width: '125px',
+        width: '125px',
 
-      render: row => (
-        <ComprobanteStatusBadge
-          status={row.estadoSunat}
-        />
-      ),
+        render: row => (
+          <ComprobanteStatusBadge
+            status={row.estadoSunat}
+          />
+        ),
 
-    },
+      },
 
-    {
+      {
 
-      key: 'actions',
+        key: 'actions',
 
-      header: 'Acciones',
+        header: 'Acciones',
 
-      align: 'right',
+        align: 'right',
 
-      width: '80px',
+        width: '80px',
 
-      render: row => (
+        render: row => (
 
-        <ComprobanteActions
+          <ComprobanteActions
 
-          comprobante={row}
+            comprobante={row}
 
-          isUpdatingSunat={
-            updatingSunatId === row.id
-          }
+            isUpdatingSunat={
+              updatingSunatId === row.id
+            }
 
-          onViewComprobante={
-            setPreviewNota
-          }
+            onViewComprobante={
+              setPreviewNota
+            }
 
-          onViewDetails={
-            setDetailNota
-          }
+            onViewDetails={
+              setDetailNota
+            }
 
-          onUpdateSunat={
-            id => void actualizarEstadoSunat(id)
-          }
+            onUpdateSunat={
+              id => void actualizarEstadoSunat(id)
+            }
 
-        />
+          />
 
-      ),
+        ),
 
-    },
+      },
 
-  ];
+    ];
 
 
   /*
@@ -343,49 +320,49 @@ export const ComprobanteNotaVentas = () => {
   const columns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    ...sharedColumns,
+      ...sharedColumns,
 
-    {
+      {
 
-      key: 'cliente',
+        key: 'cliente',
 
-      header: 'Cliente',
+        header: 'Cliente',
 
-      sortable: true,
+        sortable: true,
 
-      render: row =>
-        row.cliente,
+        render: row =>
+          row.cliente,
 
-    },
+      },
 
-    {
+      {
 
-      key: 'documentoCliente',
+        key: 'documentoCliente',
 
-      header: 'Documento',
+        header: 'Documento',
 
-      sortable: true,
+        sortable: true,
 
-      width: '125px',
+        width: '125px',
 
-      render: row =>
-        row.documentoCliente,
+        render: row =>
+          row.documentoCliente,
 
-    },
+      },
 
-    {
-      key: 'total',
-      header: 'Total',
-      sortable: true,
-      align: 'right',
-      width: '110px',
-      render: row =>
-        formatAmount(row.total),
-    },
+      {
+        key: 'total',
+        header: 'Total',
+        sortable: true,
+        align: 'right',
+        width: '110px',
+        render: row =>
+          formatAmount(row.total),
+      },
 
-    ...statusColumns,
+      ...statusColumns,
 
-  ];
+    ];
 
   return (
 

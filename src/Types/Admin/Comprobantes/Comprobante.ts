@@ -510,3 +510,266 @@ export interface GuiaRemisionSelectDto {
   estadoSunat: ComprobanteEstadoSunat;
   transportista?: string;
 }
+
+// ==========================================
+// CONTRATO SUNAT - BOLETA Y FACTURA ELECTRÓNICA
+// ==========================================
+
+export interface SunatCbcText {
+  _text: string | number;
+}
+
+export interface SunatCbcWithAttributes {
+  _attributes: Record<string, string>;
+  _text: string | number;
+}
+
+export interface SunatNoteItem {
+  _text: string;
+  _attributes: {
+    languageLocaleID: string;
+  };
+}
+
+export interface SunatPartyIdentification {
+  'cbc:ID': {
+    _attributes: {
+      schemeID: string;
+    };
+    _text: string;
+  };
+}
+
+export interface SunatPartyLegalEntity {
+  'cbc:RegistrationName': {
+    _text: string;
+  };
+}
+
+
+export interface SunatPartyLegalSEntity {
+  'cbc:RegistrationName': {
+    _text: string;
+  };
+}
+
+export interface SunatParty {
+  'cac:PartyIdentification'?: SunatPartyIdentification;
+  'cac:PartyLegalEntity': SunatPartyLegalEntity;
+}
+
+export interface SunatAccountingParty {
+  'cac:Party': SunatParty;
+}
+
+export interface SunatTaxScheme {
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:Name': {
+    _text: string;
+  };
+  'cbc:TaxTypeCode': {
+    _text: string;
+  };
+}
+
+export interface SunatTaxCategory {
+  'cbc:Percent'?: {
+    _text: number;
+  };
+  'cbc:TaxExemptionReasonCode'?: {
+    _text: string;
+  };
+  'cac:TaxScheme': SunatTaxScheme;
+}
+
+export interface SunatTaxSubtotal {
+  'cbc:TaxableAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:TaxAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:TaxCategory': SunatTaxCategory;
+}
+
+export interface SunatTaxTotal {
+  'cbc:TaxAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:TaxSubtotal': SunatTaxSubtotal[];
+}
+
+export interface SunatLegalMonetaryTotal {
+  'cbc:LineExtensionAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:TaxInclusiveAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:PayableAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+}
+
+export interface SunatInvoiceLine {
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:InvoicedQuantity': {
+    _attributes: {
+      unitCode: string;
+    };
+    _text: string;
+  };
+  'cbc:LineExtensionAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:PricingReference': {
+    'cac:AlternativeConditionPrice': {
+      'cbc:PriceAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cbc:PriceTypeCode': {
+        _text: string;
+      };
+    };
+  };
+  'cac:TaxTotal': {
+    'cbc:TaxAmount': {
+      _attributes: {
+        currencyID: string;
+      };
+      _text: string;
+    };
+    'cac:TaxSubtotal': Array<{
+      'cbc:TaxableAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cbc:TaxAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cac:TaxCategory': {
+        'cbc:Percent': {
+          _text: number;
+        };
+        'cbc:TaxExemptionReasonCode': {
+          _text: string;
+        };
+        'cac:TaxScheme': {
+          'cbc:ID': {
+            _text: string;
+          };
+          'cbc:Name': {
+            _text: string;
+          };
+          'cbc:TaxTypeCode': {
+            _text: string;
+          };
+        };
+      };
+    }>;
+  };
+  'cac:Item': {
+    'cbc:Description': {
+      _text: string;
+    };
+  };
+  'cac:Price': {
+    'cbc:PriceAmount': {
+      _attributes: {
+        currencyID: string;
+      };
+      _text: string;
+    };
+  };
+}
+
+export interface SunatInvoiceDocumentBody {
+  'cbc:UBLVersionID': {
+    _text: string;
+  };
+  'cbc:CustomizationID': {
+    _text: string;
+  };
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:IssueDate': {
+    _text: string;
+  };
+  'cbc:IssueTime': {
+    _text: string;
+  };
+  'cbc:InvoiceTypeCode': {
+    _attributes: {
+      listID: string;
+    };
+    _text: '01' | '03';
+  };
+  'cbc:Note': SunatNoteItem[];
+  'cbc:DocumentCurrencyCode': {
+    _text: string;
+  };
+  'cac:AccountingSupplierParty': SunatAccountingParty;
+  'cac:AccountingCustomerParty': SunatAccountingParty;
+  'cac:TaxTotal': SunatTaxTotal;
+  'cac:LegalMonetaryTotal': SunatLegalMonetaryTotal;
+  'cac:InvoiceLine': SunatInvoiceLine[];
+}
+
+export interface SunatDocumentPayload {
+  personaId: string;
+  personaToken: string;
+  fileName: string;
+  documentBody: SunatInvoiceDocumentBody;
+}
+
+export interface SunatSendResult {
+  success: boolean;
+  status: ComprobanteEstadoSunat;
+  codigoRespuestaSunat: string;
+  mensajeSunat: string;
+  responseTime: string;
+  cdr?: {
+    status?: string;
+    responseCode?: string;
+    description?: string;
+    notes?: string[];
+  };
+  pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
+  error?: string;
+}

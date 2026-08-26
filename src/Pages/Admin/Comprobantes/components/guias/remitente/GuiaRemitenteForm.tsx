@@ -1177,7 +1177,7 @@ const GuiaRemitenteForm = forwardRef<GuiaRemitenteFormHandle, Props>(({
           disabled={loading}
           id="dialog-confirm-btn"
         >
-          {loading ? 'Guardando...' : 'Emitir Guía de Remisión Transportista'}
+          {loading ? 'Guardando...' : 'Emitir Guía de Remisión Remitente'}
         </button>
       </div>
     </form>
