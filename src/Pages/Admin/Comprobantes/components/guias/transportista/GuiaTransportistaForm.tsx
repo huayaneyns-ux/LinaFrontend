@@ -2,9 +2,12 @@ import { useState } from 'react';
 import { FiTrash2 } from 'react-icons/fi';
 
 import FormField from '../../../../../../Components/ERP/FormField';
+import IconButton from '../../../../../../Components/ERP/IconButton';
 import UbicacionSelector from '../UbicacionSelector';
 
 import type {
+  DatosConductor,
+  DatosVehiculo,
   GuiaRemisionSelectDto,
   GuiaRemisionTransportistaFormData,
 } from '../../../../../../Types/Admin/Comprobantes/Comprobante';
@@ -94,7 +97,6 @@ const title = {
   color: 'var(--erp-text-primary)',
 };
 
-
 function Toggle({
   checked,
   onChange,
@@ -157,7 +159,6 @@ function Toggle({
 }
 
 export default function GuiaTransportistaForm({
-  guiasRemitente,
   onSubmit,
   onCancel,
   loading,
@@ -174,62 +175,23 @@ export default function GuiaTransportistaForm({
     }));
   };
 
-  const selectGuia = (id: number) => {
-    const guia = guiasRemitente.find((x) => x.id === id);
-
-    if (!guia) return;
-
-    set({
-      guiaRemitenteRelacionada: {
-        id: guia.id,
-        serie: guia.serie,
-        numero: guia.numero,
-      },
-
-      remitente: {
-        tipoDocumento: 'RUC',
-        numeroDocumento: '',
-        nombre: guia.remitente ?? '',
-      },
-
-      destinatario: {
-        tipoDocumento: 'RUC',
-        numeroDocumento: '',
-        nombre: guia.destinatario ?? '',
-      },
-
-      puntoPartida: {
-        ...form.puntoPartida,
-        direccion: guia.puntoPartida ?? '',
-      },
-
-      puntoLlegada: {
-        ...form.puntoLlegada,
-        direccion: guia.puntoLlegada ?? '',
-      },
-    });
-  };
-
   const submit = () => {
     if (
       !form.numero ||
-      !form.transportista.ruc ||
-      !form.transportista.razonSocial ||
       !form.transportista.registroMTC ||
       !form.remitente.nombre ||
       !form.destinatario.nombre ||
-      !form.bienes.length ||
       form.pesoBrutoTotal <= 0
     ) {
       setError(
-        'Complete los campos obligatorios, bienes y peso.',
+        'Complete los campos obligatorios y peso.',
       );
       return;
     }
 
     if (
       form.transporteSubcontratado &&
-      (!form.empresaSubcontrata || !/^\d{11}$/.test(form.rucEmpresaSubcontrata ?? ''))
+      (!form.empresaSubcontrata?.trim() || !/^\d{11}$/.test(form.rucEmpresaSubcontrata ?? ''))
     ) {
       setError('Complete la empresa subcontratada y un RUC válido de 11 dígitos.');
       return;
@@ -246,10 +208,67 @@ export default function GuiaTransportistaForm({
     onSubmit(form);
   };
 
-  const addVehicle = () => set({ vehiculos: [...form.vehiculos, { placa: '', numeroAutorizacion: '', entidadEmisora: '' }] });
-  const addDriver = () => set({ conductores: [...form.conductores, { tipoDocumento: 'DNI', numeroDocumento: '', nombre: '', apellidos: '', licenciaConducir: '' }] });
-  const updateVehicle = (index: number, field: 'placa' | 'numeroAutorizacion' | 'entidadEmisora', value: string) => set({ vehiculos: form.vehiculos.map((vehicle, i) => i === index ? { ...vehicle, [field]: value } : vehicle) });
-  const updateDriver = (index: number, field: 'numeroDocumento' | 'nombre' | 'apellidos' | 'licenciaConducir', value: string) => set({ conductores: form.conductores.map((driver, i) => i === index ? { ...driver, [field]: value } : driver) });
+  const addVehicle = () =>
+    set({
+      vehiculos: [
+        ...(form.vehiculos ?? []),
+        {
+          placa: '',
+          numeroAutorizacion: '',
+          entidadEmisora: '',
+        },
+      ],
+    });
+
+  const addDriver = () =>
+    set({
+      conductores: [
+        ...(form.conductores ?? []),
+        {
+          tipoDocumento: 'DNI',
+          numeroDocumento: '',
+          nombre: '',
+          apellidos: '',
+          licenciaConducir: '',
+        },
+      ],
+    });
+
+  const updateVehicle = (
+    index: number,
+    field: keyof DatosVehiculo,
+    value: string,
+  ) => {
+    set({
+      vehiculos: (form.vehiculos ?? []).map((vehicle, i) =>
+        i === index ? { ...vehicle, [field]: value } : vehicle,
+      ),
+    });
+  };
+
+  const updateDriver = (
+    index: number,
+    field: keyof DatosConductor,
+    value: string,
+  ) => {
+    set({
+      conductores: (form.conductores ?? []).map((driver, i) =>
+        i === index ? { ...driver, [field]: value } : driver,
+      ),
+    });
+  };
+
+  const removeVehicle = (i: number) => {
+    set({
+      vehiculos: form.vehiculos?.filter((_, index) => index !== i),
+    });
+  };
+
+  const removeDriver = (i: number) => {
+    set({
+      conductores: form.conductores?.filter((_, index) => index !== i),
+    });
+  };
 
   const person = (
     key: 'remitente' | 'destinatario',
@@ -263,7 +282,6 @@ export default function GuiaTransportistaForm({
           <select
             className="erp-form-control"
             value={form[key].tipoDocumento}
-            
             onChange={(e) =>
               set({
                 [key]: {
@@ -387,7 +405,7 @@ export default function GuiaTransportistaForm({
           </FormField>
         </div>
 
-        {/* Toggles: Retorno de Vehículo Vacío / Retorno con Envases Vacíos / Transbordo Programado */}
+        {/* Toggles */}
         <div
           style={{
             display: 'grid',
@@ -425,7 +443,15 @@ export default function GuiaTransportistaForm({
             onChange={(v) =>
               set({
                 transporteSubcontratado: v,
-                ...(v ? {} : { empresaSubcontrata: '', rucEmpresaSubcontrata: '' }),
+                ...(v
+                  ? {}
+                  : {
+                      empresaSubcontrata: '',
+                      rucEmpresaSubcontrata: '',
+                      ...(form.fletePagadoPor === 'SUBCONTRATADOR'
+                        ? { fletePagadoPor: 'REMITENTE' }
+                        : {}),
+                    }),
               })
             }
             label="Transporte Subcontratado"
@@ -450,7 +476,11 @@ export default function GuiaTransportistaForm({
                 maxLength={11}
                 value={form.rucEmpresaSubcontrata ?? ''}
                 onChange={(e) =>
-                  set({ rucEmpresaSubcontrata: e.target.value.replace(/\D/g, '').slice(0, 11) })
+                  set({
+                    rucEmpresaSubcontrata: e.target.value
+                      .replace(/\D/g, '')
+                      .slice(0, 11),
+                  })
                 }
               />
             </FormField>
@@ -460,15 +490,160 @@ export default function GuiaTransportistaForm({
 
       <section style={card}>
         <h4 style={title}>DATOS DEL TRANSPORTISTA</h4>
-        <FormField label="Registro MTC" required>
-          <input
-            className="erp-form-control"
-            value={form.transportista.registroMTC ?? ''}
-            onChange={(e) =>
-              set({ transportista: { ...form.transportista, registroMTC: e.target.value } })
-            }
-          />
-        </FormField>
+        <div style={grid}>
+          <FormField label="Registro MTC" required>
+            <input
+              className="erp-form-control"
+              value={form.transportista.registroMTC ?? ''}
+              onChange={(e) =>
+                set({
+                  transportista: {
+                    ...form.transportista,
+                    registroMTC: e.target.value,
+                  },
+                })
+              }
+            />
+          </FormField>
+        </div>
+      </section>
+
+      <section style={card}>
+        <h4 style={title}>VEHÍCULOS</h4>
+
+        <button
+          type="button"
+          className="erp-btn erp-btn-secondary erp-btn-sm"
+          onClick={addVehicle}
+        >
+          + Agregar vehículo
+        </button>
+
+        {form.vehiculos?.map((vehicle, index) => (
+          <div
+            key={index}
+            style={{
+              ...grid,
+              marginTop: '12px',
+            }}
+          >
+            <FormField label="Placa" required>
+              <input
+                className="erp-form-control"
+                value={vehicle.placa ?? ''}
+                onChange={(e) =>
+                  updateVehicle(index, 'placa', e.target.value)
+                }
+              />
+            </FormField>
+
+            <FormField label="Número de autorización" required>
+              <input
+                className="erp-form-control"
+                value={vehicle.numeroAutorizacion ?? ''}
+                onChange={(e) =>
+                  updateVehicle(index, 'numeroAutorizacion', e.target.value)
+                }
+              />
+            </FormField>
+
+            <FormField label="Entidad emisora" required>
+              <select
+                className="erp-form-control"
+                value={vehicle.entidadEmisora ?? ''}
+                onChange={(e) =>
+                  updateVehicle(index, 'entidadEmisora', e.target.value)
+                }
+              >
+                <option value="">Seleccione</option>
+                <option value="MTC">
+                  Ministerio de Transportes y Comunicaciones (MTC)
+                </option>
+              </select>
+            </FormField>
+
+            <div style={{ alignSelf: 'end' }}>
+              <IconButton
+                icon={<FiTrash2 />}
+                tooltip="Eliminar vehículo"
+                variant="danger"
+                onClick={() => removeVehicle(index)}
+              />
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section style={card}>
+        <h4 style={title}>CONDUCTORES</h4>
+
+        <button
+          type="button"
+          className="erp-btn erp-btn-secondary erp-btn-sm"
+          onClick={addDriver}
+        >
+          + Agregar conductor
+        </button>
+
+        {form.conductores?.map((driver, index) => (
+          <div
+            key={index}
+            style={{
+              ...grid,
+              marginTop: '12px',
+            }}
+          >
+            <FormField label="DNI" required>
+              <input
+                className="erp-form-control"
+                maxLength={8}
+                value={driver.numeroDocumento}
+                onChange={(e) =>
+                  updateDriver(index, 'numeroDocumento', e.target.value)
+                }
+              />
+            </FormField>
+
+            <FormField label="Nombres" required>
+              <input
+                className="erp-form-control"
+                value={driver.nombre}
+                onChange={(e) =>
+                  updateDriver(index, 'nombre', e.target.value)
+                }
+              />
+            </FormField>
+
+            <FormField label="Apellidos" required>
+              <input
+                className="erp-form-control"
+                value={driver.apellidos ?? ''}
+                onChange={(e) =>
+                  updateDriver(index, 'apellidos', e.target.value)
+                }
+              />
+            </FormField>
+
+            <FormField label="Licencia de conducir" required>
+              <input
+                className="erp-form-control"
+                value={driver.licenciaConducir ?? ''}
+                onChange={(e) =>
+                  updateDriver(index, 'licenciaConducir', e.target.value)
+                }
+              />
+            </FormField>
+
+            <div style={{ alignSelf: 'end' }}>
+              <IconButton
+                icon={<FiTrash2 />}
+                tooltip="Eliminar conductor"
+                variant="danger"
+                onClick={() => removeDriver(index)}
+              />
+            </div>
+          </div>
+        ))}
       </section>
 
       <section style={card}>
@@ -482,31 +657,22 @@ export default function GuiaTransportistaForm({
               className="erp-form-control"
               value={form.fletePagadoPor}
               onChange={(e) =>
-                set({ fletePagadoPor: e.target.value as GuiaRemisionTransportistaFormData['fletePagadoPor'] })
+                set({
+                  fletePagadoPor: e.target.value as GuiaRemisionTransportistaFormData['fletePagadoPor'],
+                })
               }
             >
               <option value="REMITENTE">Remitente</option>
-              <option value="SUBCONTRATADOR">Subcontratador</option>
+              <option
+                value="SUBCONTRATADOR"
+                disabled={!form.transporteSubcontratado}
+              >
+                Subcontratador
+              </option>
               <option value="TERCERO">Tercero</option>
             </select>
           </FormField>
         </div>
-              {/** 
-        <FormField label="Seleccionar guía remitente">
-          <select
-            className="erp-form-control"
-            value={form.guiaRemitenteRelacionada?.id ?? ''}
-            onChange={(e) =>
-              selectGuia(Number(e.target.value))
-            }
-          >
-            {guiasRemitente.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.serie}-{g.numero} · {g.destinatario}
-              </option>
-            ))}
-          </select>
-        </FormField>*/}
       </section>
 
       {person('remitente', 'REMITENTE')}
@@ -585,16 +751,6 @@ export default function GuiaTransportistaForm({
             },
           })
         }
-      />
-
-      <TransportResources
-        form={form}
-        addVehicle={addVehicle}
-        addDriver={addDriver}
-        updateVehicle={updateVehicle}
-        updateDriver={updateDriver}
-        removeVehicle={(i) => set({ vehiculos: form.vehiculos.filter((_, index) => index !== i) })}
-        removeDriver={(i) => set({ conductores: form.conductores.filter((_, index) => index !== i) })}
       />
 
       <section style={card}>
@@ -680,102 +836,5 @@ export default function GuiaTransportistaForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function TransportResources({
-  form,
-  addVehicle,
-  addDriver,
-  updateVehicle,
-  updateDriver,
-  removeVehicle,
-  removeDriver,
-}: {
-  form: GuiaRemisionTransportistaFormData;
-  addVehicle: () => void;
-  addDriver: () => void;
-  updateVehicle: (i: number, field: 'placa' | 'numeroAutorizacion' | 'entidadEmisora', value: string) => void;
-  updateDriver: (i: number, field: 'numeroDocumento' | 'nombre' | 'apellidos' | 'licenciaConducir', value: string) => void;
-  removeVehicle: (i: number) => void;
-  removeDriver: (i: number) => void;
-}) {
-  return (
-    <>
-      <section style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h4 style={{ ...title, margin: 0 }}>VEHÍCULOS</h4>
-          <button type="button" className="erp-btn erp-btn-secondary erp-btn-sm" onClick={addVehicle}>
-            + Agregar vehículo
-          </button>
-        </div>
-
-        {form.vehiculos.map((vehicle, index) => (
-          <div
-            key={index}
-            style={{ ...grid, marginTop: '12px', padding: '10px', border: '1px solid var(--erp-border)', borderRadius: '6px' }}
-          >
-            <FormField label="Placa" required>
-              <input className="erp-form-control" value={vehicle.placa ?? ''} onChange={(e) => updateVehicle(index, 'placa', e.target.value)} />
-            </FormField>
-
-            <FormField label="Número de autorización">
-              <input className="erp-form-control" value={vehicle.numeroAutorizacion ?? ''} onChange={(e) => updateVehicle(index, 'numeroAutorizacion', e.target.value)} />
-            </FormField>
-
-            <FormField label="Entidad emisora">
-              <select className="erp-form-control" value={vehicle.entidadEmisora ?? ''} onChange={(e) => updateVehicle(index, 'entidadEmisora', e.target.value)}>
-                <option value="">Seleccione</option>
-                <option value="MTC">MTC</option>
-              </select>
-            </FormField>
-
-            <div style={{ alignSelf: 'end' }}>
-              <button type="button" className="erp-btn erp-btn-danger erp-btn-sm" onClick={() => removeVehicle(index)}>
-                <FiTrash2 /> Eliminar
-              </button>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h4 style={{ ...title, margin: 0 }}>CONDUCTORES</h4>
-          <button type="button" className="erp-btn erp-btn-secondary erp-btn-sm" onClick={addDriver}>
-            + Agregar conductor
-          </button>
-        </div>
-
-        {form.conductores.map((driver, index) => (
-          <div
-            key={index}
-            style={{ ...grid, marginTop: '12px', padding: '10px', border: '1px solid var(--erp-border)', borderRadius: '6px' }}
-          >
-            <FormField label="DNI" required>
-              <input className="erp-form-control" maxLength={8} value={driver.numeroDocumento} onChange={(e) => updateDriver(index, 'numeroDocumento', e.target.value)} />
-            </FormField>
-
-            <FormField label="Nombres" required>
-              <input className="erp-form-control" value={driver.nombre} onChange={(e) => updateDriver(index, 'nombre', e.target.value)} />
-            </FormField>
-
-            <FormField label="Apellidos" required>
-              <input className="erp-form-control" value={driver.apellidos ?? ''} onChange={(e) => updateDriver(index, 'apellidos', e.target.value)} />
-            </FormField>
-
-            <FormField label="Licencia de conducir" required>
-              <input className="erp-form-control" value={driver.licenciaConducir ?? ''} onChange={(e) => updateDriver(index, 'licenciaConducir', e.target.value)} />
-            </FormField>
-
-            <div style={{ alignSelf: 'end' }}>
-              <button type="button" className="erp-btn erp-btn-danger erp-btn-sm" onClick={() => removeDriver(index)}>
-                <FiTrash2 /> Eliminar
-              </button>
-            </div>
-          </div>
-        ))}
-      </section>
-    </>
   );
 }
