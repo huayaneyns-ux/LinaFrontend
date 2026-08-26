@@ -151,6 +151,10 @@ const GuiaRemitenteForm = ({
     form.modalidadTransporte === 'TRANSPORTE_PUBLICO' ||
     !!form.datosTransportista;
 
+  const showVehicleDriver =
+    form.modalidadTransporte === 'TRANSPORTE_PRIVADO' ||
+    (form.modalidadTransporte === 'TRANSPORTE_PUBLICO' && !!form.datosTransportista);
+
   const location = (
     point: 'puntoPartida' | 'puntoLlegada',
     field: keyof Ubicacion,
@@ -260,10 +264,10 @@ const GuiaRemitenteForm = ({
           : [],
 
       transportista:
-        modalidadTransporte === 'TRANSPORTE_PUBLICO' ||
-        prev.datosTransportista
+        modalidadTransporte === 'TRANSPORTE_PUBLICO'
           ? prev.transportista
           : undefined,
+      datosTransportista: modalidadTransporte === 'TRANSPORTE_PUBLICO' ? prev.datosTransportista : false,
     }));
   };
 
@@ -415,7 +419,7 @@ const GuiaRemitenteForm = ({
     }
 
     if (
-      form.modalidadTransporte === 'TRANSPORTE_PRIVADO' &&
+      showVehicleDriver &&
       (
         !form.vehiculos?.length ||
         !form.conductores?.length ||
@@ -829,7 +833,7 @@ const GuiaRemitenteForm = ({
               [
                 'datosTransportista',
                 'Datos del Transportista',
-                !!form.vehiculosCategoriaM1L,
+                !!form.vehiculosCategoriaM1L || form.modalidadTransporte === 'TRANSPORTE_PRIVADO',
               ],
             ] as const
           ).map(([key, label, disabled]) => (
@@ -854,8 +858,7 @@ const GuiaRemitenteForm = ({
         </div>
       </section>
 
-      {form.modalidadTransporte ===
-        'TRANSPORTE_PRIVADO' && (
+      {showVehicleDriver && (
         <PrivateTransport
           form={form}
           error={errors.privado}
@@ -1213,13 +1216,14 @@ function PrivateTransport({
               </select>
             </FormField>
 
-            <button
-              type="button"
-              className="erp-btn erp-btn-danger erp-btn-sm"
-              onClick={() => removeVehicle(i)}
-            >
-              Eliminar
-            </button>
+            <div style={{ alignSelf: 'end' }}>
+              <IconButton
+                icon={<FiTrash2 />}
+                tooltip="Eliminar vehículo"
+                variant="danger"
+                onClick={() => removeVehicle(i)}
+              />
+            </div>
           </div>
         ))}
       </section>
@@ -1303,13 +1307,14 @@ function PrivateTransport({
               />
             </FormField>
 
-            <button
-              type="button"
-              className="erp-btn erp-btn-danger erp-btn-sm"
-              onClick={() => removeDriver(i)}
-            >
-              Eliminar
-            </button>
+            <div style={{ alignSelf: 'end' }}>
+              <IconButton
+                icon={<FiTrash2 />}
+                tooltip="Eliminar conductor"
+                variant="danger"
+                onClick={() => removeDriver(i)}
+              />
+            </div>
           </div>
         ))}
       </section>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FiTrash2 } from 'react-icons/fi';
 
 import FormField from '../../../../../../Components/ERP/FormField';
 import UbicacionSelector from '../UbicacionSelector';
@@ -37,6 +38,18 @@ const initial = (): GuiaRemisionTransportistaFormData => ({
     registroMTC: '',
   },
 
+  fletePagadoPor: 'REMITENTE',
+
+  // Toggles de traslado
+  retornoVehiculoVacio: false,
+  retornoEnvasesVacios: false,
+  transbordoProgramado: false,
+  trasladoTotalBienes: false,
+
+  transporteSubcontratado: false,
+  empresaSubcontrata: '',
+  rucEmpresaSubcontrata: '',
+
   remitente: {
     tipoDocumento: 'RUC',
     numeroDocumento: '',
@@ -59,7 +72,7 @@ const initial = (): GuiaRemisionTransportistaFormData => ({
   pesoBrutoTotal: 0,
   unidadMedidaPeso: 'KGM',
   observaciones: '',
-});
+} as GuiaRemisionTransportistaFormData);
 
 const card = {
   padding: '16px',
@@ -80,6 +93,68 @@ const title = {
   fontWeight: 600,
   color: 'var(--erp-text-primary)',
 };
+
+
+function Toggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  label: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        aria-pressed={checked}
+        style={{
+          position: 'relative',
+          width: '40px',
+          height: '22px',
+          borderRadius: '999px',
+          border: 'none',
+          cursor: 'pointer',
+          backgroundColor: checked ? 'var(--erp-primary, #2563eb)' : 'var(--erp-border)',
+          transition: 'background-color 0.15s ease',
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: '2px',
+            left: checked ? '20px' : '2px',
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            backgroundColor: '#fff',
+            transition: 'left 0.15s ease',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          }}
+        />
+      </button>
+
+      <span
+        style={{
+          fontSize: '13px',
+          fontWeight: 600,
+          color: checked ? 'var(--erp-text-primary)' : 'var(--erp-text-secondary)',
+          minWidth: '18px',
+        }}
+      >
+        {checked ? 'Sí' : 'No'}
+      </span>
+
+      <span style={{ fontSize: '13px', color: 'var(--erp-text-primary)' }}>
+        {label}
+      </span>
+    </div>
+  );
+}
 
 export default function GuiaTransportistaForm({
   guiasRemitente,
@@ -152,6 +227,14 @@ export default function GuiaTransportistaForm({
       return;
     }
 
+    if (
+      form.transporteSubcontratado &&
+      (!form.empresaSubcontrata || !/^\d{11}$/.test(form.rucEmpresaSubcontrata ?? ''))
+    ) {
+      setError('Complete la empresa subcontratada y un RUC válido de 11 dígitos.');
+      return;
+    }
+
     if (form.fechaInicioTraslado < form.fechaEmision) {
       setError(
         'La fecha de traslado no puede ser anterior a la emisión.',
@@ -162,6 +245,11 @@ export default function GuiaTransportistaForm({
     setError('');
     onSubmit(form);
   };
+
+  const addVehicle = () => set({ vehiculos: [...form.vehiculos, { placa: '', numeroAutorizacion: '', entidadEmisora: '' }] });
+  const addDriver = () => set({ conductores: [...form.conductores, { tipoDocumento: 'DNI', numeroDocumento: '', nombre: '', apellidos: '', licenciaConducir: '' }] });
+  const updateVehicle = (index: number, field: 'placa' | 'numeroAutorizacion' | 'entidadEmisora', value: string) => set({ vehiculos: form.vehiculos.map((vehicle, i) => i === index ? { ...vehicle, [field]: value } : vehicle) });
+  const updateDriver = (index: number, field: 'numeroDocumento' | 'nombre' | 'apellidos' | 'licenciaConducir', value: string) => set({ conductores: form.conductores.map((driver, i) => i === index ? { ...driver, [field]: value } : driver) });
 
   const person = (
     key: 'remitente' | 'destinatario',
@@ -175,6 +263,7 @@ export default function GuiaTransportistaForm({
           <select
             className="erp-form-control"
             value={form[key].tipoDocumento}
+            
             onChange={(e) =>
               set({
                 [key]: {
@@ -193,6 +282,7 @@ export default function GuiaTransportistaForm({
           <input
             className="erp-form-control"
             value={form[key].numeroDocumento}
+            maxLength={11}
             onChange={(e) =>
               set({
                 [key]: {
@@ -261,6 +351,7 @@ export default function GuiaTransportistaForm({
             <input
               className="erp-form-control"
               value={form.numero}
+              maxLength={11}
               onChange={(e) =>
                 set({
                   numero: e.target.value,
@@ -295,60 +386,89 @@ export default function GuiaTransportistaForm({
             />
           </FormField>
         </div>
+
+        {/* Toggles: Retorno de Vehículo Vacío / Retorno con Envases Vacíos / Transbordo Programado */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
+            marginTop: '16px',
+          }}
+        >
+          <Toggle
+            checked={!!form.retornoVehiculoVacio}
+            onChange={(v) => set({ retornoVehiculoVacio: v })}
+            label="Retorno de Vehículo Vacío"
+          />
+
+          <Toggle
+            checked={!!form.retornoEnvasesVacios}
+            onChange={(v) => set({ retornoEnvasesVacios: v })}
+            label="Retorno con Envases Vacíos"
+          />
+
+          <Toggle
+            checked={!!form.transbordoProgramado}
+            onChange={(v) => set({ transbordoProgramado: v })}
+            label="Transbordo Programado"
+          />
+
+          <Toggle
+            checked={!!form.trasladoTotalBienes}
+            onChange={(v) => set({ trasladoTotalBienes: v })}
+            label="Traslado Total de Bienes"
+          />
+
+          <Toggle
+            checked={!!form.transporteSubcontratado}
+            onChange={(v) =>
+              set({
+                transporteSubcontratado: v,
+                ...(v ? {} : { empresaSubcontrata: '', rucEmpresaSubcontrata: '' }),
+              })
+            }
+            label="Transporte Subcontratado"
+          />
+        </div>
+
+        {/* Campos condicionales cuando el transporte es subcontratado */}
+        {form.transporteSubcontratado && (
+          <div style={{ ...grid, marginTop: '16px' }}>
+            <FormField label="Empresa que subcontrata" required>
+              <input
+                className="erp-form-control"
+                value={form.empresaSubcontrata ?? ''}
+                onChange={(e) => set({ empresaSubcontrata: e.target.value })}
+              />
+            </FormField>
+
+            <FormField label="Número de RUC" required>
+              <input
+                className="erp-form-control"
+                inputMode="numeric"
+                maxLength={11}
+                value={form.rucEmpresaSubcontrata ?? ''}
+                onChange={(e) =>
+                  set({ rucEmpresaSubcontrata: e.target.value.replace(/\D/g, '').slice(0, 11) })
+                }
+              />
+            </FormField>
+          </div>
+        )}
       </section>
 
       <section style={card}>
-        <h4 style={title}>
-          DATOS DEL TRANSPORTISTA
-        </h4>
-
-        <div style={grid}>
-          <FormField label="RUC" required>
-            <input
-              className="erp-form-control"
-              maxLength={11}
-              value={form.transportista.ruc ?? ''}
-              onChange={(e) =>
-                set({
-                  transportista: {
-                    ...form.transportista,
-                    ruc: e.target.value,
-                  },
-                })
-              }
-            />
-          </FormField>
-
-          <FormField label="Razón social" required>
-            <input
-              className="erp-form-control"
-              value={form.transportista.razonSocial ?? ''}
-              onChange={(e) =>
-                set({
-                  transportista: {
-                    ...form.transportista,
-                    razonSocial: e.target.value,
-                  },
-                })
-              }
-            />
-          </FormField>
-
-          <FormField label="Registro MTC" required>
-            <input
-              className="erp-form-control"
-              value={form.transportista.registroMTC ?? ''}
-              onChange={(e) =>
-                set({
-                  transportista: {
-                    ...form.transportista,
-                    registroMTC: e.target.value,
-                  },
-                })
-              }
-            />
-          </FormField>
-        </div>
+        <h4 style={title}>DATOS DEL TRANSPORTISTA</h4>
+        <FormField label="Registro MTC" required>
+          <input
+            className="erp-form-control"
+            value={form.transportista.registroMTC ?? ''}
+            onChange={(e) =>
+              set({ transportista: { ...form.transportista, registroMTC: e.target.value } })
+            }
+          />
+        </FormField>
       </section>
 
       <section style={card}>
@@ -356,6 +476,22 @@ export default function GuiaTransportistaForm({
           GRE REMITENTE RELACIONADA
         </h4>
 
+        <div style={grid}>
+          <FormField label="Flete pagado por">
+            <select
+              className="erp-form-control"
+              value={form.fletePagadoPor}
+              onChange={(e) =>
+                set({ fletePagadoPor: e.target.value as GuiaRemisionTransportistaFormData['fletePagadoPor'] })
+              }
+            >
+              <option value="REMITENTE">Remitente</option>
+              <option value="SUBCONTRATADOR">Subcontratador</option>
+              <option value="TERCERO">Tercero</option>
+            </select>
+          </FormField>
+        </div>
+              {/** 
         <FormField label="Seleccionar guía remitente">
           <select
             className="erp-form-control"
@@ -364,15 +500,13 @@ export default function GuiaTransportistaForm({
               selectGuia(Number(e.target.value))
             }
           >
-            <option value="">Sin relación</option>
-
             {guiasRemitente.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.serie}-{g.numero} · {g.destinatario}
               </option>
             ))}
           </select>
-        </FormField>
+        </FormField>*/}
       </section>
 
       {person('remitente', 'REMITENTE')}
@@ -453,23 +587,15 @@ export default function GuiaTransportistaForm({
         }
       />
 
-      <section style={card}>
-        <h4 style={title}>
-          BIENES, VEHÍCULOS Y CONDUCTORES
-        </h4>
-
-        <p
-          style={{
-            margin: 0,
-            fontSize: '13px',
-            color: 'var(--erp-text-secondary)',
-          }}
-        >
-          La estructura de detalle permanece separada de
-          Remitente. Se completará con el contrato de backend
-          de Transportista.
-        </p>
-      </section>
+      <TransportResources
+        form={form}
+        addVehicle={addVehicle}
+        addDriver={addDriver}
+        updateVehicle={updateVehicle}
+        updateDriver={updateDriver}
+        removeVehicle={(i) => set({ vehiculos: form.vehiculos.filter((_, index) => index !== i) })}
+        removeDriver={(i) => set({ conductores: form.conductores.filter((_, index) => index !== i) })}
+      />
 
       <section style={card}>
         <h4 style={title}>
@@ -554,5 +680,102 @@ export default function GuiaTransportistaForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function TransportResources({
+  form,
+  addVehicle,
+  addDriver,
+  updateVehicle,
+  updateDriver,
+  removeVehicle,
+  removeDriver,
+}: {
+  form: GuiaRemisionTransportistaFormData;
+  addVehicle: () => void;
+  addDriver: () => void;
+  updateVehicle: (i: number, field: 'placa' | 'numeroAutorizacion' | 'entidadEmisora', value: string) => void;
+  updateDriver: (i: number, field: 'numeroDocumento' | 'nombre' | 'apellidos' | 'licenciaConducir', value: string) => void;
+  removeVehicle: (i: number) => void;
+  removeDriver: (i: number) => void;
+}) {
+  return (
+    <>
+      <section style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h4 style={{ ...title, margin: 0 }}>VEHÍCULOS</h4>
+          <button type="button" className="erp-btn erp-btn-secondary erp-btn-sm" onClick={addVehicle}>
+            + Agregar vehículo
+          </button>
+        </div>
+
+        {form.vehiculos.map((vehicle, index) => (
+          <div
+            key={index}
+            style={{ ...grid, marginTop: '12px', padding: '10px', border: '1px solid var(--erp-border)', borderRadius: '6px' }}
+          >
+            <FormField label="Placa" required>
+              <input className="erp-form-control" value={vehicle.placa ?? ''} onChange={(e) => updateVehicle(index, 'placa', e.target.value)} />
+            </FormField>
+
+            <FormField label="Número de autorización">
+              <input className="erp-form-control" value={vehicle.numeroAutorizacion ?? ''} onChange={(e) => updateVehicle(index, 'numeroAutorizacion', e.target.value)} />
+            </FormField>
+
+            <FormField label="Entidad emisora">
+              <select className="erp-form-control" value={vehicle.entidadEmisora ?? ''} onChange={(e) => updateVehicle(index, 'entidadEmisora', e.target.value)}>
+                <option value="">Seleccione</option>
+                <option value="MTC">MTC</option>
+              </select>
+            </FormField>
+
+            <div style={{ alignSelf: 'end' }}>
+              <button type="button" className="erp-btn erp-btn-danger erp-btn-sm" onClick={() => removeVehicle(index)}>
+                <FiTrash2 /> Eliminar
+              </button>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h4 style={{ ...title, margin: 0 }}>CONDUCTORES</h4>
+          <button type="button" className="erp-btn erp-btn-secondary erp-btn-sm" onClick={addDriver}>
+            + Agregar conductor
+          </button>
+        </div>
+
+        {form.conductores.map((driver, index) => (
+          <div
+            key={index}
+            style={{ ...grid, marginTop: '12px', padding: '10px', border: '1px solid var(--erp-border)', borderRadius: '6px' }}
+          >
+            <FormField label="DNI" required>
+              <input className="erp-form-control" maxLength={8} value={driver.numeroDocumento} onChange={(e) => updateDriver(index, 'numeroDocumento', e.target.value)} />
+            </FormField>
+
+            <FormField label="Nombres" required>
+              <input className="erp-form-control" value={driver.nombre} onChange={(e) => updateDriver(index, 'nombre', e.target.value)} />
+            </FormField>
+
+            <FormField label="Apellidos" required>
+              <input className="erp-form-control" value={driver.apellidos ?? ''} onChange={(e) => updateDriver(index, 'apellidos', e.target.value)} />
+            </FormField>
+
+            <FormField label="Licencia de conducir" required>
+              <input className="erp-form-control" value={driver.licenciaConducir ?? ''} onChange={(e) => updateDriver(index, 'licenciaConducir', e.target.value)} />
+            </FormField>
+
+            <div style={{ alignSelf: 'end' }}>
+              <button type="button" className="erp-btn erp-btn-danger erp-btn-sm" onClick={() => removeDriver(index)}>
+                <FiTrash2 /> Eliminar
+              </button>
+            </div>
+          </div>
+        ))}
+      </section>
+    </>
   );
 }
