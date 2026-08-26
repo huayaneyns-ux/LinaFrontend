@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ComprobanteEstado, ComprobanteEstadoSunat, ComprobanteSelectDto } from "../../../../../Types/Admin/Comprobantes/Comprobante";
+import type { ComprobanteEstado, ComprobanteEstadoSunat, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 import { useComprobantes } from "../../../../../Hooks/useComprobantes";
 import type { ColumnDef } from "../../../../../Components/ERP/DataTable";
 import { formatDate } from "../../../../../Utils/formatters";
@@ -14,6 +14,7 @@ import NewComprobanteDialog from "./NewComprobanteVentasDialog";
 import { useDataTable } from "../../../../../Hooks/useDataTable";
 
     interface ComprobanteFilters {
+        tipo: ComprobanteTipo | '';
         estado: ComprobanteEstado | '';
         estadoSunat: ComprobanteEstadoSunat | '';
         fechaDesde: string;
@@ -21,11 +22,18 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
     }
 
     const DEFAULT_FILTERS: ComprobanteFilters = {
+        tipo: '',
         estado: '',
         estadoSunat: '',
         fechaDesde: '',
         fechaHasta: '',
     };
+
+    const VENTAS_ALLOWED_TYPES: ComprobanteTipo[] = [
+        'FACTURA',
+        'BOLETA',
+        'LIQUIDACION_COMPRA'
+    ];
 
     const TYPE_LABELS: Record<ComprobanteSelectDto['tipo'], string> = {
         BOLETA: 'Boleta',
@@ -62,6 +70,10 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
 
         const filterCount = Object.values(filters).filter(value => value !== '').length;
 
+        const ventasComprobantes = comprobantes.filter(comprobante =>
+            VENTAS_ALLOWED_TYPES.includes(comprobante.tipo)
+        );
+
         const {
             processedData,
             totalItems,
@@ -74,7 +86,7 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
             setPage,
             setPageSize,
         } = useDataTable<ComprobanteSelectDto>({
-            data: comprobantes,
+            data: ventasComprobantes,
             searchKeys: ['serie', 'numero', 'cliente', 'documentoCliente'],
             defaultPageSize: 8
         });
@@ -127,6 +139,25 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
                 ...statusColumns,
             ];
 
+        const filteredVentas = processedData.filter(comprobante => {
+            if (filters.tipo && comprobante.tipo !== filters.tipo) {
+                return false;
+            }
+            if (filters.estado && comprobante.estado !== filters.estado) {
+                return false;
+            }
+            if (filters.estadoSunat && comprobante.estadoSunat !== filters.estadoSunat) {
+                return false;
+            }
+            if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
+                return false;
+            }
+            if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
+                return false;
+            }
+            return true;
+        });
+
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
                 <div className="erp-tab-content">
@@ -155,6 +186,15 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
                         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
                         filterPanel={
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
+                                <div className="erp-form-group">
+                                    <label className="erp-form-label">Tipo de Comprobante</label>
+                                    <select className="erp-input" value={filters.tipo} onChange={event => setFilters(previous => ({ ...previous, tipo: event.target.value as ComprobanteTipo | '' }))}>
+                                        <option value="">Todos</option>
+                                        <option value="FACTURA">Factura</option>
+                                        <option value="BOLETA">Boleta</option>
+                                        <option value="LIQUIDACION_COMPRA">Liquidación de Compra</option>
+                                    </select>
+                                </div>
                                 <div className="erp-form-group">
                                     <label className="erp-form-label">Estado</label>
                                     <select className="erp-input" value={filters.estado} onChange={event => setFilters(previous => ({ ...previous, estado: event.target.value as ComprobanteEstado | '' }))}>
@@ -191,7 +231,7 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
                     <div className="erp-table-card" style={{ flex: 1, overflow: 'hidden' }}>
                         <DataTable
                             columns={columns}
-                            data={processedData}
+                            data={filteredVentas}
                             sortConfig={sortConfig}
                             onSort={handleSort}
                             rowKey={row => row.id}

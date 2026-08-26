@@ -13,6 +13,7 @@ import type {
 import '../Inventario/Inventario.css';
 import { ComprobantePagoVentas } from './components/ventas/ComprobanteVentasSection';
 import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
+import { ComprobanteTodosSection } from './components/todos/ComprobanteTodosSection';
 
 type ComprobanteTab = ComprobanteSectionDefinition & {
   icon: ReactElement;
@@ -58,7 +59,7 @@ export function ComprobantesPage() {
       <div className="erp-tab-content">
         {activeTab === 'comprobantes' && < ComprobantePagoVentas />}
         {activeTab === 'notas' && < ComprobanteNotaVentas />}
-        {activeTab === 'todos' && < ComprobantePagoVentas />}
+        {activeTab === 'todos' && < ComprobanteTodosSection />}
       </div>
     </div>
   );
