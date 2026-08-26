@@ -19,6 +19,7 @@ import {
   motivosNotaCredito,
   motivosNotaDebito,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
+import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
 
 interface NewNotaDialogProps {
   isOpen: boolean;
@@ -283,27 +284,6 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
 
   const getTitle = () => {
     return form.tipo === 'NOTA_CREDITO' ? 'Nueva Nota de Crédito' : 'Nueva Nota de Débito';
-  };
-
-  const numberToWords = (num: number): string => {
-    // Implementación básica de número a letras
-    if (num === 0) return 'CERO';
-    const units = ['', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
-    const teens = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISEIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
-    const tens = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
-    
-    const intPart = Math.floor(num);
-    const decPart = Math.round((num - intPart) * 100);
-    
-    if (intPart >= 1000) return `${intPart} CON ${decPart}/100 SOLES`;
-    if (intPart >= 100) return `CIEN CON ${decPart}/100 SOLES`;
-    if (intPart >= 20) {
-      const ten = Math.floor(intPart / 10);
-      const unit = intPart % 10;
-      return `${tens[ten]} ${unit > 0 ? 'Y ' + units[unit] : ''} CON ${decPart}/100 SOLES`;
-    }
-    if (intPart >= 10) return `${teens[intPart - 10]} CON ${decPart}/100 SOLES`;
-    return `${units[intPart]} CON ${decPart}/100 SOLES`;
   };
 
   return (
@@ -683,7 +663,7 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
                 fontSize: '13px',
                 fontStyle: 'italic'
               }}>
-                {numberToWords(totals.total)}
+                {totalEnLetras(totals.total)}
               </div>
             </FormField>
           </section>

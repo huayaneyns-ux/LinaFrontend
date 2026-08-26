@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState, useImperativeHandle, forwardRef, type CSSProperties } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 
 import FormField from '../../../../../../Components/ERP/FormField';
@@ -16,11 +16,15 @@ import type {
   Ubicacion,
 } from '../../../../../../Types/Admin/Comprobantes/Comprobante';
 
+export interface GuiaRemitenteFormHandle {
+  submit: () => boolean;
+}
+
 interface Props {
   onSubmit: (
     data: GuiaRemisionRemitenteFormData,
   ) => void | Promise<boolean>;
-  onCancel: () => void;
+  onCancel?: () => void;
   loading?: boolean;
 }
 
@@ -116,11 +120,83 @@ const initial = (): GuiaRemisionRemitenteFormData => ({
   observaciones: '',
 });
 
-const GuiaRemitenteForm = ({
+function Toggle({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px',
+        opacity: disabled ? 0.5 : 1,
+        cursor: disabled ? 'not-allowed' : 'default',
+      }}
+    >
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        aria-pressed={checked}
+        style={{
+          position: 'relative',
+          width: '40px',
+          height: '22px',
+          borderRadius: '999px',
+          border: 'none',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          backgroundColor: checked ? 'var(--erp-primary, #2563eb)' : 'var(--erp-border)',
+          transition: 'background-color 0.15s ease',
+          flexShrink: 0,
+          padding: 0,
+        }}
+      >
+        <span
+          style={{
+            position: 'absolute',
+            top: '2px',
+            left: checked ? '20px' : '2px',
+            width: '18px',
+            height: '18px',
+            borderRadius: '50%',
+            backgroundColor: '#fff',
+            transition: 'left 0.15s ease',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.3)',
+          }}
+        />
+      </button>
+
+      <span
+        style={{
+          fontSize: '13px',
+          fontWeight: 600,
+          color: checked ? 'var(--erp-text-primary)' : 'var(--erp-text-secondary)',
+          minWidth: '18px',
+        }}
+      >
+        {checked ? 'Sí' : 'No'}
+      </span>
+
+      <span style={{ fontSize: '13px', color: disabled ? 'var(--erp-text-muted)' : 'var(--erp-text-primary)' }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+const GuiaRemitenteForm = forwardRef<GuiaRemitenteFormHandle, Props>(({
   onSubmit,
   onCancel,
   loading,
-}: Props) => {
+}, ref) => {
   const [form, setForm] = useState(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -591,6 +667,16 @@ const GuiaRemitenteForm = ({
       </p>
     );
 
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      if (validate()) {
+        void onSubmit(form);
+        return true;
+      }
+      return false;
+    },
+  }));
+
   return (
     <form
       onSubmit={(e) => {
@@ -778,83 +864,75 @@ const GuiaRemitenteForm = ({
               </option>
             </select>
           </FormField>
-          <br />
         </div>
-        {
-          buyer && 
-            <FormField
-              label="Descripción del motivo"
-              required
-            >
-              <input
-                className="erp-form-control"
-                value={form.descripcionMotivo ?? ''}
-                onChange={(e) =>
-                  set({
-                    descripcionMotivo: e.target.value,
-                  })
-                }
-              />
-            </FormField>
-        }
+
+        {buyer && (
+          <FormField
+            label="Descripción del motivo"
+            required
+          >
+            <input
+              className="erp-form-control"
+              value={form.descripcionMotivo ?? ''}
+              onChange={(e) =>
+                set({
+                  descripcionMotivo: e.target.value,
+                })
+              }
+            />
+          </FormField>
+        )}
       </section>
 
       <section style={card}>
         <h4 style={h}>OPCIONES DE TRANSPORTE</h4>
 
-        <div style={grid}>
-          {(
-            [
-              [
-                'retornoVehiculoVacio',
-                'Retorno de Vehículo Vacío',
-                !!form.retornoEnvasesVacios,
-              ],
-              [
-                'retornoEnvasesVacios',
-                'Retorno con Envases Vacíos',
-                !!form.retornoVehiculoVacio,
-              ],
-              [
-                'transbordoProgramado',
-                'Transbordo Programado',
-                false,
-              ],
-              [
-                'vehiculosCategoriaM1L',
-                'Vehículos Categoría M1 o L',
-                !!form.datosTransportista,
-              ],
-              [
-                'trasladoTotal',
-                'Traslado total (DAM o DS)',
-                false,
-              ],
-              [
-                'datosTransportista',
-                'Datos del Transportista',
-                !!form.vehiculosCategoriaM1L || form.modalidadTransporte === 'TRANSPORTE_PRIVADO',
-              ],
-            ] as const
-          ).map(([key, label, disabled]) => (
-            <label
-              key={key}
-              style={{
-                color: disabled
-                  ? 'var(--erp-text-muted)'
-                  : 'var(--erp-text-primary)',
-                fontSize: '13px',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={!!form[key]}
-                disabled={disabled}
-                onChange={() => toggle(key)}
-              />{' '}
-              {label}
-            </label>
-          ))}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
+          }}
+        >
+          <Toggle
+            checked={!!form.retornoVehiculoVacio}
+            disabled={!!form.retornoEnvasesVacios}
+            onChange={() => toggle('retornoVehiculoVacio')}
+            label="Retorno de Vehículo Vacío"
+          />
+
+          <Toggle
+            checked={!!form.retornoEnvasesVacios}
+            disabled={!!form.retornoVehiculoVacio}
+            onChange={() => toggle('retornoEnvasesVacios')}
+            label="Retorno con Envases Vacíos"
+          />
+
+          <Toggle
+            checked={!!form.transbordoProgramado}
+            onChange={() => toggle('transbordoProgramado')}
+            label="Transbordo Programado"
+          />
+
+          <Toggle
+            checked={!!form.vehiculosCategoriaM1L}
+            disabled={!!form.datosTransportista}
+            onChange={() => toggle('vehiculosCategoriaM1L')}
+            label="Vehículos Categoría M1 o L"
+          />
+
+          <Toggle
+            checked={!!form.trasladoTotal}
+            onChange={() => toggle('trasladoTotal')}
+            label="Traslado total (DAM o DS)"
+          />
+
+          <Toggle
+            checked={!!form.datosTransportista}
+            disabled={!!form.vehiculosCategoriaM1L || form.modalidadTransporte === 'TRANSPORTE_PRIVADO'}
+            onChange={() => toggle('datosTransportista')}
+            label="Datos del Transportista"
+          />
         </div>
       </section>
 
@@ -934,16 +1012,16 @@ const GuiaRemitenteForm = ({
       )}
 
       {buyer && (
-          <>
-            <PersonCard
-              title="DATOS DEL COMPRADOR"
-              person={form.comprador}
-              onChange={(field, value) =>
-                person('comprador', field, value)
-              }
-            />
-            {error('otros')}
-          </>
+        <>
+          <PersonCard
+            title="DATOS DEL COMPRADOR"
+            person={form.comprador}
+            onChange={(field, value) =>
+              person('comprador', field, value)
+            }
+          />
+          {error('otros')}
+        </>
       )}
 
       <UbicacionSelector
@@ -1079,34 +1157,32 @@ const GuiaRemitenteForm = ({
         </FormField>
       </section>
 
-      <div
-        className="erp-dialog-footer"
-        style={{
-          margin: '0 -20px -20px',
-        }}
-      >
-        <button
-          type="button"
-          className="erp-btn erp-btn-sm erp-btn-secondary"
-          onClick={onCancel}
-          disabled={loading}
-        >
-          Cancelar
-        </button>
+      {/* Footer */}
+      <div className="erp-dialog-footer">
+        {onCancel && (
+          <button
+            type="button"
+            className="erp-btn erp-btn-sm erp-btn-secondary"
+            onClick={onCancel}
+            disabled={loading}
+            id="dialog-cancel-btn"
+          >
+            Cancelar
+          </button>
+        )}
 
         <button
           type="submit"
           className="erp-btn erp-btn-sm erp-btn-primary"
           disabled={loading}
+          id="dialog-confirm-btn"
         >
-          {loading
-            ? 'Emitiendo...'
-            : 'Emitir Guía de Remisión Remitente'}
+          {loading ? 'Guardando...' : 'Emitir Guía de Remisión Transportista'}
         </button>
       </div>
     </form>
   );
-};
+});
 
 function PrivateTransport({
   form,
@@ -1460,29 +1536,23 @@ function Customs({
   form: GuiaRemisionRemitenteFormData;
   error?: string;
   onChange: (
-    v: NonNullable<
-      GuiaRemisionRemitenteFormData['datosAduaneros']
-    >,
+    v: NonNullable<GuiaRemisionRemitenteFormData['datosAduaneros']>,
   ) => void;
 }) {
-  const data =
+  type DatosAduaneros = NonNullable<GuiaRemisionRemitenteFormData['datosAduaneros']>;
+
+  const data: DatosAduaneros =
     form.datosAduaneros ?? {
       contenedores: [
-        {
-          numero: '',
-          precinto: '',
-        },
-        {
-          numero: '',
-          precinto: '',
-        },
+        { numero: '', precinto: '' },
+        { numero: '', precinto: '' },
       ],
-      tipoPuntoAduanero: '',
+      tipoPuntoAduanero: '' as DatosAduaneros['tipoPuntoAduanero'],
       puntoAduanero: '',
       cantidadBultos: undefined,
     };
 
-  const patch = (x: Partial<typeof data>) =>
+  const patch = (x: Partial<DatosAduaneros>) =>
     onChange({
       ...data,
       ...x,
@@ -1497,16 +1567,10 @@ function Customs({
       contenedores: [0, 1].map((n) =>
         n === i
           ? {
-              ...(data.contenedores[n] ?? {
-                numero: '',
-                precinto: '',
-              }),
+              ...(data.contenedores[n] ?? { numero: '', precinto: '' }),
               [field]: value,
             }
-          : data.contenedores[n] ?? {
-              numero: '',
-              precinto: '',
-            },
+          : data.contenedores[n] ?? { numero: '', precinto: '' },
       ),
     });
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ComprobanteEstado, ComprobanteEstadoSunat, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 import { useComprobantes } from "../../../../../Hooks/useComprobantes";
 import type { ColumnDef } from "../../../../../Components/ERP/DataTable";
@@ -70,9 +70,29 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
 
         const filterCount = Object.values(filters).filter(value => value !== '').length;
 
-        const ventasComprobantes = comprobantes.filter(comprobante =>
-            VENTAS_ALLOWED_TYPES.includes(comprobante.tipo)
-        );
+        const filteredVentas = useMemo(() => {
+            return comprobantes.filter(comprobante => {
+                if (!VENTAS_ALLOWED_TYPES.includes(comprobante.tipo)) {
+                    return false;
+                }
+                if (filters.tipo && comprobante.tipo !== filters.tipo) {
+                    return false;
+                }
+                if (filters.estado && comprobante.estado !== filters.estado) {
+                    return false;
+                }
+                if (filters.estadoSunat && comprobante.estadoSunat !== filters.estadoSunat) {
+                    return false;
+                }
+                if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
+                    return false;
+                }
+                if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
+                    return false;
+                }
+                return true;
+            });
+        }, [comprobantes, filters]);
 
         const {
             processedData,
@@ -86,7 +106,7 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
             setPage,
             setPageSize,
         } = useDataTable<ComprobanteSelectDto>({
-            data: ventasComprobantes,
+            data: filteredVentas,
             searchKeys: ['serie', 'numero', 'cliente', 'documentoCliente'],
             defaultPageSize: 8
         });
@@ -138,25 +158,6 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
                 { key: 'total', header: 'Total', sortable: true, align: 'right', width: '110px', render: row => formatAmount(row.total) },
                 ...statusColumns,
             ];
-
-        const filteredVentas = processedData.filter(comprobante => {
-            if (filters.tipo && comprobante.tipo !== filters.tipo) {
-                return false;
-            }
-            if (filters.estado && comprobante.estado !== filters.estado) {
-                return false;
-            }
-            if (filters.estadoSunat && comprobante.estadoSunat !== filters.estadoSunat) {
-                return false;
-            }
-            if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
-                return false;
-            }
-            if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
-                return false;
-            }
-            return true;
-        });
 
         return (
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
@@ -231,7 +232,7 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
                     <div className="erp-table-card" style={{ flex: 1, overflow: 'hidden' }}>
                         <DataTable
                             columns={columns}
-                            data={filteredVentas}
+                            data={processedData}
                             sortConfig={sortConfig}
                             onSort={handleSort}
                             rowKey={row => row.id}

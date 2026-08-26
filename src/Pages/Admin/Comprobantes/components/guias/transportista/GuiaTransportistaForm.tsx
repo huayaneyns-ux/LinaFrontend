@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useImperativeHandle, forwardRef } from 'react';
 import { FiTrash2 } from 'react-icons/fi';
 
 import FormField from '../../../../../../Components/ERP/FormField';
@@ -12,10 +12,14 @@ import type {
   GuiaRemisionTransportistaFormData,
 } from '../../../../../../Types/Admin/Comprobantes/Comprobante';
 
+export interface GuiaTransportistaFormHandle {
+  submit: () => boolean;
+}
+
 interface Props {
   guiasRemitente: GuiaRemisionSelectDto[];
   onSubmit: (data: GuiaRemisionTransportistaFormData) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
   loading?: boolean;
 }
 
@@ -158,11 +162,11 @@ function Toggle({
   );
 }
 
-export default function GuiaTransportistaForm({
+const GuiaTransportistaForm = forwardRef<GuiaTransportistaFormHandle, Props>(function GuiaTransportistaForm({
   onSubmit,
   onCancel,
   loading,
-}: Props) {
+}, ref) {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState('');
 
@@ -175,7 +179,7 @@ export default function GuiaTransportistaForm({
     }));
   };
 
-  const submit = () => {
+  const submit = (): boolean => {
     if (
       !form.numero ||
       !form.transportista.registroMTC ||
@@ -186,7 +190,7 @@ export default function GuiaTransportistaForm({
       setError(
         'Complete los campos obligatorios y peso.',
       );
-      return;
+      return false;
     }
 
     if (
@@ -194,19 +198,26 @@ export default function GuiaTransportistaForm({
       (!form.empresaSubcontrata?.trim() || !/^\d{11}$/.test(form.rucEmpresaSubcontrata ?? ''))
     ) {
       setError('Complete la empresa subcontratada y un RUC válido de 11 dígitos.');
-      return;
+      return false;
     }
 
     if (form.fechaInicioTraslado < form.fechaEmision) {
       setError(
         'La fecha de traslado no puede ser anterior a la emisión.',
       );
-      return;
+      return false;
     }
 
     setError('');
     onSubmit(form);
+    return true;
   };
+
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      return submit();
+    },
+  }));
 
   const addVehicle = () =>
     set({
@@ -812,29 +823,31 @@ export default function GuiaTransportistaForm({
         />
       </section>
 
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px',
-        }}
-      >
-        <button
-          type="button"
-          className="erp-btn erp-btn-secondary"
-          onClick={onCancel}
-        >
-          Cancelar
-        </button>
+      {/* Footer */}
+      <div className="erp-dialog-footer">
+        {onCancel && (
+          <button
+            type="button"
+            className="erp-btn erp-btn-sm erp-btn-secondary"
+            onClick={onCancel}
+            disabled={loading}
+            id="dialog-cancel-btn"
+          >
+            Cancelar
+          </button>
+        )}
 
         <button
           type="submit"
-          className="erp-btn erp-btn-primary"
+          className="erp-btn erp-btn-sm erp-btn-primary"
           disabled={loading}
+          id="dialog-confirm-btn"
         >
-          Emitir Guía de Remisión Transportista
+          {loading ? 'Guardando...' : 'Emitir Guía de Remisión Transportista'}
         </button>
       </div>
     </form>
   );
-}
+});
+
+export default GuiaTransportistaForm;

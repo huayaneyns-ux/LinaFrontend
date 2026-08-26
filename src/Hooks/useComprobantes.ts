@@ -45,7 +45,13 @@ export function useComprobantes() {
       setSuccessMessage(null);
       const comprobante = await ComprobanteMockService.crearComprobante(formData);
       setComprobantes(previous => [comprobante, ...previous]);
-      setSuccessMessage(`${comprobante.tipo === 'BOLETA' ? 'Boleta' : 'Factura'} ${comprobante.serie}-${comprobante.numero} generada correctamente.`);
+      const labels: Record<string, string> = {
+        BOLETA: 'Boleta',
+        FACTURA: 'Factura',
+        LIQUIDACION_COMPRA: 'Liquidación de Compra',
+      };
+      const tipoLabel = labels[comprobante.tipo] || 'Comprobante';
+      setSuccessMessage(`${tipoLabel} ${comprobante.serie}-${comprobante.numero} generada correctamente.`);
       return comprobante;
     } catch {
       setError('No se pudo generar el comprobante. Intenta nuevamente.');

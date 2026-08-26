@@ -49,6 +49,8 @@ const getNextDocumentNumber = (tipo: ComprobanteFormData['tipo'] | NotaFormData[
     serie = 'B001';
   } else if (tipo === 'FACTURA') {
     serie = 'F001';
+  } else if (tipo === 'LIQUIDACION_COMPRA') {
+    serie = 'L001';
   } else if (tipo === 'NOTA_CREDITO') {
     serie = 'BC01';
   } else if (tipo === 'NOTA_DEBITO') {

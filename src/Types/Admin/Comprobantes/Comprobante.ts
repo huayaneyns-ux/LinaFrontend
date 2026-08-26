@@ -36,7 +36,7 @@ export interface ComprobanteDetalleItem {
   importe: number;
 }
 
-export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA';
+export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA' | 'LIQUIDACION_COMPRA';
 export type ComprobanteOrigen = 'VENTA' | 'MANUAL';
 
 export interface ComprobanteClienteData {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type {
   ComprobanteEstado,
@@ -111,19 +111,29 @@ export const ComprobanteNotaVentas = () => {
   } = useComprobantes();
 
 
-  /*
-   * IMPORTANTE:
-   * Aquí filtramos únicamente las notas.
-   *
-   * Si tu backend ya devuelve solamente las notas,
-   * puedes utilizar directamente "comprobantes".
-   */
-
-  const notas = comprobantes.filter(
-    comprobante =>
-      comprobante.tipo === 'NOTA_CREDITO' ||
-      comprobante.tipo === 'NOTA_DEBITO'
-  );
+  const filteredNotas = useMemo(() => {
+    return comprobantes.filter(comprobante => {
+      if (comprobante.tipo !== 'NOTA_CREDITO' && comprobante.tipo !== 'NOTA_DEBITO') {
+        return false;
+      }
+      if (filters.tipo && comprobante.tipo !== filters.tipo) {
+        return false;
+      }
+      if (filters.estado && comprobante.estado !== filters.estado) {
+        return false;
+      }
+      if (filters.estadoSunat && comprobante.estadoSunat !== filters.estadoSunat) {
+        return false;
+      }
+      if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
+        return false;
+      }
+      if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
+        return false;
+      }
+      return true;
+    });
+  }, [comprobantes, filters]);
 
 
   const filterCount =
@@ -154,7 +164,7 @@ export const ComprobanteNotaVentas = () => {
 
   } = useDataTable<ComprobanteSelectDto>({
 
-    data: notas,
+    data: filteredNotas,
 
     searchKeys: [
       'serie',
@@ -364,59 +374,18 @@ export const ComprobanteNotaVentas = () => {
     },
 
     {
-
       key: 'total',
-
       header: 'Total',
-
       sortable: true,
-
       align: 'right',
-
       width: '110px',
-
       render: row =>
         formatAmount(row.total),
-
     },
 
     ...statusColumns,
 
   ];
-
-
-  /*
-   * APLICAR FILTROS
-   */
-
-  const filteredNotas =
-    processedData.filter(nota => {
-
-      if (
-        filters.tipo &&
-        nota.tipo !== filters.tipo
-      ) {
-        return false;
-      }
-
-      if (
-        filters.estado &&
-        nota.estado !== filters.estado
-      ) {
-        return false;
-      }
-
-      if (
-        filters.estadoSunat &&
-        nota.estadoSunat !== filters.estadoSunat
-      ) {
-        return false;
-      }
-
-      return true;
-
-    });
-
 
   return (
 
@@ -730,7 +699,7 @@ export const ComprobanteNotaVentas = () => {
 
             columns={columns}
 
-            data={filteredNotas}
+            data={processedData}
 
             sortConfig={sortConfig}
 
