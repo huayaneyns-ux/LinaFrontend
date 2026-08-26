@@ -14,6 +14,7 @@ import MisPedidos from '../Pages/MisPedidos';
 import Dashboard from '../Pages/Admin/Dashboard';
 import InventarioPage from '../Pages/Admin/Inventario/index';
 import VentasPage from '../Pages/Admin/Ventas/index';
+import ComprobantesPage from '../Pages/Admin/Comprobantes/index';
 import ComprasPage from '../Pages/Admin/Compras/index';
 import SeguridadPage from '../Pages/Admin/Seguridad/index';
 
@@ -39,6 +40,7 @@ const AppRoutes = () => {
         <Route index element={<Dashboard />} />
         <Route path="inventario" element={<InventarioPage />} />
         <Route path="ventas" element={<VentasPage />} />
+        <Route path="comprobantes" element={<ComprobantesPage />} />
         <Route path="compras" element={<ComprasPage />} />
         <Route path="seguridad" element={
           <ProtectedRoute rolesPermitidos={['ADMINISTRADOR']}>

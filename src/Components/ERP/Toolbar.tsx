@@ -73,7 +73,6 @@ const Toolbar = ({
         </div>
       </div>
 
-      {/* Filter panel (collapsible) */}
       {showFilters && (
         <div className="erp-filter-panel">
           {filterPanel}
