@@ -336,3 +336,20 @@ export interface NotaFormData {
   fechaEmision: string;
   observaciones?: string;
 }
+
+// Guías de remisión: contrato local usado mientras el proyecto no expone API propia.
+export type GuiaRemisionTipo = 'GUIA_REMISION_REMITENTE' | 'GUIA_REMISION_TRANSPORTISTA';
+export type MotivoTrasladoRemitente = 'Venta' | 'Venta sujeta a confirmación' | 'Compra' | 'Devolución' | 'Consignación' | 'Traslado entre establecimientos de la misma empresa' | 'Traslado de bienes para transformación' | 'Recojo de bienes' | 'Traslado por emisor itinerante' | 'Traslado a zona primaria' | 'Venta con entrega a terceros' | 'Importación' | 'Exportación' | 'Otros';
+export type ModalidadTransporte = 'TRANSPORTE_PRIVADO' | 'TRANSPORTE_PUBLICO';
+export interface Ubicacion { departamento: string; provincia: string; distrito: string; direccion: string; codigoEstablecimiento?: string; rucAsociado?: string }
+export interface PersonaDocumento { tipoDocumento: string; numeroDocumento: string; nombre: string }
+export interface DatosTransportista { ruc?: string; razonSocial?: string; registroMTC?: string }
+export interface DatosVehiculo { placa?: string; marca?: string; modelo?: string; numeroAutorizacion?: string; entidadEmisora?: string }
+export interface DatosConductor { tipoDocumento: string; numeroDocumento: string; nombre: string; licenciaConducir?: string; apellidos?: string }
+export interface DatosPersonaGuia { nombre: string; ruc: string }
+export interface DatosAduanerosGuia { contenedores: Array<{ numero: string; precinto: string }>; tipoPuntoAduanero: 'PUERTO' | 'AEROPUERTO' | ''; puntoAduanero: string; cantidadBultos?: number }
+export interface BienTransportado { descripcion: string; cantidad: number; unidadMedida: string; pesoUnitario?: number; pesoTotal?: number }
+export interface GuiaRemisionRemitenteFormData { tipo: 'GUIA_REMISION_REMITENTE'; serie: string; numero: string; fechaEmision: string; fechaInicioTraslado: string; destinatario: PersonaDocumento; motivoTraslado: MotivoTrasladoRemitente; modalidadTransporte: ModalidadTransporte; puntoPartida: Ubicacion; puntoLlegada: Ubicacion; transportista?: DatosTransportista; vehiculos?: DatosVehiculo[]; conductores?: DatosConductor[]; retornoVehiculoVacio?: boolean; retornoEnvasesVacios?: boolean; transbordoProgramado?: boolean; vehiculosCategoriaM1L?: boolean; trasladoTotal?: boolean; datosTransportista?: boolean; proveedor?: DatosPersonaGuia; comprador?: DatosPersonaGuia; descripcionMotivo?: string; datosAduaneros?: DatosAduanerosGuia; bienes: BienTransportado[]; pesoBrutoTotal: number; unidadMedidaPeso: string; observaciones?: string }
+export interface GuiaRemisionTransportistaFormData { tipo: 'GUIA_REMISION_TRANSPORTISTA'; serie: string; numero: string; fechaEmision: string; fechaInicioTraslado: string; transportista: DatosTransportista; remitente: PersonaDocumento; destinatario: PersonaDocumento; guiaRemitenteRelacionada?: { id: number; serie: string; numero: string }; puntoPartida: Ubicacion; puntoLlegada: Ubicacion; vehiculos: DatosVehiculo[]; conductores: DatosConductor[]; bienes: BienTransportado[]; pesoBrutoTotal: number; unidadMedidaPeso: string; observaciones?: string }
+export type GuiaRemisionFormData = GuiaRemisionRemitenteFormData | GuiaRemisionTransportistaFormData;
+export interface GuiaRemisionSelectDto { id: number; tipo: GuiaRemisionTipo; serie: string; numero: string; fechaEmision: string; fechaTraslado: string; remitente?: string; destinatario?: string; motivoTraslado?: string; puntoPartida?: string; puntoLlegada?: string; pesoTotal?: number; unidadMedidaPeso?: string; estado: ComprobanteEstado; estadoSunat: ComprobanteEstadoSunat; transportista?: string }
