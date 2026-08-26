@@ -48,6 +48,7 @@ const createEmptyItem = (): NotaFormItem => ({
 const createInitialForm = (): NotaFormData => ({
   tipo: 'NOTA_CREDITO',
   motivo: 'Anulación de la operación',
+  motivoDescripcion: '',
   comprobanteRelacionado: {
     id: 0,
     tipo: 'BOLETA',
@@ -114,6 +115,8 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
     const comprobante = comprobantesModificables.find(comp => comp.id === comprobanteId);
     if (!comprobante) return;
     
+    const config = getMotivoConfig(form.tipo, form.motivo);
+    
     setForm(previous => ({
       ...previous,
       comprobanteRelacionado: {
@@ -130,8 +133,18 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
         direccion: comprobante.direccionCliente || '',
         correo: comprobante.correoCliente || '',
       },
-      // Limpiar los ítems al cambiar de comprobante para no copiar automáticamente
-      detalle: [],
+      // Copiar ítems del comprobante original si el motivo trabaja con ítems
+      detalle: config.trabajaConItems 
+        ? comprobante.detalle.map(item => ({
+            productoId: null,
+            codigo: item.codigo,
+            productoServicio: item.productoServicio,
+            cantidad: item.cantidad,
+            precio: item.precio,
+            igv: item.igv,
+            importe: item.importe,
+          }))
+        : [],
     }));
     setErrors({});
   };
@@ -155,12 +168,29 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
   const handleMotivoChange = (motivo: string) => {
     const config = getMotivoConfig(form.tipo, motivo);
     
-    setForm(previous => ({
-      ...previous,
-      motivo: motivo as TipoNotaCredito | TipoNotaDebito,
-      // Limpiar ítems si el nuevo motivo no trabaja con ítems
-      detalle: config.trabajaConItems ? previous.detalle : [],
-    }));
+    setForm(previous => {
+      // Si cambiamos a un motivo que trabaja con ítems y hay un comprobante seleccionado,
+      // copiamos los ítems del comprobante original
+      let newDetalle = config.trabajaConItems ? previous.detalle : [];
+      
+      if (config.trabajaConItems && selectedComprobante && previous.detalle.length === 0) {
+        newDetalle = selectedComprobante.detalle.map(item => ({
+          productoId: null,
+          codigo: item.codigo,
+          productoServicio: item.productoServicio,
+          cantidad: item.cantidad,
+          precio: item.precio,
+          igv: item.igv,
+          importe: item.importe,
+        }));
+      }
+      
+      return {
+        ...previous,
+        motivo: motivo as TipoNotaCredito | TipoNotaDebito,
+        detalle: newDetalle,
+      };
+    });
     setErrors({});
   };
 
@@ -320,6 +350,16 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
                 <option key={motivo} value={motivo}>{motivo}</option>
               ))}
             </select>
+          </FormField>
+          
+          <FormField label="Descripción del motivo">
+            <input 
+              type="text" 
+              className="erp-input" 
+              placeholder="Descripción adicional del motivo..."
+              value={form.motivoDescripcion || ''} 
+              onChange={event => setForm(previous => ({ ...previous, motivoDescripcion: event.target.value }))} 
+            />
           </FormField>
           
           <FormField label="Fecha de emisión">

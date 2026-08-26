@@ -2,6 +2,7 @@ import {
   mockComprobantes,
   mockProductosComprobante,
   mockVentasDisponibles,
+  mockComprobantesEmitidos,
 } from '../../../Constantes/Data/MockComprobantes';
 import type {
   ComprobanteFormData,
@@ -12,13 +13,14 @@ import type {
   NotaComprobanteSelectDto,
 } from '../../../Types/Admin/Comprobantes/Comprobante';
 import { buildSunatPayload } from './sunatPayloadBuilder';
+import { buildSunatNotaPayload } from './sunatNotaPayloadBuilder';
 import { SunatService } from './SunatService';
 
 const MOCK_LOADING_DELAY_MS = 450;
 const MOCK_SUNAT_DELAY_MS = 850;
 const MOCK_GENERATION_DELAY_MS = 700;
 
-let comprobantesStore = mockComprobantes.map(comprobante => ({ ...comprobante }));
+let comprobantesStore = [...mockComprobantesEmitidos.map(comprobante => ({ ...comprobante })), ...mockComprobantes.map(comprobante => ({ ...comprobante }))];
 
 const wait = () => new Promise<void>(resolve => {
   setTimeout(resolve, MOCK_LOADING_DELAY_MS);
@@ -44,7 +46,10 @@ const cloneComprobante = (comprobante: ComprobanteSelectDto): ComprobanteSelectD
   bienesTransportados: comprobante.bienesTransportados ? [...comprobante.bienesTransportados] : undefined,
 });
 
-const getNextDocumentNumber = (tipo: ComprobanteFormData['tipo'] | NotaFormData['tipo']) => {
+const getNextDocumentNumber = (
+  tipo: ComprobanteFormData['tipo'] | NotaFormData['tipo'],
+  tipoComprobanteRelacionado?: 'BOLETA' | 'FACTURA'
+) => {
   let serie: string;
   if (tipo === 'BOLETA') {
     serie = 'B001';
@@ -53,9 +58,19 @@ const getNextDocumentNumber = (tipo: ComprobanteFormData['tipo'] | NotaFormData[
   } else if (tipo === 'LIQUIDACION_COMPRA') {
     serie = 'L001';
   } else if (tipo === 'NOTA_CREDITO') {
-    serie = 'BC01';
+    // La serie depende del tipo de comprobante relacionado
+    if (tipoComprobanteRelacionado === 'FACTURA') {
+      serie = 'FC01'; // Nota de crédito para factura
+    } else {
+      serie = 'BC01'; // Nota de crédito para boleta (default)
+    }
   } else if (tipo === 'NOTA_DEBITO') {
-    serie = 'BD01';
+    // La serie depende del tipo de comprobante relacionado
+    if (tipoComprobanteRelacionado === 'FACTURA') {
+      serie = 'FD01'; // Nota de débito para factura
+    } else {
+      serie = 'BD01'; // Nota de débito para boleta (default)
+    }
   } else {
     serie = 'B001';
   }
@@ -142,23 +157,39 @@ export const ComprobanteMockService = {
 
   async crearNota(formData: NotaFormData): Promise<NotaComprobanteSelectDto> {
     await waitForGeneration();
-    const { serie, numero } = getNextDocumentNumber(formData.tipo);
+    
+    // Find the related comprobante to get its tipo
+    const relatedComprobante = comprobantesStore.find(c => c.id === formData.comprobanteRelacionado.id);
+    const tipoComprobanteRelacionado = relatedComprobante?.tipo as 'BOLETA' | 'FACTURA' || 'BOLETA';
+    
+    const { serie, numero } = getNextDocumentNumber(formData.tipo, tipoComprobanteRelacionado);
     const subtotal = Number(formData.detalle.reduce((sum, item) => sum + item.precio * item.cantidad, 0).toFixed(2));
     const igv = Number(formData.detalle.reduce((sum, item) => sum + item.igv, 0).toFixed(2));
     const total = Number((subtotal + igv).toFixed(2));
     const id = Math.max(...comprobantesStore.map(comprobante => comprobante.id), 0) + 1;
-    const responseTime = new Date().toISOString();
     
     // Find the related comprobante to get its fechaEmision
-    const relatedComprobante = comprobantesStore.find(c => c.id === formData.comprobanteRelacionado.id);
     const fechaEmisionRelacionado = relatedComprobante?.fechaEmision || formData.fechaEmision;
+    
+    // 1. Construir el payload JSON SUNAT exacto para notas
+    const sunatPayload = buildSunatNotaPayload({
+      formData,
+      serie,
+      numero,
+      tipoComprobanteRelacionado,
+    });
+
+    // 2. Enviar al API SUNAT
+    const sunatResult = await SunatService.sendDocument(sunatPayload);
+    
+    const responseTime = sunatResult.responseTime || new Date().toISOString();
     
     const nuevoComprobante: NotaComprobanteSelectDto = {
       id,
       serie,
       numero,
       tipo: formData.tipo,
-      status: 'PENDIENTE',
+      status: sunatResult.success ? 'ACEPTADO' : 'RECHAZADO',
       responseTime,
       issueTime: formData.fechaEmision,
       nombreCliente: formData.cliente.nombre || 'Cliente general',
@@ -169,14 +200,14 @@ export const ComprobanteMockService = {
       subtotal,
       igv,
       total,
-      estado: 'EMITIDO',
-      estadoSunat: 'PENDIENTE',
-      mensajeSunat: 'Pendiente de consulta SUNAT (simulado).',
+      estado: sunatResult.success ? 'EMITIDO' : 'RECHAZADO',
+      estadoSunat: sunatResult.status,
+      mensajeSunat: sunatResult.mensajeSunat,
       comprobanteRelacionado: {
         ...formData.comprobanteRelacionado,
         fechaEmision: fechaEmisionRelacionado,
       },
-      motivoDescripcion: formData.motivo,
+      motivoDescripcion: formData.motivoDescripcion || formData.motivo,
       detalle: formData.detalle.map(item => ({
         productoServicio: item.productoServicio,
         codigo: item.codigo,
@@ -186,10 +217,10 @@ export const ComprobanteMockService = {
         importe: item.importe,
       })),
       observaciones: formData.observaciones,
-      fileName: '',
-      faults: [],
-      notes: [],
-      reference: '',
+      fileName: sunatPayload.fileName,
+      faults: sunatResult.cdr?.notes || [],
+      notes: sunatResult.cdr?.notes || [],
+      reference: `${formData.comprobanteRelacionado.serie}-${formData.comprobanteRelacionado.numero}`,
     };
 
     comprobantesStore = [nuevoComprobante as any, ...comprobantesStore];

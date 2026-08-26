@@ -319,6 +319,7 @@ export interface NotaFormItem {
 export interface NotaFormData {
   tipo: TipoNota;
   motivo: TipoNotaCredito | TipoNotaDebito;
+  motivoDescripcion?: string;
   comprobanteRelacionado: {
     id: number;
     tipo: ComprobanteTipo;
