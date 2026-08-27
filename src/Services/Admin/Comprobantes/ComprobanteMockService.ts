@@ -132,7 +132,7 @@ export const ComprobanteMockService = {
       igv,
       total,
       estado: sunatResult.success ? 'EMITIDO' : 'RECHAZADO',
-      estadoSunat: sunatResult.status,
+      estadoSunat: sunatResult.success ? 'PENDIENTE' : sunatResult.status,  // PENDIENTE cuando se envía correctamente
       codigoRespuestaSunat: sunatResult.codigoRespuestaSunat,
       mensajeSunat: sunatResult.mensajeSunat,
       fechaConsultaSunat: sunatResult.responseTime,
@@ -161,6 +161,33 @@ export const ComprobanteMockService = {
     // Find the related comprobante to get its tipo
     const relatedComprobante = comprobantesStore.find(c => c.id === formData.comprobanteRelacionado.id);
     const tipoComprobanteRelacionado = relatedComprobante?.tipo as 'BOLETA' | 'FACTURA' || 'BOLETA';
+    
+    // Validar límites de monto
+    if (relatedComprobante) {
+      const notaTotal = formData.detalle.reduce((sum, item) => sum + item.importe, 0);
+      
+      if (formData.tipo === 'NOTA_CREDITO') {
+        // Nota de crédito: no puede exceder el monto del comprobante original
+        if (notaTotal > relatedComprobante.total) {
+          throw new Error(`El importe de la nota de crédito (S/ ${notaTotal.toFixed(2)}) no puede exceder el total del comprobante original (S/ ${relatedComprobante.total.toFixed(2)})`);
+        }
+        
+        // Validar límites por ítem
+        formData.detalle.forEach((item) => {
+          const originalItem = relatedComprobante.detalle?.find(
+            orig => orig.productoServicio === item.productoServicio
+          );
+          if (originalItem && item.importe > originalItem.importe) {
+            throw new Error(`El ítem "${item.productoServicio}" excede el importe disponible (S/ ${originalItem.importe.toFixed(2)})`);
+          }
+        });
+      } else if (formData.tipo === 'NOTA_DEBITO') {
+        // Nota de débito: debe ser mayor a 0
+        if (notaTotal <= 0) {
+          throw new Error('El importe de la nota de débito debe ser mayor a cero');
+        }
+      }
+    }
     
     // For cancellation types (01: Anulación de la operación, 02: Anulación por error en el RUC),
     // we need to include the items from the related comprobante even if formData.detalle is empty
@@ -218,7 +245,7 @@ export const ComprobanteMockService = {
       igv,
       total,
       estado: sunatResult.success ? 'EMITIDO' : 'RECHAZADO',
-      estadoSunat: sunatResult.status,
+      estadoSunat: sunatResult.success ? 'PENDIENTE' : sunatResult.status,  // PENDIENTE cuando se envía correctamente
       mensajeSunat: sunatResult.mensajeSunat,
       comprobanteRelacionado: {
         ...formData.comprobanteRelacionado,

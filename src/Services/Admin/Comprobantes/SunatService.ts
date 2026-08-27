@@ -43,20 +43,31 @@ export const SunatService = {
 
       if (!response.ok) {
 
+        // Priorizar el mensaje específico de error de SUNAT
         const errorMessage =
+          data?.error?.message ||  // Estructura: { error: { message: "..." } }
           data?.message ||
           data?.description ||
+          data?.error?.description ||
           `Error APISUNAT HTTP ${response.status}`;
+
+        const errorCode =
+          data?.error?.code ||
+          data?.code ||
+          data?.responseCode ||
+          String(response.status);
+
+        console.error('❌ Error APISUNAT:', {
+          code: errorCode,
+          message: errorMessage,
+          fullResponse: data
+        });
 
         return {
           success: false,
           status: 'RECHAZADO',
 
-          codigoRespuestaSunat: String(
-            data?.responseCode ||
-            data?.code ||
-            response.status,
-          ),
+          codigoRespuestaSunat: errorCode,
 
           mensajeSunat: errorMessage,
 
@@ -91,7 +102,7 @@ export const SunatService = {
         success: isAccepted,
 
         status: isAccepted
-          ? 'ACEPTADO'
+          ? 'PENDIENTE'  // Cambiado de 'ACEPTADO' a 'PENDIENTE' cuando se envía correctamente
           : 'OBSERVADO',
 
         codigoRespuestaSunat:
@@ -106,7 +117,7 @@ export const SunatService = {
 
         cdr: data?.cdr || {
           status: isAccepted
-            ? 'ACEPTADO'
+            ? 'PENDIENTE'  // Cambiado de 'ACEPTADO' a 'PENDIENTE' para consistencia
             : 'OBSERVADO',
 
           responseCode:

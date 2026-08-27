@@ -46,15 +46,16 @@ export function useComprobantes() {
       const comprobante = await ComprobanteMockService.crearComprobante(formData);
       setComprobantes(previous => [comprobante, ...previous]);
       
-      // Solo mostrar mensaje de éxito si el comprobante fue aceptado por SUNAT
-      if (comprobante.estado === 'EMITIDO' && comprobante.estadoSunat === 'ACEPTADO') {
+      // Solo mostrar mensaje de éxito si el comprobante fue enviado correctamente a SUNAT
+      if (comprobante.estado === 'EMITIDO' && (comprobante.estadoSunat === 'ACEPTADO' || comprobante.estadoSunat === 'PENDIENTE')) {
         const labels: Record<string, string> = {
           BOLETA: 'Boleta',
           FACTURA: 'Factura',
           LIQUIDACION_COMPRA: 'Liquidación de Compra',
         };
         const tipoLabel = labels[comprobante.tipo] || 'Comprobante';
-        setSuccessMessage(`${tipoLabel} ${comprobante.serie}-${comprobante.numero} generada correctamente.`);
+        const estadoLabel = comprobante.estadoSunat === 'PENDIENTE' ? 'enviada a SUNAT (pendiente de confirmación)' : 'generada correctamente';
+        setSuccessMessage(`${tipoLabel} ${comprobante.serie}-${comprobante.numero} ${estadoLabel}.`);
       } else {
         // Si hubo error con SUNAT, mostrar mensaje de error
         setError(`Error al generar comprobante: ${comprobante.mensajeSunat || 'Error en comunicación con SUNAT'}`);
@@ -117,10 +118,11 @@ export function useComprobantes() {
       };
       setComprobantes(previous => [comprobante, ...previous]);
       
-      // Solo mostrar mensaje de éxito si la nota fue aceptada por SUNAT
-      if (nota.status === 'ACEPTADO') {
+      // Solo mostrar mensaje de éxito si la nota fue enviada correctamente a SUNAT
+      if (nota.status === 'ACEPTADO' || nota.status === 'PENDIENTE') {
         const tipoLabel = nota.tipo === 'NOTA_CREDITO' ? 'Nota de Crédito' : 'Nota de Débito';
-        setSuccessMessage(`${tipoLabel} ${nota.serie}-${nota.numero} generada correctamente.`);
+        const estadoLabel = nota.status === 'PENDIENTE' ? 'enviada a SUNAT (pendiente de confirmación)' : 'generada correctamente';
+        setSuccessMessage(`${tipoLabel} ${nota.serie}-${nota.numero} ${estadoLabel}.`);
       } else {
         // Si hubo error con SUNAT, mostrar mensaje de error
         setError(`Error al generar nota: ${nota.mensajeSunat || 'Error en comunicación con SUNAT'}`);
