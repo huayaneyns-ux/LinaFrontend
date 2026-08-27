@@ -45,13 +45,21 @@ export function useComprobantes() {
       setSuccessMessage(null);
       const comprobante = await ComprobanteMockService.crearComprobante(formData);
       setComprobantes(previous => [comprobante, ...previous]);
-      const labels: Record<string, string> = {
-        BOLETA: 'Boleta',
-        FACTURA: 'Factura',
-        LIQUIDACION_COMPRA: 'Liquidación de Compra',
-      };
-      const tipoLabel = labels[comprobante.tipo] || 'Comprobante';
-      setSuccessMessage(`${tipoLabel} ${comprobante.serie}-${comprobante.numero} generada correctamente.`);
+      
+      // Solo mostrar mensaje de éxito si el comprobante fue aceptado por SUNAT
+      if (comprobante.estado === 'EMITIDO' && comprobante.estadoSunat === 'ACEPTADO') {
+        const labels: Record<string, string> = {
+          BOLETA: 'Boleta',
+          FACTURA: 'Factura',
+          LIQUIDACION_COMPRA: 'Liquidación de Compra',
+        };
+        const tipoLabel = labels[comprobante.tipo] || 'Comprobante';
+        setSuccessMessage(`${tipoLabel} ${comprobante.serie}-${comprobante.numero} generada correctamente.`);
+      } else {
+        // Si hubo error con SUNAT, mostrar mensaje de error
+        setError(`Error al generar comprobante: ${comprobante.mensajeSunat || 'Error en comunicación con SUNAT'}`);
+      }
+      
       return comprobante;
     } catch {
       setError('No se pudo generar el comprobante. Intenta nuevamente.');
@@ -108,8 +116,16 @@ export function useComprobantes() {
         motivoTraslado: undefined,
       };
       setComprobantes(previous => [comprobante, ...previous]);
-      const tipoLabel = nota.tipo === 'NOTA_CREDITO' ? 'Nota de Crédito' : 'Nota de Débito';
-      setSuccessMessage(`${tipoLabel} ${nota.serie}-${nota.numero} generada correctamente.`);
+      
+      // Solo mostrar mensaje de éxito si la nota fue aceptada por SUNAT
+      if (nota.status === 'ACEPTADO') {
+        const tipoLabel = nota.tipo === 'NOTA_CREDITO' ? 'Nota de Crédito' : 'Nota de Débito';
+        setSuccessMessage(`${tipoLabel} ${nota.serie}-${nota.numero} generada correctamente.`);
+      } else {
+        // Si hubo error con SUNAT, mostrar mensaje de error
+        setError(`Error al generar nota: ${nota.mensajeSunat || 'Error en comunicación con SUNAT'}`);
+      }
+      
       return nota;
     } catch {
       setError('No se pudo generar la nota. Intenta nuevamente.');
