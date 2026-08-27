@@ -154,8 +154,6 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
   };
 
   const handleMotivoChange = (motivo: string) => {
-    const config = getMotivoConfig(form.tipo, motivo);
-    
     setForm(previous => {
       // Limpiar detalle al cambiar de motivo para consistencia
       // El usuario debe agregar ítems manualmente según el nuevo motivo
@@ -226,23 +224,25 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
     }
     
     // Validar documento del cliente (OBLIGATORIO para notas)
-    if (!form.cliente.documento.trim()) {
+    const docCliente = form.cliente.documento?.trim() || '';
+    if (!docCliente) {
       nextErrors.clienteDocumento = 'El documento del cliente es obligatorio para notas';
     } else {
       // Validaciones según tipo de documento
-      if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
+      if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(docCliente)) {
         nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
+      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(docCliente)) {
         nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(form.cliente.documento.trim())) {
+      } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(docCliente)) {
         nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'PASAPORTE' && form.cliente.documento.trim().length < 6) {
+      } else if (form.cliente.tipoDocumento === 'PASAPORTE' && docCliente.length < 6) {
         nextErrors.clienteDocumento = 'El Pasaporte debe tener al menos 6 caracteres';
       }
     }
     
     // Validar nombre del cliente (OBLIGATORIO para notas)
-    if (!form.cliente.nombre.trim()) {
+    const nombreCliente = form.cliente.nombre?.trim() || '';
+    if (!nombreCliente) {
       nextErrors.clienteNombre = 'El nombre del cliente es obligatorio para notas';
     }
     

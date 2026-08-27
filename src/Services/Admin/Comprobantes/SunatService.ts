@@ -10,16 +10,9 @@ export const SunatService = {
     payload: SunatDocumentPayload,
   ): Promise<SunatSendResult> {
 
-    const { apiUrl, personaId, personaToken } = EMPRESA.sunatConfig;
+    const { apiUrl } = EMPRESA.sunatConfig;
 
     const responseTime = new Date().toISOString();
-
-    const requestPayload: SunatDocumentPayload = {
-      personaId: payload.personaId,
-      personaToken: payload.personaToken,
-      fileName: payload.fileName,
-      documentBody: payload.documentBody,
-    };
 
     try {
 

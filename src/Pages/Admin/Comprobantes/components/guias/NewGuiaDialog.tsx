@@ -15,8 +15,9 @@ import type {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (value: GuiaRemisionFormData) => void;
+  onGenerate: (value: GuiaRemisionFormData) => void | Promise<any>;
   guias: GuiaRemisionSelectDto[];
+  loading?: boolean;
 }
 
 export default function NewGuiaDialog({
@@ -24,6 +25,7 @@ export default function NewGuiaDialog({
   onClose,
   onGenerate,
   guias,
+  loading,
 }: Props) {
   const [type, setType] = useState<GuiaRemisionTipo | null>(null);
 
@@ -32,9 +34,10 @@ export default function NewGuiaDialog({
     onClose();
   };
 
-  const emit = (value: GuiaRemisionFormData) => {
-    onGenerate(value);
+  const emit = async (value: GuiaRemisionFormData) => {
+    await onGenerate(value);
     close();
+    return true;
   };
 
   return (
@@ -71,7 +74,7 @@ export default function NewGuiaDialog({
             </h3>
 
             <GuiaTypeSelector
-              selectedType="GUIA_REMISION_REMITENTE"
+              selectedType="GUIA_REMISION_TRANSPORTISTA"
               onTypeChange={setType}
             />
           </section>
@@ -81,6 +84,7 @@ export default function NewGuiaDialog({
           <GuiaRemitenteForm
             onCancel={() => setType(null)}
             onSubmit={emit}
+            loading={loading}
           />
         </div>
       ) : (
@@ -91,6 +95,7 @@ export default function NewGuiaDialog({
             )}
             onCancel={() => setType(null)}
             onSubmit={emit}
+            loading={loading}
           />
         </div>
       )}

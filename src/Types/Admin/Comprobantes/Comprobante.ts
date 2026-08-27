@@ -455,7 +455,7 @@ export interface GuiaRemisionRemitenteFormData {
 export interface GuiaRemisionTransportistaFormData {
   tipo: 'GUIA_REMISION_TRANSPORTISTA';
   serie: string;
-  numero: string;
+  numero?: string;
   fechaEmision: string;
   fechaInicioTraslado: string;
   transportista: DatosTransportista;
@@ -467,6 +467,7 @@ export interface GuiaRemisionTransportistaFormData {
     numero: string;
   };
   fletePagadoPor?: 'REMITENTE' | 'SUBCONTRATADOR' | 'TERCERO';
+  terceroFlete?: PersonaDocumento;
 
   transporteSubcontratado?: boolean;
   retornoVehiculoVacio?: boolean,
@@ -539,20 +540,31 @@ export interface SunatPartyIdentification {
 }
 
 export interface SunatPartyLegalEntity {
-  'cbc:RegistrationName': {
+  'cbc:RegistrationName'?: {
     _text: string;
   };
-}
-
-
-export interface SunatPartyLegalSEntity {
-  'cbc:RegistrationName': {
+  'cbc:CompanyID'?: {
     _text: string;
+  };
+  'cac:RegistrationAddress'?: {
+    'cbc:AddressTypeCode'?: {
+      _text: string;
+    };
+    'cac:AddressLine'?: {
+      'cbc:Line': {
+        _text: string;
+      };
+    };
   };
 }
 
 export interface SunatParty {
   'cac:PartyIdentification'?: SunatPartyIdentification;
+  'cac:PartyName'?: {
+    'cbc:Name': {
+      _text: string;
+    };
+  };
   'cac:PartyLegalEntity': SunatPartyLegalEntity;
 }
 
@@ -751,7 +763,7 @@ export interface SunatDocumentPayload {
   personaId: string;
   personaToken: string;
   fileName: string;
-  documentBody: SunatInvoiceDocumentBody;
+  documentBody: SunatInvoiceDocumentBody | Record<string, any>;
 }
 
 export interface SunatSendResult {

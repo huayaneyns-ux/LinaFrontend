@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react';
-import { FiLock, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiLock } from 'react-icons/fi';
 import CrudDialog from '../../../../../Components/ERP/CrudDialog';
 import FormField from '../../../../../Components/ERP/FormField';
-import IconButton from '../../../../../Components/ERP/IconButton';
 import SearchInput from '../../../../../Components/ERP/SearchInput';
 import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
 import type {
   ComprobanteEmitibleTipo,
   ComprobanteFormData,
-  ComprobanteFormItem,
   ProductoComprobanteMockDto,
   VentaOrigenComprobanteDto,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
@@ -16,7 +14,7 @@ import type {
 interface NewComprobanteDialogProps {
   isOpen: boolean;
   ventas: VentaOrigenComprobanteDto[];
-  productos: ProductoComprobanteMockDto[];
+  productos?: ProductoComprobanteMockDto[];
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: ComprobanteFormData) => Promise<boolean>;
@@ -26,16 +24,6 @@ type FormErrorKey = 'clienteNombre' | 'clienteDocumento' | 'fechaVencimiento' | 
 type FormErrors = Partial<Record<FormErrorKey, string>>;
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-const createEmptyItem = (): ComprobanteFormItem => ({
-  productoId: null,
-  codigo: '',
-  productoServicio: '',
-  cantidad: 1,
-  precio: 0,
-  igv: 0,
-  importe: 0,
-});
 
 const createInitialForm = (): ComprobanteFormData => ({
   tipo: 'BOLETA',
@@ -48,18 +36,10 @@ const createInitialForm = (): ComprobanteFormData => ({
   observaciones: '',
 });
 
-const calculateItem = (item: ComprobanteFormItem): ComprobanteFormItem => {
-  const cantidad = isNaN(item.cantidad) || item.cantidad <= 0 ? 1 : item.cantidad;
-  const precio = isNaN(item.precio) || item.precio < 0 ? 0 : item.precio;
-  const subtotal = Number((cantidad * precio).toFixed(2));
-  const igv = Number((subtotal * 0.18).toFixed(2));
-  const importe = Number((subtotal + igv).toFixed(2));
-  return { ...item, cantidad, precio, igv, importe };
-};
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
-const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onGenerate }: NewComprobanteDialogProps) => {
+const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: NewComprobanteDialogProps) => {
   const [form, setForm] = useState<ComprobanteFormData>(createInitialForm);
   const [saleSearch, setSaleSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
@@ -189,23 +169,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, productos, loading, onClose, onG
 
 
 
-  const updateManualItem = (index: number, change: Partial<ComprobanteFormItem>) => {
-    setForm(previous => ({
-      ...previous,
-      detalle: previous.detalle.map((item, itemIndex) => itemIndex === index ? calculateItem({ ...item, ...change }) : item),
-    }));
-  };
 
-  const selectProduct = (index: number, productId: number) => {
-    const product = productos.find(item => item.id === productId);
-    if (!product) return;
-    updateManualItem(index, {
-      productoId: product.id,
-      codigo: product.codigo,
-      productoServicio: product.nombre,
-      precio: product.precio,
-    });
-  };
 
   const validate = (): boolean => {
     const nextErrors: FormErrors = {};

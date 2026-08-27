@@ -3,8 +3,8 @@ import { useMemo, useState, type ReactNode } from 'react';
 import type {
   ComprobanteEstado,
   ComprobanteEstadoSunat,
+  ComprobanteSelectDto,
   GuiaRemisionFormData,
-  GuiaRemisionSelectDto,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
 
 import Toolbar from '../../../../../Components/ERP/Toolbar';
@@ -13,7 +13,11 @@ import DataTable, {
 } from '../../../../../Components/ERP/DataTable';
 import Pagination from '../../../../../Components/ERP/Pagination';
 import ComprobanteStatusBadge from '../ComprobanteStatusBadge';
+import ComprobanteActions from '../ComprobanteActions';
+import ComprobantePreviewDialog from '../ComprobantePreviewDialog';
+import ComprobanteDetailDialog from '../ComprobanteDetailDialog';
 
+import { useComprobantes } from '../../../../../Hooks/useComprobantes';
 import { useDataTable } from '../../../../../Hooks/useDataTable';
 import { formatDate } from '../../../../../Utils/formatters';
 
@@ -39,27 +43,55 @@ const INITIAL_FILTERS: GuiaFilters = {
 };
 
 export const ComprobanteGuiaSection = () => {
-  const [guias, setGuias] = useState<GuiaRemisionSelectDto[]>([]);
   const [filters, setFilters] = useState<GuiaFilters>(INITIAL_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [newGuiaOpen, setNewGuiaOpen] = useState(false);
+  const [previewComprobante, setPreviewComprobante] = useState<ComprobanteSelectDto | null>(null);
+  const [detailComprobante, setDetailComprobante] = useState<ComprobanteSelectDto | null>(null);
 
-  const filteredGuias = useMemo(
-    () =>
-      guias.filter(
-        (guia) =>
-          (!filters.tipo || guia.tipo === filters.tipo) &&
-          (!filters.estado || guia.estado === filters.estado) &&
-          (!filters.estadoSunat ||
-            guia.estadoSunat === filters.estadoSunat) &&
-          (!filters.fechaDesde ||
-            guia.fechaEmision >= filters.fechaDesde) &&
-          (!filters.fechaHasta || guia.fechaEmision <= filters.fechaHasta),
-      ),
-    [filters, guias],
-  );
+  const {
+    comprobantes,
+    loading,
+    generating,
+    updatingSunatId,
+    error,
+    successMessage,
+    actualizarEstadoSunat,
+    crearGuia,
+    clearSuccessMessage,
+  } = useComprobantes();
 
-  const table = useDataTable<GuiaRemisionSelectDto>({
+  const filteredGuias = useMemo(() => {
+    return comprobantes.filter((comprobante) => {
+      if (
+        comprobante.tipo !== 'GUIA_REMISION_REMITENTE' &&
+        comprobante.tipo !== 'GUIA_REMISION_TRANSPORTISTA'
+      ) {
+        return false;
+      }
+      if (filters.tipo && comprobante.tipo !== filters.tipo) {
+        return false;
+      }
+      if (filters.estado && comprobante.estado !== filters.estado) {
+        return false;
+      }
+      if (
+        filters.estadoSunat &&
+        comprobante.estadoSunat !== filters.estadoSunat
+      ) {
+        return false;
+      }
+      if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
+        return false;
+      }
+      if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
+        return false;
+      }
+      return true;
+    });
+  }, [comprobantes, filters]);
+
+  const table = useDataTable<ComprobanteSelectDto>({
     data: filteredGuias,
     searchKeys: [
       'serie',
@@ -75,41 +107,11 @@ export const ComprobanteGuiaSection = () => {
     (value) => value !== '',
   ).length;
 
-  const createGuia = (form: GuiaRemisionFormData) =>
-    setGuias((previous) => [
-      {
-        id: Date.now(),
-        tipo: form.tipo,
-        serie: form.serie,
-        numero: form.numero,
-        fechaEmision: form.fechaEmision,
-        fechaTraslado: form.fechaInicioTraslado,
+  const handleCreateGuia = async (form: GuiaRemisionFormData) => {
+    await crearGuia(form);
+  };
 
-        remitente:
-          form.tipo === 'GUIA_REMISION_TRANSPORTISTA'
-            ? form.remitente.nombre
-            : 'Comercial Lina S.A.C.',
-
-        destinatario: form.destinatario.nombre,
-
-        motivoTraslado:
-          form.tipo === 'GUIA_REMISION_REMITENTE'
-            ? form.motivoTraslado
-            : undefined,
-
-        puntoPartida: form.puntoPartida.direccion,
-        puntoLlegada: form.puntoLlegada.direccion,
-        pesoTotal: form.pesoBrutoTotal,
-        unidadMedidaPeso: form.unidadMedidaPeso,
-        transportista: form.transportista?.razonSocial,
-
-        estado: 'EMITIDO',
-        estadoSunat: 'PENDIENTE',
-      },
-      ...previous,
-    ]);
-
-  const columns: ColumnDef<GuiaRemisionSelectDto>[] = [
+  const columns: ColumnDef<ComprobanteSelectDto>[] = [
     {
       key: 'tipo',
       header: 'Tipo',
@@ -170,6 +172,21 @@ export const ComprobanteGuiaSection = () => {
         <ComprobanteStatusBadge status={row.estadoSunat} />
       ),
     },
+    {
+      key: 'actions',
+      header: 'Acciones',
+      align: 'right',
+      width: '80px',
+      render: (row) => (
+        <ComprobanteActions
+          comprobante={row}
+          isUpdatingSunat={updatingSunatId === row.id}
+          onViewComprobante={setPreviewComprobante}
+          onViewDetails={setDetailComprobante}
+          onUpdateSunat={(id) => void actualizarEstadoSunat(id)}
+        />
+      ),
+    },
   ];
 
   return (
@@ -182,6 +199,51 @@ export const ComprobanteGuiaSection = () => {
       }}
     >
       <div className="erp-tab-content">
+        {error && (
+          <div
+            style={{
+              padding: '8px 12px',
+              marginBottom: '8px',
+              backgroundColor: 'var(--erp-danger-light, #fee2e2)',
+              color: 'var(--erp-danger, #dc2626)',
+              borderRadius: '6px',
+              fontSize: '13px',
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div
+            style={{
+              padding: '8px 12px',
+              marginBottom: '8px',
+              backgroundColor: 'var(--erp-success-light, #dcfce7)',
+              color: 'var(--erp-success, #16a34a)',
+              borderRadius: '6px',
+              fontSize: '13px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <span>{successMessage}</span>
+            <button
+              type="button"
+              onClick={clearSuccessMessage}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+              }}
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <Toolbar
           searchValue={table.searchQuery}
           onSearchChange={table.setSearchQuery}
@@ -288,30 +350,62 @@ export const ComprobanteGuiaSection = () => {
           }
         />
 
-        <DataTable
-          columns={columns}
-          data={table.processedData}
-          loading={false}
-          sortConfig={table.sortConfig}
-          onSort={table.handleSort}
-          emptyMessage="No hay guías de remisión registradas"
-        />
-
-        <Pagination
-          page={table.pagination.page}
-          totalPages={table.totalPages}
-          pageSize={table.pagination.pageSize}
-          totalItems={table.totalItems}
-          onPageChange={table.setPage}
-          onPageSizeChange={table.setPageSize}
-        />
+        <div className="erp-table-card" style={{ flex: 1, overflow: 'hidden' }}>
+          <DataTable
+            columns={columns}
+            data={table.processedData}
+            loading={loading}
+            sortConfig={table.sortConfig}
+            onSort={table.handleSort}
+            rowKey={(row) => row.id}
+            emptyMessage="No hay guías de remisión registradas"
+          />
+          {!loading && (
+            <Pagination
+              page={table.pagination.page}
+              totalPages={table.totalPages}
+              pageSize={table.pagination.pageSize}
+              totalItems={table.totalItems}
+              onPageChange={table.setPage}
+              onPageSizeChange={table.setPageSize}
+            />
+          )}
+        </div>
       </div>
 
       <NewGuiaDialog
         isOpen={newGuiaOpen}
         onClose={() => setNewGuiaOpen(false)}
-        onGenerate={createGuia}
-        guias={guias}
+        onGenerate={handleCreateGuia}
+        loading={generating}
+        guias={comprobantes
+          .filter(
+            (c) =>
+              c.tipo === 'GUIA_REMISION_REMITENTE' ||
+              c.tipo === 'GUIA_REMISION_TRANSPORTISTA',
+          )
+          .map((c) => ({
+            id: c.id,
+            tipo: c.tipo as any,
+            serie: c.serie,
+            numero: c.numero,
+            fechaEmision: c.fechaEmision,
+            fechaTraslado: c.fechaTraslado || c.fechaEmision,
+            remitente: c.remitente,
+            destinatario: c.destinatario,
+            estado: c.estado,
+            estadoSunat: c.estadoSunat,
+          }))}
+      />
+
+      <ComprobantePreviewDialog
+        comprobante={previewComprobante}
+        onClose={() => setPreviewComprobante(null)}
+      />
+
+      <ComprobanteDetailDialog
+        comprobante={detailComprobante}
+        onClose={() => setDetailComprobante(null)}
       />
     </div>
   );

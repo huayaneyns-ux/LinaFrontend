@@ -80,7 +80,6 @@ export function buildSunatNotaPayload({
   formData,
   serie,
   numero,
-  tipoComprobanteRelacionado,
   issueTime,
 }: BuildSunatNotaPayloadOptions): SunatDocumentPayload {
 
