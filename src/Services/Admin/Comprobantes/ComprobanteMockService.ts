@@ -13,12 +13,14 @@ import type {
   NotaFormData,
   NotaComprobanteSelectDto,
   GuiaRemisionFormData,
+  GuiaRemisionRemitenteFormData,
   GuiaRemisionTransportistaFormData,
   ComprobanteTipo,
 } from '../../../Types/Admin/Comprobantes/Comprobante';
 import { buildSunatPayload } from './sunatPayloadBuilder';
 import { buildSunatNotaPayload } from './sunatNotaPayloadBuilder';
 import { buildSunatGuiaTransportistaPayload } from './sunatGuiaTransportistaPayloadBuilder';
+import { buildSunatGuiaRemitentePayload } from './sunatGuiaRemitentePayloadBuilder';
 import { SunatService } from './SunatService';
 
 const MOCK_LOADING_DELAY_MS = 450;
@@ -94,6 +96,10 @@ export const getNextDocumentNumber = (
     return { serie, numero: randomNumero };
   } else if (tipo === 'GUIA_REMISION_REMITENTE') {
     serie = 'T001';
+    const randomNumero = String(
+      Math.floor(10000000 + Math.random() * 90000000),
+    );
+    return { serie, numero: randomNumero };
   } else {
     serie = 'B001';
   }
@@ -307,6 +313,26 @@ export const ComprobanteMockService = {
       Math.max(...comprobantesStore.map((comprobante) => comprobante.id), 0) +
       1;
 
+    // 1. Construir el payload JSON SUNAT exacto para Remitente (Tipo 09)
+    const sunatPayload = buildSunatGuiaRemitentePayload({
+      formData: {
+        ...(formData as GuiaRemisionRemitenteFormData),
+        serie,
+        numero,
+      },
+      serie,
+      numero,
+    });
+
+    // 2. Enviar a APISUNAT
+    const sunatResult = await SunatService.sendDocument(sunatPayload);
+    const responseTime = sunatResult.responseTime || new Date().toISOString();
+
+    const primerVehiculo = formData.vehiculos?.[0]?.placa || undefined;
+    const primerConductor = formData.conductores?.[0]
+      ? `${formData.conductores[0].nombre} ${formData.conductores[0].apellidos || ''}`.trim()
+      : undefined;
+
     const nuevoComprobante: ComprobanteSelectDto = {
       id,
       tipo: 'GUIA_REMISION_REMITENTE',
@@ -331,20 +357,24 @@ export const ComprobanteMockService = {
       unidadMedidaPeso: formData.unidadMedidaPeso,
       transportista: formData.transportista?.razonSocial,
       rucTransportista: formData.transportista?.ruc,
-      vehiculo: formData.vehiculos?.[0]?.placa,
-      conductor: formData.conductores?.[0]?.nombre,
+      vehiculo: primerVehiculo,
+      conductor: primerConductor,
       bienesTransportados: formData.bienes?.map((b) => b.descripcion),
-      estado: 'EMITIDO',
-      estadoSunat: 'PENDIENTE',
-      codigoRespuestaSunat: '0',
-      mensajeSunat: 'Guía de remisión emitida correctamente.',
-      fechaConsultaSunat: new Date().toISOString(),
-      fechaEnvioSunat: new Date().toISOString(),
+      estado: sunatResult.success ? 'EMITIDO' : 'RECHAZADO',
+      estadoSunat: sunatResult.success ? 'PENDIENTE' : sunatResult.status,
+      codigoRespuestaSunat: sunatResult.codigoRespuestaSunat,
+      mensajeSunat: sunatResult.mensajeSunat,
+      fechaConsultaSunat: responseTime,
+      fechaEnvioSunat: responseTime,
+      pdfUrl: sunatResult.pdfUrl,
       observaciones: formData.observaciones,
-      detalle: formData.bienes.map((item, idx) => ({
+      detalle: (formData.bienes?.length
+        ? formData.bienes
+        : [{ descripcion: 'Mercadería para traslado', cantidad: 1 }]
+      ).map((item, idx) => ({
         productoServicio: item.descripcion,
         codigo: `GUIA-${String(idx + 1).padStart(4, '0')}`,
-        cantidad: item.cantidad,
+        cantidad: item.cantidad || 1,
         precio: 0,
         igv: 0,
         importe: 0,

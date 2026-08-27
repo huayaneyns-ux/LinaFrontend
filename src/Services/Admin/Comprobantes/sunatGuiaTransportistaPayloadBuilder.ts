@@ -21,17 +21,10 @@ export interface BuildSunatGuiaTransportistaPayloadOptions {
  * ============================================================
  */
 
-/**
- * Convierte un valor a string limpio.
- */
 function clean(value: unknown): string {
   return String(value ?? '').trim();
 }
 
-/**
- * Convierte un valor a mayúsculas y elimina caracteres
- * que no sean alfanuméricos.
- */
 function alphaNumeric(value: unknown): string {
   return clean(value)
     .toUpperCase()
@@ -39,7 +32,10 @@ function alphaNumeric(value: unknown): string {
 }
 
 /**
- * Normaliza la placa.
+ * Placa del vehículo.
+ *
+ * Ejemplo:
+ * AASDAAA
  */
 function normalizePlate(value: unknown): string {
   const placa = alphaNumeric(value);
@@ -60,32 +56,30 @@ function normalizePlate(value: unknown): string {
 }
 
 /**
- * Normaliza el TUC / Certificado de Habilitación Vehicular.
+ * TUC / Tarjeta Única de Circulación.
  *
- * RegistrationNationalityID debe contener el certificado/TUC
- * correspondiente al vehículo.
+ * IMPORTANTE:
+ *
+ * Este valor va en:
+ *
+ * cac:TransportEquipment
+ *   └── cac:ApplicableTransportMeans
+ *         └── cbc:RegistrationNationalityID
+ *
+ * NO es la placa.
  */
 function normalizeTuc(value: unknown): string {
   const tuc = alphaNumeric(value);
 
   if (!tuc) {
     throw new Error(
-      'El vehículo debe tener TUC / Certificado de Habilitación Vehicular.',
-    );
-  }
-
-  if (tuc.length < 10 || tuc.length > 15) {
-    throw new Error(
-      `El TUC / Certificado de Habilitación Vehicular "${tuc}" debe tener entre 10 y 15 caracteres.`,
+      'El vehículo debe tener número de TUC / Tarjeta Única de Circulación.',
     );
   }
 
   return tuc;
 }
 
-/**
- * Obtiene un documento SUNAT.
- */
 function normalizeDocumentType(
   value: unknown,
 ): string {
@@ -104,9 +98,12 @@ export function buildSunatGuiaTransportistaPayload({
   numero,
   issueTime,
 }: BuildSunatGuiaTransportistaPayloadOptions): SunatDocumentPayload {
-  // ==========================================================
-  // CREDENCIALES APISUNAT
-  // ==========================================================
+
+  /*
+   * ==========================================================
+   * CREDENCIALES APISUNAT
+   * ==========================================================
+   */
 
   const {
     apiUrl,
@@ -132,9 +129,11 @@ export function buildSunatGuiaTransportistaPayload({
     );
   }
 
-  // ==========================================================
-  // DATOS GENERALES
-  // ==========================================================
+  /*
+   * ==========================================================
+   * DATOS GENERALES
+   * ==========================================================
+   */
 
   const rucEmpresa = clean(
     EMPRESA.ruc,
@@ -173,19 +172,27 @@ export function buildSunatGuiaTransportistaPayload({
       .toTimeString()
       .slice(0, 8);
 
-  // ==========================================================
-  // CONDUCTORES
-  // ==========================================================
+  /*
+   * ==========================================================
+   * CONDUCTORES
+   * ==========================================================
+   */
 
   const conductores =
     formData.conductores ?? [];
 
+  if (conductores.length === 0) {
+    throw new Error(
+      'Debe registrar al menos un conductor.',
+    );
+  }
+
   const driverPersons =
     conductores.map((conductor) => {
+
       const tipoDocumento =
         normalizeDocumentType(
-          conductor.tipoDocumento ||
-            'DNI',
+          conductor.tipoDocumento || 'DNI',
         );
 
       const numeroDocumento =
@@ -194,10 +201,14 @@ export function buildSunatGuiaTransportistaPayload({
         );
 
       const nombre =
-        clean(conductor.nombre);
+        clean(
+          conductor.nombre,
+        );
 
       const apellidos =
-        clean(conductor.apellidos);
+        clean(
+          conductor.apellidos,
+        );
 
       const licencia =
         alphaNumeric(
@@ -237,8 +248,7 @@ export function buildSunatGuiaTransportistaPayload({
                 false,
               ),
           },
-          _text:
-            numeroDocumento,
+          _text: numeroDocumento,
         },
 
         'cbc:FirstName': {
@@ -261,9 +271,11 @@ export function buildSunatGuiaTransportistaPayload({
       };
     });
 
-  // ==========================================================
-  // VEHÍCULOS
-  // ==========================================================
+  /*
+   * ==========================================================
+   * VEHÍCULOS
+   * ==========================================================
+   */
 
   const vehiculos =
     formData.vehiculos ?? [];
@@ -275,99 +287,114 @@ export function buildSunatGuiaTransportistaPayload({
   }
 
   const transportEquipments =
-    vehiculos.map(
-      (vehiculo, index) => {
-        const placa =
-          normalizePlate(
-            vehiculo.placa,
-          );
+    vehiculos.map((vehiculo) => {
 
-        /**
-         * IMPORTANTE:
-         *
-         * numeroAutorizacion debe contener el TUC /
-         * Certificado de Habilitación Vehicular.
-         *
-         * NO debe contener la placa.
+      /*
+       * --------------------------------------------------------
+       * PLACA
+       * --------------------------------------------------------
+       *
+       * Va en:
+       *
+       * cac:TransportEquipment
+       *     cbc:ID
+       */
+
+      const placa =
+        normalizePlate(
+          vehiculo.placa,
+        );
+
+      /*
+       * --------------------------------------------------------
+       * TUC
+       * --------------------------------------------------------
+       *
+       * Va en:
+       *
+       * cac:ApplicableTransportMeans
+       *     cbc:RegistrationNationalityID
+       *
+       * NO colocar aquí la placa.
+       */
+
+      const tuc =
+        normalizeTuc(
+          vehiculo.numeroAutorizacion,
+        );
+
+      const equipment: Record<
+        string,
+        any
+      > = {
+
+        /*
+         * PLACA
          */
-        const tuc =
-          normalizeTuc(
-            vehiculo.numeroAutorizacion,
-          );
+        'cbc:ID': {
+          _text: placa,
+        },
 
-        /**
-         * ======================================================
-         * TransportEquipment
-         * ======================================================
-         *
-         * cbc:ID
-         *      = PLACA
-         *
-         * ApplicableTransportMeans
-         *      RegistrationNationalityID
-         *      = TUC
+        /*
+         * TUC / TARJETA ÚNICA DE CIRCULACIÓN
          */
-
-        const equipment: Record<
-          string,
-          any
-        > = {
-          'cbc:ID': {
-            _text: placa,
+        'cac:ApplicableTransportMeans': {
+          'cbc:RegistrationNationalityID': {
+            _text: tuc,
           },
+        },
+      };
 
-          'cac:ApplicableTransportMeans': {
-            'cbc:RegistrationNationalityID': {
-              _text: tuc,
+      /*
+       * --------------------------------------------------------
+       * DOCUMENTO DE AUTORIZACIÓN ADICIONAL
+       * --------------------------------------------------------
+       *
+       * SOLO se agrega si realmente existe.
+       *
+       * NO reutilizamos numeroAutorizacion porque ese campo
+       * representa el TUC.
+       */
+
+      const numeroAutorizacionEspecial =
+        alphaNumeric(
+          (vehiculo as any)
+            .numeroAutorizacionEspecial,
+        );
+
+      const entidadEmisora =
+        alphaNumeric(
+          (vehiculo as any)
+            .entidadEmisora,
+        );
+
+      if (
+        numeroAutorizacionEspecial &&
+        entidadEmisora
+      ) {
+        equipment[
+          'cac:ShipmentDocumentReference'
+        ] = {
+          'cbc:ID': {
+            _attributes: {
+              schemeID:
+                entidadEmisora,
             },
+
+            _text:
+              numeroAutorizacionEspecial,
           },
         };
+      }
 
-        /**
-         * Si tienes una autorización/documento adicional,
-         * se puede enviar separado.
-         *
-         * NO reutilizamos numeroAutorizacion porque ese
-         * campo ahora representa el TUC.
-         */
-        const numeroAutorizacionEspecial =
-          alphaNumeric(
-            (
-              vehiculo as any
-            ).numeroAutorizacionEspecial,
-          );
+      return equipment;
+    });
 
-        const entidadEmisora =
-          alphaNumeric(
-            vehiculo.entidadEmisora,
-          );
-
-        if (
-          numeroAutorizacionEspecial &&
-          entidadEmisora
-        ) {
-          equipment[
-            'cac:ShipmentDocumentReference'
-          ] = {
-            'cbc:ID': {
-              _attributes: {
-                schemeID:
-                  entidadEmisora,
-              },
-
-              _text:
-                numeroAutorizacionEspecial,
-            },
-          };
-        }
-
-        return equipment;
-      },
-    );
-
-  // ==========================================================
-  // BIENES
-  // ==========================================================
+  /*
+   * ==========================================================
+   * BIENES
+   * ==========================================================
+   */
 
   const bienes =
     formData.bienes ?? [];
@@ -379,81 +406,82 @@ export function buildSunatGuiaTransportistaPayload({
   }
 
   const despatchLines =
-    bienes.map(
-      (bien, index) => {
-        const cantidad =
-          Number(bien.cantidad);
+    bienes.map((bien, index) => {
 
-        if (
-          !Number.isFinite(cantidad) ||
-          cantidad <= 0
-        ) {
-          throw new Error(
-            `La cantidad del bien ${index + 1} debe ser mayor a 0.`,
-          );
-        }
+      const cantidad =
+        Number(
+          bien.cantidad,
+        );
 
-        const unidadMedida =
-          bien.unidadMedida ===
-          'UNIDAD'
-            ? 'NIU'
-            : clean(
-                bien.unidadMedida ||
-                  'NIU',
-              );
+      if (
+        !Number.isFinite(cantidad) ||
+        cantidad <= 0
+      ) {
+        throw new Error(
+          `La cantidad del bien ${index + 1} debe ser mayor a 0.`,
+        );
+      }
 
-        const descripcion =
-          clean(
-            bien.descripcion,
-          );
+      const unidadMedida =
+        bien.unidadMedida === 'UNIDAD'
+          ? 'NIU'
+          : clean(
+              bien.unidadMedida || 'NIU',
+            );
 
-        if (!descripcion) {
-          throw new Error(
-            `El bien ${index + 1} debe tener descripción.`,
-          );
-        }
+      const descripcion =
+        clean(
+          bien.descripcion,
+        );
 
-        return {
-          'cbc:ID': {
+      if (!descripcion) {
+        throw new Error(
+          `El bien ${index + 1} debe tener descripción.`,
+        );
+      }
+
+      return {
+
+        'cbc:ID': {
+          _text: index + 1,
+        },
+
+        'cbc:DeliveredQuantity': {
+          _attributes: {
+            unitCode:
+              unidadMedida,
+          },
+
+          _text:
+            cantidad,
+        },
+
+        'cac:OrderLineReference': {
+          'cbc:LineID': {
             _text: index + 1,
           },
+        },
 
-          'cbc:DeliveredQuantity': {
-            _attributes: {
-              unitCode:
-                unidadMedida,
-            },
-
-            _text: cantidad,
+        'cac:Item': {
+          'cbc:Description': {
+            _text:
+              descripcion,
           },
+        },
+      };
+    });
 
-          'cac:OrderLineReference': {
-            'cbc:LineID': {
-              _text: index + 1,
-            },
-          },
-
-          'cac:Item': {
-            'cbc:Description': {
-              _text: descripcion,
-            },
-          },
-        };
-      },
-    );
-
-  // ==========================================================
-  // UBIGEO PARTIDA
-  // ==========================================================
+  /*
+   * ==========================================================
+   * UBIGEO PARTIDA
+   * ==========================================================
+   */
 
   const ubigeoPartida =
     getUbigeoCode(
-      formData.puntoPartida
-        .departamento,
-      formData.puntoPartida
-        .provincia,
-      formData.puntoPartida
-        .distrito,
+      formData.puntoPartida.departamento,
+      formData.puntoPartida.provincia,
+      formData.puntoPartida.distrito,
     );
 
   if (!ubigeoPartida) {
@@ -462,18 +490,17 @@ export function buildSunatGuiaTransportistaPayload({
     );
   }
 
-  // ==========================================================
-  // UBIGEO LLEGADA
-  // ==========================================================
+  /*
+   * ==========================================================
+   * UBIGEO LLEGADA
+   * ==========================================================
+   */
 
   const ubigeoLlegada =
     getUbigeoCode(
-      formData.puntoLlegada
-        .departamento,
-      formData.puntoLlegada
-        .provincia,
-      formData.puntoLlegada
-        .distrito,
+      formData.puntoLlegada.departamento,
+      formData.puntoLlegada.provincia,
+      formData.puntoLlegada.distrito,
     );
 
   if (!ubigeoLlegada) {
@@ -482,9 +509,11 @@ export function buildSunatGuiaTransportistaPayload({
     );
   }
 
-  // ==========================================================
-  // PESO
-  // ==========================================================
+  /*
+   * ==========================================================
+   * PESO
+   * ==========================================================
+   */
 
   const pesoBruto =
     Number(
@@ -502,68 +531,72 @@ export function buildSunatGuiaTransportistaPayload({
 
   const unidadPeso =
     clean(
-      formData.unidadMedidaPeso ||
-        'KGM',
+      formData.unidadMedidaPeso || 'KGM',
     );
 
-  // ==========================================================
-  // SHIPMENT
-  // ==========================================================
-  //
-  // IMPORTANTE:
-  //
-  // El orden sigue el JSON de referencia:
-  //
-  // ID
-  // GrossWeightMeasure
-  // SpecialInstructions
-  // Consignment
-  // ShipmentStage
-  // Delivery
-  // TransportHandlingUnit
-  //
-  // NO se coloca OriginatorParty directamente dentro de
-  // Shipment.
-  // ==========================================================
+  /*
+   * ==========================================================
+   * SHIPMENT
+   * ==========================================================
+   *
+   * ORDEN:
+   *
+   * ID
+   * GrossWeightMeasure
+   * SpecialInstructions
+   * Consignment
+   * ShipmentStage
+   * Delivery
+   * TransportHandlingUnit
+   */
 
   const shipment: Record<
     string,
     any
   > = {
-    // ========================================================
-    // SHIPMENT ID
-    // ========================================================
+
+    /*
+     * --------------------------------------------------------
+     * ID
+     * --------------------------------------------------------
+     */
 
     'cbc:ID': {
       _text: 'SUNAT_Envio',
     },
 
-    // ========================================================
-    // PESO BRUTO
-    // ========================================================
+    /*
+     * --------------------------------------------------------
+     * PESO BRUTO
+     * --------------------------------------------------------
+     */
 
     'cbc:GrossWeightMeasure': {
       _attributes: {
-        unitCode: unidadPeso,
+        unitCode:
+          unidadPeso,
       },
 
-      _text: pesoBruto,
+      _text:
+        pesoBruto,
     },
   };
 
-  // ==========================================================
-  // SPECIAL INSTRUCTIONS
-  // ==========================================================
+  /*
+   * ==========================================================
+   * SPECIAL INSTRUCTIONS
+   * ==========================================================
+   */
 
   const specialInstructions: Array<
     Record<string, any>
   > = [];
 
-  /**
+  /*
    * Transporte subcontratado
    */
   if (
-    formData.transporteSubcontratado
+    formData.transporteSubcontratado === true
   ) {
     specialInstructions.push({
       _text:
@@ -571,15 +604,12 @@ export function buildSunatGuiaTransportistaPayload({
     });
   }
 
-  /**
-   * Pagador de flete tercero.
-   *
-   * Se mantiene si el formulario posee esta propiedad.
+  /*
+   * Pagador del flete tercero
    */
   if (
-    (
-      formData as any
-    ).pagadorFleteTercero === true
+    (formData as any)
+      .pagadorFleteTercero === true
   ) {
     specialInstructions.push({
       _text:
@@ -592,29 +622,30 @@ export function buildSunatGuiaTransportistaPayload({
   ) {
     shipment[
       'cbc:SpecialInstructions'
-    ] = specialInstructions;
+    ] =
+      specialInstructions;
   }
 
-  // ==========================================================
-  // CONSIGNMENT
-  // ==========================================================
-  //
-  // IMPORTANTE:
-  //
-  // Primero SIEMPRE:
-  //
-  // cbc:ID
-  //
-  // Después:
-  //
-  // cac:LogisticsOperatorParty
-  //
-  // Esto corrige el error 0306.
-  // ==========================================================
+  /*
+   * ==========================================================
+   * CONSIGNMENT
+   * ==========================================================
+   *
+   * IMPORTANTE:
+   *
+   * NO poner OriginatorParty aquí.
+   *
+   * Si se utiliza Consignment, el primer elemento es:
+   *
+   * cbc:ID
+   *
+   * y después los elementos permitidos por UBL.
+   */
 
   if (
-    formData.transporteSubcontratado
+    formData.transporteSubcontratado === true
   ) {
+
     const rucSubcontrata =
       clean(
         formData.rucEmpresaSubcontrata,
@@ -634,6 +665,16 @@ export function buildSunatGuiaTransportistaPayload({
     }
 
     if (
+      !/^\d{11}$/.test(
+        rucSubcontrata,
+      )
+    ) {
+      throw new Error(
+        'El RUC de la empresa subcontratada debe tener 11 dígitos.',
+      );
+    }
+
+    if (
       !nombreSubcontrata
     ) {
       throw new Error(
@@ -641,11 +682,18 @@ export function buildSunatGuiaTransportistaPayload({
       );
     }
 
+    /*
+     * Se mantiene Consignment únicamente cuando
+     * realmente se ha marcado transporte subcontratado.
+     */
+
     shipment[
       'cac:Consignment'
     ] = {
+
       'cbc:ID': {
-        _text: 'SUNAT_Envio',
+        _text:
+          'SUNAT_Envio',
       },
 
       'cac:LogisticsOperatorParty': {
@@ -670,18 +718,20 @@ export function buildSunatGuiaTransportistaPayload({
     };
   }
 
-  // ==========================================================
-  // SHIPMENT STAGE
-  // ==========================================================
+  /*
+   * ==========================================================
+   * SHIPMENT STAGE
+   * ==========================================================
+   */
 
   const shipmentStage: Record<
     string,
     any
   > = {
-    // ========================================================
-    // FECHA DE TRASLADO
-    // ========================================================
 
+    /*
+     * Fecha de inicio del traslado
+     */
     'cac:TransitPeriod': {
       'cbc:StartDate': {
         _text:
@@ -690,10 +740,9 @@ export function buildSunatGuiaTransportistaPayload({
       },
     },
 
-    // ========================================================
-    // TRANSPORTISTA
-    // ========================================================
-
+    /*
+     * Transportista
+     */
     'cac:CarrierParty': {
       'cac:PartyIdentification': {
         'cbc:ID': {
@@ -703,9 +752,9 @@ export function buildSunatGuiaTransportistaPayload({
 
           _text:
             clean(
-              formData.transportista
-                ?.ruc,
-            ) || rucEmpresa,
+              formData.transportista?.ruc,
+            ) ||
+            rucEmpresa,
         },
       },
 
@@ -713,42 +762,42 @@ export function buildSunatGuiaTransportistaPayload({
         'cbc:CompanyID': {
           _text:
             clean(
-              formData.transportista
-                ?.registroMTC,
+              formData.transportista?.registroMTC,
             ),
         },
       },
     },
+
+    /*
+     * Conductores
+     */
+    'cac:DriverPerson':
+      driverPersons,
   };
-
-  // ==========================================================
-  // CONDUCTORES
-  // ==========================================================
-
-  if (
-    driverPersons.length > 0
-  ) {
-    shipmentStage[
-      'cac:DriverPerson'
-    ] = driverPersons;
-  }
 
   shipment[
     'cac:ShipmentStage'
-  ] = shipmentStage;
+  ] =
+    shipmentStage;
 
-  // ==========================================================
-  // DELIVERY
-  // ==========================================================
+  /*
+   * ==========================================================
+   * DELIVERY
+   * ==========================================================
+   */
 
   shipment[
     'cac:Delivery'
   ] = {
-    // ========================================================
-    // LLEGADA
-    // ========================================================
+
+    /*
+     * --------------------------------------------------------
+     * PUNTO DE LLEGADA
+     * --------------------------------------------------------
+     */
 
     'cac:DeliveryAddress': {
+
       'cbc:ID': {
         _text:
           ubigeoLlegada,
@@ -765,12 +814,16 @@ export function buildSunatGuiaTransportistaPayload({
       },
     },
 
-    // ========================================================
-    // PARTIDA
-    // ========================================================
+    /*
+     * --------------------------------------------------------
+     * PUNTO DE PARTIDA
+     * --------------------------------------------------------
+     */
 
     'cac:Despatch': {
+
       'cac:DespatchAddress': {
+
         'cbc:ID': {
           _text:
             ubigeoPartida,
@@ -787,19 +840,21 @@ export function buildSunatGuiaTransportistaPayload({
         },
       },
 
-      // ======================================================
-      // REMITENTE
-      // ======================================================
+      /*
+       * REMITENTE
+       */
 
       'cac:DespatchParty': {
+
         'cac:PartyIdentification': {
+
           'cbc:ID': {
             _attributes: {
               schemeID:
                 getDocumentSchemeId(
                   formData.remitente
                     ?.tipoDocumento ||
-                    'RUC',
+                  'RUC',
                   false,
                 ),
             },
@@ -813,6 +868,7 @@ export function buildSunatGuiaTransportistaPayload({
         },
 
         'cac:PartyLegalEntity': {
+
           'cbc:RegistrationName': {
             _text:
               clean(
@@ -825,27 +881,36 @@ export function buildSunatGuiaTransportistaPayload({
     },
   };
 
-  // ==========================================================
-  // TRANSPORT HANDLING UNIT
-  // ==========================================================
+  /*
+   * ==========================================================
+   * TRANSPORT HANDLING UNIT
+   * ==========================================================
+   */
 
   shipment[
     'cac:TransportHandlingUnit'
   ] = {
+
     'cac:TransportEquipment':
       transportEquipments.length === 1
         ? transportEquipments[0]
         : transportEquipments,
   };
 
-  // ==========================================================
-  // DESPATCH SUPPLIER PARTY
-  // ==========================================================
+  /*
+   * ==========================================================
+   * EMISOR
+   * ==========================================================
+   */
 
   const despatchSupplierParty = {
+
     'cac:Party': {
+
       'cac:PartyIdentification': {
+
         'cbc:ID': {
+
           _attributes: {
             schemeID: '6',
           },
@@ -856,6 +921,7 @@ export function buildSunatGuiaTransportistaPayload({
       },
 
       'cac:PartyName': {
+
         'cbc:Name': {
           _text:
             EMPRESA.nombre,
@@ -863,13 +929,16 @@ export function buildSunatGuiaTransportistaPayload({
       },
 
       'cac:PartyLegalEntity': {
+
         'cbc:RegistrationName': {
           _text:
             EMPRESA.razonSocial,
         },
 
         'cac:RegistrationAddress': {
+
           'cac:AddressLine': {
+
             'cbc:Line': {
               _text:
                 EMPRESA.direccionCompleta,
@@ -880,15 +949,17 @@ export function buildSunatGuiaTransportistaPayload({
     },
   };
 
-  // ==========================================================
-  // DESTINATARIO
-  // ==========================================================
+  /*
+   * ==========================================================
+   * DESTINATARIO
+   * ==========================================================
+   */
 
   const destinatarioTipoDocumento =
     normalizeDocumentType(
       formData.destinatario
         ?.tipoDocumento ||
-        'RUC',
+      'RUC',
     );
 
   const destinatarioNumero =
@@ -903,22 +974,30 @@ export function buildSunatGuiaTransportistaPayload({
         ?.nombre,
     );
 
-  if (!destinatarioNumero) {
+  if (
+    !destinatarioNumero
+  ) {
     throw new Error(
       'El destinatario debe tener número de documento.',
     );
   }
 
-  if (!destinatarioNombre) {
+  if (
+    !destinatarioNombre
+  ) {
     throw new Error(
       'El destinatario debe tener nombre o razón social.',
     );
   }
 
   const deliveryCustomerParty = {
+
     'cac:Party': {
+
       'cac:PartyIdentification': {
+
         'cbc:ID': {
+
           _attributes: {
             schemeID:
               getDocumentSchemeId(
@@ -933,6 +1012,7 @@ export function buildSunatGuiaTransportistaPayload({
       },
 
       'cac:PartyLegalEntity': {
+
         'cbc:RegistrationName': {
           _text:
             destinatarioNombre,
@@ -941,97 +1021,103 @@ export function buildSunatGuiaTransportistaPayload({
     },
   };
 
-  // ==========================================================
-  // DOCUMENT BODY
-  // ==========================================================
+  /*
+   * ==========================================================
+   * DOCUMENT BODY
+   * ==========================================================
+   */
 
   const documentBody: Record<
     string,
     any
   > = {
-    // ========================================================
-    // UBL
-    // ========================================================
 
+    /*
+     * UBL
+     */
     'cbc:UBLVersionID': {
       _text: '2.1',
     },
 
+    /*
+     * Personalización SUNAT
+     */
     'cbc:CustomizationID': {
       _text: '2.0',
     },
 
-    // ========================================================
-    // ID
-    // ========================================================
-
+    /*
+     * Serie + correlativo
+     */
     'cbc:ID': {
       _text:
         `${serieNormalizada}-${numeroNormalizado}`,
     },
 
-    // ========================================================
-    // FECHA
-    // ========================================================
-
+    /*
+     * Fecha de emisión
+     */
     'cbc:IssueDate': {
       _text:
         formData.fechaEmision,
     },
 
-    // ========================================================
-    // HORA
-    // ========================================================
-
+    /*
+     * Hora
+     */
     'cbc:IssueTime': {
-      _text: horaActual,
+      _text:
+        horaActual,
     },
 
-    // ========================================================
-    // TIPO GRE
-    // ========================================================
-
+    /*
+     * Tipo de GRE
+     *
+     * 31 = Guía de Remisión Transportista
+     */
     'cbc:DespatchAdviceTypeCode': {
       _text: '31',
     },
 
-    // ========================================================
-    // EMISOR
-    // ========================================================
-
+    /*
+     * EMISOR
+     */
     'cac:DespatchSupplierParty':
       despatchSupplierParty,
 
-    // ========================================================
-    // DESTINATARIO
-    // ========================================================
-
+    /*
+     * DESTINATARIO
+     */
     'cac:DeliveryCustomerParty':
       deliveryCustomerParty,
 
-    // ========================================================
-    // SHIPMENT
-    // ========================================================
-
+    /*
+     * SHIPMENT
+     */
     'cac:Shipment':
       shipment,
 
-    // ========================================================
-    // BIENES
-    // ========================================================
-
+    /*
+     * BIENES
+     */
     'cac:DespatchLine':
       despatchLines,
   };
 
-  // ==========================================================
-  // PAYLOAD FINAL
-  // ==========================================================
+  /*
+   * ==========================================================
+   * PAYLOAD FINAL
+   * ==========================================================
+   */
 
   return {
+
     personaId,
+
     personaToken,
+
     fileName,
+
     documentBody,
   };
 }

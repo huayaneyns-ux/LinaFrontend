@@ -352,10 +352,7 @@ export type MotivoTrasladoRemitente =
   | 'Traslado de bienes para transformación'
   | 'Recojo de bienes'
   | 'Traslado por emisor itinerante'
-  | 'Traslado a zona primaria'
   | 'Venta con entrega a terceros'
-  | 'Importación'
-  | 'Exportación'
   | 'Otros';
 
 export type ModalidadTransporte =

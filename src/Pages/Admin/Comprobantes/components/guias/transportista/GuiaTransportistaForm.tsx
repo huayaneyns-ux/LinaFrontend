@@ -303,13 +303,13 @@ const GuiaTransportistaForm = forwardRef<GuiaTransportistaFormHandle, Props>(
         }
         if (!auth) {
           setError(
-            `Debe ingresar el número de autorización del vehículo #${i + 1}.`,
+            `Debe ingresar el número de TUC / autorización del vehículo #${i + 1}.`,
           );
           return false;
         }
-        if (auth.length < 10 || auth.length > 15) {
+        if (auth.length > 20) {
           setError(
-            `El número de autorización del vehículo #${i + 1} debe tener entre 10 y 15 caracteres (actualmente tiene ${auth.length}).`,
+            `El número de TUC / autorización del vehículo #${i + 1} no puede superar los 20 caracteres.`,
           );
           return false;
         }
@@ -900,17 +900,17 @@ const GuiaTransportistaForm = forwardRef<GuiaTransportistaFormHandle, Props>(
                 />
               </FormField>
 
-              <FormField label="Número de autorización" required>
+              <FormField label="Tarjeta Única de Circulación (TUC) / Autorización" required>
                 <input
                   className="erp-form-control"
-                  placeholder="Ej. P234213132 (10 a 15 car.)"
-                  maxLength={15}
+                  placeholder="Ej. 3452 / Número de TUC"
+                  maxLength={20}
                   value={vehicle.numeroAutorizacion ?? ''}
                   onChange={(e) =>
                     updateVehicle(
                       index,
                       'numeroAutorizacion',
-                      e.target.value.slice(0, 15),
+                      e.target.value.slice(0, 20),
                     )
                   }
                 />

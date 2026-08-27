@@ -33,7 +33,6 @@ const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
 const ComprobanteDetailDialog = ({ comprobante, onClose }: ComprobanteDetailDialogProps) => {
   const isGuide = comprobante?.tipo === 'GUIA_REMISION_REMITENTE' || comprobante?.tipo === 'GUIA_REMISION_TRANSPORTISTA';
-  const isTransportGuide = comprobante?.tipo === 'GUIA_REMISION_TRANSPORTISTA';
 
   return (
     <CrudDialog
@@ -68,20 +67,16 @@ const ComprobanteDetailDialog = ({ comprobante, onClose }: ComprobanteDetailDial
                 <DetailField label="Fecha de traslado" value={comprobante.fechaTraslado ?? '—'} />
                 <DetailField label="Punto de partida" value={comprobante.puntoPartida ?? '—'} />
                 <DetailField label="Punto de llegada" value={comprobante.puntoLlegada ?? '—'} />
-                {!isTransportGuide && <DetailField label="Peso total" value={`${comprobante.pesoTotal ?? 0} ${comprobante.unidadMedidaPeso ?? ''}`} />}
-                {isTransportGuide && <>
-                  <DetailField label="Transportista" value={comprobante.transportista ?? '—'} />
-                  <DetailField label="RUC transportista" value={comprobante.rucTransportista ?? '—'} />
-                  <DetailField label="Vehículo" value={comprobante.vehiculo ?? '—'} />
-                  <DetailField label="Conductor" value={comprobante.conductor ?? '—'} />
-                </>}
+                <DetailField label="Peso total" value={`${comprobante.pesoTotal ?? 0} ${comprobante.unidadMedidaPeso ?? 'KGM'}`} />
+                {comprobante.transportista && <DetailField label="Transportista" value={comprobante.transportista} />}
+                {comprobante.rucTransportista && <DetailField label="RUC transportista" value={comprobante.rucTransportista} />}
+                {comprobante.vehiculo && <DetailField label="Vehículo" value={comprobante.vehiculo} />}
+                {comprobante.conductor && <DetailField label="Conductor" value={comprobante.conductor} />}
               </div>
-              {!isTransportGuide && (
-                <div className="erp-form-group" style={{ marginTop: '10px' }}>
-                  <span className="erp-form-label">Bienes transportados</span>
-                  <div style={{ fontSize: '13px' }}>{comprobante.bienesTransportados?.join(', ') ?? '—'}</div>
-                </div>
-              )}
+              <div className="erp-form-group" style={{ marginTop: '10px' }}>
+                <span className="erp-form-label">Bienes transportados</span>
+                <div style={{ fontSize: '13px' }}>{comprobante.bienesTransportados?.join(', ') ?? '—'}</div>
+              </div>
             </section>
           ) : (
             <section>
