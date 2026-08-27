@@ -65,11 +65,6 @@ export const configuracionMotivosDebito: Record<TipoNotaDebito, MotivoConfig> = 
     itemsObligatorios: true,
     descripcion: 'Registra conceptos adicionales relacionados con la operación.',
   },
-  'Ajustes de operaciones de exportación': {
-    trabajaConItems: true,
-    itemsObligatorios: false,
-    descripcion: 'Realiza ajustes relacionados con operaciones de exportación.',
-  },
 };
 
 export const getMotivoConfig = (tipo: 'NOTA_CREDITO' | 'NOTA_DEBITO', motivo: string): MotivoConfig => {

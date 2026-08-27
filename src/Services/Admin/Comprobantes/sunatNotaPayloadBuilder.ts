@@ -30,11 +30,9 @@ export interface BuildSunatNotaPayloadOptions {
  * 09: Disminución en el valor
  *
  * NOTA DE DÉBITO:
- * 10: Intereses por mora
- * 11: Aumento en el valor
- * 12: Penalidades
- * 13: Otros conceptos
- * 99: Ajustes de operaciones de exportación
+ * 01: Intereses por mora
+ * 02: Aumento en el valor
+ * 03: Penalidades/otros conceptos
  */
 export function getResponseCode(
   tipo: 'NOTA_CREDITO' | 'NOTA_DEBITO',
@@ -51,17 +49,16 @@ export function getResponseCode(
   };
 
   const motivosDebito: Record<string, string> = {
-    'Intereses por mora': '10',
-    'Aumento en el valor': '11',
-    'Penalidades': '12',
-    'Otros conceptos': '13',
-    'Ajustes de operaciones de exportación': '99',
+    'Intereses por mora': '01',
+    'Aumento en el valor': '02',
+    'Penalidades': '03',
+    'Otros conceptos': '03',
   };
 
   if (tipo === 'NOTA_CREDITO') {
     return motivosCredito[motivo] || '01';
   } else {
-    return motivosDebito[motivo] || '13';
+    return motivosDebito[motivo] || '03';
   }
 }
 

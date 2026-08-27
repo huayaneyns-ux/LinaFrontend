@@ -162,9 +162,26 @@ export const ComprobanteMockService = {
     const relatedComprobante = comprobantesStore.find(c => c.id === formData.comprobanteRelacionado.id);
     const tipoComprobanteRelacionado = relatedComprobante?.tipo as 'BOLETA' | 'FACTURA' || 'BOLETA';
     
-    const { serie, numero } = getNextDocumentNumber(formData.tipo, tipoComprobanteRelacionado);
-    const subtotal = Number(formData.detalle.reduce((sum, item) => sum + item.precio * item.cantidad, 0).toFixed(2));
-    const igv = Number(formData.detalle.reduce((sum, item) => sum + item.igv, 0).toFixed(2));
+    // For cancellation types (01: Anulación de la operación, 02: Anulación por error en el RUC),
+    // we need to include the items from the related comprobante even if formData.detalle is empty
+    const formDataWithItems = {
+      ...formData,
+      detalle: formData.detalle.length > 0 
+        ? formData.detalle 
+        : (relatedComprobante?.detalle?.map(item => ({
+            productoId: null,
+            codigo: item.codigo,
+            productoServicio: item.productoServicio,
+            cantidad: item.cantidad,
+            precio: item.precio,
+            igv: item.igv,
+            importe: item.importe,
+          })) || [])
+    };
+    
+    const { serie, numero } = getNextDocumentNumber(formDataWithItems.tipo, tipoComprobanteRelacionado);
+    const subtotal = Number(formDataWithItems.detalle.reduce((sum, item) => sum + item.precio * item.cantidad, 0).toFixed(2));
+    const igv = Number(formDataWithItems.detalle.reduce((sum, item) => sum + item.igv, 0).toFixed(2));
     const total = Number((subtotal + igv).toFixed(2));
     const id = Math.max(...comprobantesStore.map(comprobante => comprobante.id), 0) + 1;
     
@@ -173,7 +190,7 @@ export const ComprobanteMockService = {
     
     // 1. Construir el payload JSON SUNAT exacto para notas
     const sunatPayload = buildSunatNotaPayload({
-      formData,
+      formData: formDataWithItems,
       serie,
       numero,
       tipoComprobanteRelacionado,
@@ -208,7 +225,7 @@ export const ComprobanteMockService = {
         fechaEmision: fechaEmisionRelacionado,
       },
       motivoDescripcion: formData.motivoDescripcion || formData.motivo,
-      detalle: formData.detalle.map(item => ({
+      detalle: formDataWithItems.detalle.map(item => ({
         productoServicio: item.productoServicio,
         codigo: item.codigo,
         cantidad: item.cantidad,

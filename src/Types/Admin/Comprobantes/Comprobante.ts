@@ -145,8 +145,7 @@ export type TipoNotaDebito =
   | 'Intereses por mora'
   | 'Aumento en el valor'
   | 'Penalidades'
-  | 'Otros conceptos'
-  | 'Ajustes de operaciones de exportación';
+  | 'Otros conceptos';
 
 
 export interface NotaComprobanteSelectDto {
@@ -300,8 +299,6 @@ export const motivosNotaDebito: TipoNotaDebito[] = [
   'Penalidades',
 
   'Otros conceptos',
-
-  'Ajustes de operaciones de exportación',
 
 ];
 
