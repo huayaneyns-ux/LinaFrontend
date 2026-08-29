@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../Context/AuthContext';
 import {
   FiHome, FiTruck, FiUsers, FiBox,
-  FiLogOut, FiSearch, FiBell, FiSettings, FiBarChart2,
+  FiLogOut, FiSearch, FiBell, FiSettings, FiBarChart2, FiFileText,
   FiChevronRight, FiMenu, FiX
 } from 'react-icons/fi';
 import '../Styles/ERP/erp-variables.css';
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: '/admin', icon: <FiHome />, label: 'Dashboard', end: true },
   { to: '/admin/inventario', icon: <FiBox />, label: 'Inventario' },
   { to: '/admin/ventas', icon: <FiBarChart2 />, label: 'Ventas' },
+  { to: '/admin/comprobantes', icon: <FiFileText />, label: 'Comprobantes' },
   { to: '/admin/compras', icon: <FiTruck />, label: 'Compras' },
   { to: '/admin/seguridad', icon: <FiUsers />, label: 'Seguridad' },
 ];
@@ -22,6 +23,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/admin': 'Dashboard',
   '/admin/inventario': 'Inventario',
   '/admin/ventas': 'Ventas',
+  '/admin/comprobantes': 'Comprobantes',
   '/admin/compras': 'Compras',
   '/admin/seguridad': 'Seguridad',
 };
