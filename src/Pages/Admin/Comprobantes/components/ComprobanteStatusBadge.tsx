@@ -14,9 +14,8 @@ const STATUS_CONFIG: Record<ComprobanteEstado | ComprobanteEstadoSunat, { label:
   ANULADO: { label: 'Anulado', className: 'erp-badge-inactivo', dotClass: 'erp-status-dot-inactivo' },
   RECHAZADO: { label: 'Rechazado', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
   PENDIENTE: { label: 'Pendiente', className: 'erp-badge-pendiente', dotClass: 'erp-status-dot-pendiente' },
-  ENVIADO: { label: 'Enviado', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
+  EXCEPCION: { label: 'Excepción', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
   ACEPTADO: { label: 'Aceptado', className: 'erp-badge-activo', dotClass: 'erp-status-dot-activo' },
-  OBSERVADO: { label: 'Observado', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
 };
 
 const ComprobanteStatusBadge = ({ status }: ComprobanteStatusBadgeProps) => {

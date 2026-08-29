@@ -2,6 +2,11 @@ import { EMPRESA } from '../../../Constantes/Empresa';
 import type {
   SunatDocumentPayload,
   SunatSendResult,
+  DocumentResponse,
+  GetAllQueryParams,
+  PDFFormat,
+  VoidBillRequest,
+  VoidBillResponse,
 } from '../../../Types/Admin/Comprobantes/Comprobante';
 
 export const SunatService = {
@@ -198,5 +203,93 @@ export const SunatService = {
           'Comprobante verificado con estado ACEPTADO en SUNAT.',
       },
     };
+  },
+
+  async getById(documentId: string): Promise<DocumentResponse> {
+    const { apiUrl } = EMPRESA.sunatConfig;
+    // Usar la misma base que sendBill pero con el endpoint específico
+    const baseUrl = apiUrl.replace('/personas/v1/sendBill', '');
+    const url = `${baseUrl}/documents/${documentId}/getById`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al obtener documento: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async getAll(params: GetAllQueryParams): Promise<DocumentResponse[]> {
+    const { apiUrl } = EMPRESA.sunatConfig;
+    // Usar la misma base que sendBill pero con el endpoint específico
+    const baseUrl = apiUrl.replace('/personas/v1/sendBill', '');
+    const url = new URL(`${baseUrl}/documents/getAll`);
+
+    // Add query parameters
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        url.searchParams.append(key, String(value));
+      }
+    });
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al obtener documentos: ${response.status}`);
+    }
+
+    return response.json();
+  },
+
+  async getPDF(documentId: string, format: PDFFormat, fileName: string): Promise<Blob> {
+    const { apiUrl } = EMPRESA.sunatConfig;
+    // Usar la misma base que sendBill pero con el endpoint específico
+    const baseUrl = apiUrl.replace('/personas/v1/sendBill', '');
+    const url = `${baseUrl}/documents/${documentId}/getPDF/${format}/${fileName}.pdf`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/pdf',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al generar PDF: ${response.status}`);
+    }
+
+    return response.blob();
+  },
+
+  async voidBill(request: VoidBillRequest): Promise<VoidBillResponse> {
+    const { apiUrl } = EMPRESA.sunatConfig;
+    // Usar la misma base que sendBill pero con el endpoint específico
+    const url = `${apiUrl.replace('/sendBill', '')}/voidBill`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error al anular documento: ${response.status}`);
+    }
+
+    return response.json();
   },
 };

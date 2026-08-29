@@ -22,10 +22,9 @@ export type ComprobanteEstado = 'BORRADOR' | 'EMITIDO' | 'ANULADO' | 'RECHAZADO'
 
 export type ComprobanteEstadoSunat =
   | 'PENDIENTE'
-  | 'ENVIADO'
+  | 'EXCEPCION'
   | 'ACEPTADO'
-  | 'RECHAZADO'
-  | 'OBSERVADO';
+  | 'RECHAZADO';
 
 export interface ComprobanteDetalleItem {
   productoServicio: string;
@@ -779,4 +778,48 @@ export interface SunatSendResult {
   xmlUrl?: string;
   cdrUrl?: string;
   error?: string;
+}
+
+// API Document types based on the provided API documentation
+export interface DocumentResponse {
+  production: boolean;
+  status: ComprobanteEstadoSunat;
+  type: string; // Código del tipo: "01", "03", "D1", etc.
+  issueTime: number; // fecha de emisión en formato UNIX
+  responseTime: number; // fecha de respuesta SUNAT en formato UNIX
+  fileName: string; // Formato: "20123456789-01-F001-00000001"
+  xml: string; // URL del XML
+  cdr: string; // URL del CDR
+  faults: string[]; // arreglo de errores
+  notes: string[]; // arreglo de observaciones
+  personaId: string;
+  reference: string; // referencia enviada al momento de emitir
+}
+
+export interface GetAllQueryParams {
+  personaId: string;
+  personaToken: string;
+  limit?: number;
+  skip?: number;
+  from?: number; // fecha de emisión en formato UNIX
+  to?: number; // fecha de emisión en formato UNIX
+  status?: 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO';
+  type?: string; // Código del tipo: "01", "03", "D1", etc.
+  order?: 'ASC' | 'DESC';
+  serie?: string;
+  number?: string;
+}
+
+export type PDFFormat = 'A4' | 'A5' | 'ticket58mm' | 'ticket80mm';
+
+export interface VoidBillRequest {
+  personaId: string;
+  personaToken: string;
+  documentId: string;
+  reason: string; // 3 - 100 caracteres
+}
+
+export interface VoidBillResponse {
+  status: 'PENDIENTE';
+  documentId: string;
 }

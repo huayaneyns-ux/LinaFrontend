@@ -16,6 +16,9 @@ import type {
   GuiaRemisionRemitenteFormData,
   GuiaRemisionTransportistaFormData,
   ComprobanteTipo,
+  GetAllQueryParams,
+  PDFFormat,
+  VoidBillRequest,
 } from '../../../Types/Admin/Comprobantes/Comprobante';
 import { buildSunatPayload } from './sunatPayloadBuilder';
 import { buildSunatNotaPayload } from './sunatNotaPayloadBuilder';
@@ -64,6 +67,20 @@ const cloneComprobante = (
     ? [...comprobante.bienesTransportados]
     : undefined,
 });
+
+// Helper function to map API type codes to local type constants
+const mapApiTypeToLocalType = (apiType: string): ComprobanteTipo => {
+  const typeMap: Record<string, ComprobanteTipo> = {
+    '01': 'FACTURA',
+    '03': 'BOLETA',
+    '07': 'NOTA_CREDITO',
+    '08': 'NOTA_DEBITO',
+    '09': 'GUIA_REMISION_REMITENTE',
+    '31': 'GUIA_REMISION_TRANSPORTISTA',
+    'D1': 'GUIA_REMISION_REMITENTE', // Posible código para guías
+  };
+  return typeMap[apiType] || 'BOLETA';
+};
 
 export const getNextDocumentNumber = (
   tipo: ComprobanteTipo,
@@ -120,6 +137,7 @@ export const getNextDocumentNumber = (
 
 export const ComprobanteMockService = {
   async getComprobantes(): Promise<ComprobanteSelectDto[]> {
+    // Este método ya no se usa - usamos getAll que llama a la API de SUNAT
     await wait();
     return comprobantesStore.map(cloneComprobante);
   },
@@ -556,5 +574,144 @@ export const ComprobanteMockService = {
       item.id === id ? actualizado : item,
     );
     return cloneComprobante(actualizado);
+  },
+
+  async getById(documentId: string) {
+    try {
+      const documentResponse = await SunatService.getById(documentId);
+      
+      // Parse fileName: "20123456789-01-F001-00000001"
+      const fileNameParts = documentResponse.fileName.split('-');
+      const ruc = fileNameParts[0] || '';
+      const tipoCodigo = fileNameParts[1] || '';
+      const serie = fileNameParts[2] || '';
+      const numero = fileNameParts[3] || '';
+      
+      // Manejar campos que pueden ser undefined
+      const notes = documentResponse.notes || [];
+      const faults = documentResponse.faults || [];
+      
+      // Validar y convertir fechas de forma segura
+      const issueTime = documentResponse.issueTime ? new Date(documentResponse.issueTime * 1000) : new Date();
+      const responseTime = documentResponse.responseTime ? new Date(documentResponse.responseTime * 1000) : new Date();
+      
+      // Convert API response to ComprobanteSelectDto format
+      const comprobante: ComprobanteSelectDto = {
+        id: parseInt(documentId, 10) || 0,
+        tipo: mapApiTypeToLocalType(tipoCodigo),
+        serie,
+        numero,
+        fechaEmision: !isNaN(issueTime.getTime()) ? issueTime.toISOString() : new Date().toISOString(),
+        cliente: ruc,
+        documentoCliente: ruc,
+        subtotal: 0,
+        igv: 0,
+        total: 0,
+        estado: documentResponse.status === 'ACEPTADO' ? 'EMITIDO' : 
+               documentResponse.status === 'RECHAZADO' ? 'RECHAZADO' : 'BORRADOR',
+        estadoSunat: documentResponse.status,
+        tipoDocumentoCliente: '6',
+        direccionCliente: '',
+        correoCliente: '',
+        codigoRespuestaSunat: documentResponse.status === 'ACEPTADO' ? '0' : '98',
+        mensajeSunat: notes.length > 0 ? notes.join(', ') : 
+                     faults.length > 0 ? faults.join(', ') : 'OK',
+        fechaConsultaSunat: !isNaN(responseTime.getTime()) ? responseTime.toISOString() : new Date().toISOString(),
+        fechaEnvioSunat: !isNaN(responseTime.getTime()) ? responseTime.toISOString() : new Date().toISOString(),
+        detalle: [],
+        pdfUrl: documentResponse.xml,
+        observaciones: documentResponse.reference,
+      };
+      
+      return comprobante;
+    } catch (error) {
+      console.error('Error al obtener documento por ID:', error);
+      throw error;
+    }
+  },
+
+  async getAll(params: GetAllQueryParams): Promise<ComprobanteSelectDto[]> {
+    try {
+      const documents = await SunatService.getAll(params);
+      
+      return documents.map((doc, index) => {
+        // Parse fileName: "20123456789-01-F001-00000001"
+        const fileNameParts = doc.fileName.split('-');
+        const ruc = fileNameParts[0] || '';
+        const tipoCodigo = fileNameParts[1] || '';
+        const serie = fileNameParts[2] || '';
+        const numero = fileNameParts[3] || '';
+        
+        // Manejar campos que pueden ser undefined
+        const notes = doc.notes || [];
+        const faults = doc.faults || [];
+        
+        // Validar y convertir fechas de forma segura
+        const issueTime = doc.issueTime ? new Date(doc.issueTime * 1000) : new Date();
+        const responseTime = doc.responseTime ? new Date(doc.responseTime * 1000) : new Date();
+        
+        return {
+          id: index + 1,
+          tipo: mapApiTypeToLocalType(tipoCodigo),
+          serie,
+          numero,
+          fechaEmision: !isNaN(issueTime.getTime()) ? issueTime.toISOString() : new Date().toISOString(),
+          cliente: ruc,
+          documentoCliente: ruc,
+          subtotal: 0,
+          igv: 0,
+          total: 0,
+          estado: doc.status === 'ACEPTADO' ? 'EMITIDO' : 
+                 doc.status === 'RECHAZADO' ? 'RECHAZADO' : 'BORRADOR',
+          estadoSunat: doc.status,
+          tipoDocumentoCliente: '6',
+          direccionCliente: '',
+          correoCliente: '',
+          codigoRespuestaSunat: doc.status === 'ACEPTADO' ? '0' : '98',
+          mensajeSunat: notes.length > 0 ? notes.join(', ') : 
+                       faults.length > 0 ? faults.join(', ') : 'OK',
+          fechaConsultaSunat: !isNaN(responseTime.getTime()) ? responseTime.toISOString() : new Date().toISOString(),
+          fechaEnvioSunat: !isNaN(responseTime.getTime()) ? responseTime.toISOString() : new Date().toISOString(),
+          detalle: [],
+          pdfUrl: doc.xml,
+          observaciones: doc.reference,
+        };
+      });
+    } catch (error) {
+      console.error('Error al obtener documentos:', error);
+      return [];
+    }
+  },
+
+  async getPDF(documentId: string, format: PDFFormat, fileName: string): Promise<Blob> {
+    try {
+      return await SunatService.getPDF(documentId, format, fileName);
+    } catch (error) {
+      console.error('Error al generar PDF:', error);
+      throw error;
+    }
+  },
+
+  async voidBill(request: VoidBillRequest) {
+    try {
+      const response = await SunatService.voidBill(request);
+      
+      // Update local store to mark document as ANULADO
+      comprobantesStore = comprobantesStore.map((comp) => {
+        if (comp.id === parseInt(request.documentId, 10)) {
+          return {
+            ...comp,
+            estado: 'ANULADO',
+            estadoSunat: 'PENDIENTE',
+          };
+        }
+        return comp;
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Error al anular documento:', error);
+      throw error;
+    }
   },
 };

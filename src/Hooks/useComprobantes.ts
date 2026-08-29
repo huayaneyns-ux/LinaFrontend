@@ -7,6 +7,9 @@ import type {
   VentaOrigenComprobanteDto,
   NotaFormData,
   GuiaRemisionFormData,
+  GetAllQueryParams,
+  PDFFormat,
+  VoidBillRequest,
 } from '../Types/Admin/Comprobantes/Comprobante';
 
 export function useComprobantes() {
@@ -23,11 +26,21 @@ export function useComprobantes() {
     try {
       setLoading(true);
       setError(null);
-      const [data, ventas, productos] = await Promise.all([
-        ComprobanteMockService.getComprobantes(),
+      const [ventas, productos] = await Promise.all([
         ComprobanteMockService.getVentasDisponibles(),
         ComprobanteMockService.getProductosDisponibles(),
       ]);
+      
+      // Cargar documentos desde la API de SUNAT
+      const { EMPRESA } = await import('../Constantes/Empresa');
+      const apiParams: GetAllQueryParams = {
+        personaId: EMPRESA.sunatConfig.personaId,
+        personaToken: EMPRESA.sunatConfig.personaToken || '',
+        limit: 100,
+      };
+      
+      const data = await ComprobanteMockService.getAll(apiParams);
+      
       setComprobantes(data);
       setVentasDisponibles(ventas);
       setProductosDisponibles(productos);
@@ -218,6 +231,75 @@ export function useComprobantes() {
     }
   }, []);
 
+  const getById = useCallback(async (documentId: string) => {
+    try {
+      setError(null);
+      const comprobante = await ComprobanteMockService.getById(documentId);
+      return comprobante;
+    } catch {
+      setError('No se pudo obtener el documento. Intenta nuevamente.');
+      return null;
+    }
+  }, []);
+
+  const getAll = useCallback(async (params: GetAllQueryParams) => {
+    try {
+      setError(null);
+      const documents = await ComprobanteMockService.getAll(params);
+      setComprobantes(documents);
+      return documents;
+    } catch {
+      setError('No se pudieron cargar los documentos. Intenta nuevamente.');
+      return [];
+    }
+  }, []);
+
+  const getPDF = useCallback(async (documentId: string, format: PDFFormat, fileName: string) => {
+    try {
+      setError(null);
+      const pdfBlob = await ComprobanteMockService.getPDF(documentId, format, fileName);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${fileName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setSuccessMessage('PDF descargado correctamente.');
+      return true;
+    } catch {
+      setError('No se pudo generar el PDF. Intenta nuevamente.');
+      return false;
+    }
+  }, []);
+
+  const voidBill = useCallback(async (request: VoidBillRequest) => {
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      const response = await ComprobanteMockService.voidBill(request);
+      
+      // Update local state
+      setComprobantes((previous) =>
+        previous.map((item) =>
+          item.id === parseInt(request.documentId, 10)
+            ? { ...item, estado: 'ANULADO', estadoSunat: 'PENDIENTE' }
+            : item,
+        ),
+      );
+      
+      setSuccessMessage('Documento anulado correctamente.');
+      return response;
+    } catch {
+      setError('No se pudo anular el documento. Intenta nuevamente.');
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     const loadTimer = window.setTimeout(() => {
       void loadComprobantes();
@@ -239,6 +321,10 @@ export function useComprobantes() {
     crearGuia,
     crearNota,
     actualizarEstadoSunat,
+    getById,
+    getAll,
+    getPDF,
+    voidBill,
     clearSuccessMessage: () => setSuccessMessage(null),
   };
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ComprobanteEstado, ComprobanteEstadoSunat, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
+import type { ComprobanteEstado, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 import { useComprobantes } from "../../../../../Hooks/useComprobantes";
 import type { ColumnDef } from "../../../../../Components/ERP/DataTable";
 import { formatDate } from "../../../../../Utils/formatters";
@@ -11,11 +11,12 @@ import Pagination from "../../../../../Components/ERP/Pagination";
 import ComprobantePreviewDialog from "../ComprobantePreviewDialog";
 import ComprobanteDetailDialog from "../ComprobanteDetailDialog";
 import { useDataTable } from "../../../../../Hooks/useDataTable";
+import { EMPRESA } from "../../../../../Constantes/Empresa";
 
 interface ComprobanteTodosFilters {
     tipo: ComprobanteTipo | '';
     estado: ComprobanteEstado | '';
-    estadoSunat: ComprobanteEstadoSunat | '';
+    estadoSunat: 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '';
     fechaDesde: string;
     fechaHasta: string;
 }
@@ -46,15 +47,59 @@ export const ComprobanteTodosSection = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [previewComprobante, setPreviewComprobante] = useState<ComprobanteSelectDto | null>(null);
     const [detailComprobante, setDetailComprobante] = useState<ComprobanteSelectDto | null>(null);
+    const [downloadingId, setDownloadingId] = useState<number | null>(null);
+    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
+    const [voidReason, setVoidReason] = useState('');
+    
     const {
         comprobantes,
         loading,
         updatingSunatId,
         error,
         actualizarEstadoSunat,
+        getPDF,
+        voidBill,
+        successMessage,
+        clearSuccessMessage,
     } = useComprobantes();
 
     const filterCount = Object.values(filters).filter(value => value !== '').length;
+
+    const handleDownloadPDF = async (comprobante: ComprobanteSelectDto) => {
+        try {
+            setDownloadingId(comprobante.id);
+            const fileName = `${comprobante.serie}-${comprobante.numero}`;
+            await getPDF(String(comprobante.id), 'A4', fileName);
+        } finally {
+            setDownloadingId(null);
+        }
+    };
+
+    const handleDeleteDocument = (comprobante: ComprobanteSelectDto) => {
+        setVoidReasonDialog({ open: true, comprobante });
+    };
+
+    const handleConfirmVoid = async () => {
+        if (!voidReasonDialog.comprobante || !voidReason.trim()) {
+            return;
+        }
+
+        try {
+            setDeletingId(voidReasonDialog.comprobante.id);
+            const voidRequest = {
+                personaId: EMPRESA.id,
+                personaToken: EMPRESA.sunatConfig.personaToken || '',
+                documentId: String(voidReasonDialog.comprobante.id),
+                reason: voidReason,
+            };
+            await voidBill(voidRequest);
+            setVoidReasonDialog({ open: false, comprobante: null });
+            setVoidReason('');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const filteredTodos = useMemo(() => {
         return comprobantes.filter(comprobante => {
@@ -120,14 +165,18 @@ export const ComprobanteTodosSection = () => {
             render: row => <ComprobanteStatusBadge status={row.estadoSunat} />,
         },
         {
-            key: 'actions', header: 'Acciones', align: 'right', width: '80px',
+            key: 'actions', header: 'Acciones', align: 'right', width: '120px',
             render: row => (
                 <ComprobanteActions
                     comprobante={row}
                     isUpdatingSunat={updatingSunatId === row.id}
+                    isDownloading={downloadingId === row.id}
+                    isDeleting={deletingId === row.id}
                     onViewComprobante={setPreviewComprobante}
                     onViewDetails={setDetailComprobante}
                     onUpdateSunat={id => void actualizarEstadoSunat(id)}
+                    onDownloadPDF={handleDownloadPDF}
+                    onDeleteDocument={handleDeleteDocument}
                 />
             ),
         },
@@ -148,6 +197,81 @@ export const ComprobanteTodosSection = () => {
                 {error && (
                     <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
                         {error}
+                    </div>
+                )}
+
+                {successMessage && (
+                    <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-success-light)', color: 'var(--erp-success)', borderRadius: '6px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <span>{successMessage}</span>
+                        <button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" onClick={clearSuccessMessage}>Cerrar</button>
+                    </div>
+                )}
+
+                {voidReasonDialog.open && (
+                    <div style={{ 
+                        position: 'fixed', 
+                        top: 0, 
+                        left: 0, 
+                        right: 0, 
+                        bottom: 0, 
+                        backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        zIndex: 1000 
+                    }}>
+                        <div style={{ 
+                            backgroundColor: 'white', 
+                            padding: '24px', 
+                            borderRadius: '8px', 
+                            maxWidth: '500px', 
+                            width: '100%',
+                            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                        }}>
+                            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
+                                Anular Documento
+                            </h3>
+                            <p style={{ margin: '0 0 16px 0', color: '#666' }}>
+                                Está por anular el documento {voidReasonDialog.comprobante?.serie}-{voidReasonDialog.comprobante?.numero}. 
+                                Por favor, indique el motivo de la anulación (3-100 caracteres):
+                            </p>
+                            <div className="erp-form-group" style={{ marginBottom: '16px' }}>
+                                <label className="erp-form-label">Motivo de anulación</label>
+                                <textarea
+                                    className="erp-input"
+                                    value={voidReason}
+                                    onChange={(e) => setVoidReason(e.target.value)}
+                                    placeholder="Ingrese el motivo..."
+                                    rows={3}
+                                    maxLength={100}
+                                    style={{ width: '100%', resize: 'vertical' }}
+                                />
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                    {voidReason.length}/100 caracteres
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    className="erp-btn erp-btn-secondary"
+                                    onClick={() => {
+                                        setVoidReasonDialog({ open: false, comprobante: null });
+                                        setVoidReason('');
+                                    }}
+                                    disabled={deletingId !== null}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    className="erp-btn erp-btn-danger"
+                                    onClick={handleConfirmVoid}
+                                    disabled={deletingId !== null || voidReason.trim().length < 3 || voidReason.trim().length > 100}
+                                >
+                                    {deletingId ? 'Anulando...' : 'Confirmar anulación'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -186,13 +310,12 @@ export const ComprobanteTodosSection = () => {
                             </div>
                             <div className="erp-form-group">
                                 <label className="erp-form-label">Estado SUNAT</label>
-                                <select className="erp-input" value={filters.estadoSunat} onChange={event => setFilters(previous => ({ ...previous, estadoSunat: event.target.value as ComprobanteEstadoSunat | '' }))}>
+                                <select className="erp-input" value={filters.estadoSunat} onChange={event => setFilters(previous => ({ ...previous, estadoSunat: event.target.value as 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '' }))}>
                                     <option value="">Todos</option>
                                     <option value="PENDIENTE">Pendiente</option>
-                                    <option value="ENVIADO">Enviado</option>
+                                    <option value="EXCEPCION">Excepción</option>
                                     <option value="ACEPTADO">Aceptado</option>
                                     <option value="RECHAZADO">Rechazado</option>
-                                    <option value="OBSERVADO">Observado</option>
                                 </select>
                             </div>
                             <div className="erp-form-group">

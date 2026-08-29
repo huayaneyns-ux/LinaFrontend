@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 
 import type {
   ComprobanteEstado,
-  ComprobanteEstadoSunat,
   ComprobanteSelectDto,
 } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 
@@ -30,12 +29,14 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
 
 import NewNotaDialog from "./NewComprobanteNotaDialog";
 
+import { EMPRESA } from "../../../../../Constantes/Empresa";
+
 
 
 interface NotaComprobanteFilters {
 
   estado: ComprobanteEstado | '';
-  estadoSunat: ComprobanteEstadoSunat | '';
+  estadoSunat: 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '';
   tipo: 'NOTA_CREDITO' | 'NOTA_DEBITO' | '';
   fechaDesde: string;
   fechaHasta: string;
@@ -73,6 +74,10 @@ export const ComprobanteNotaVentas = () => {
   const [detailNota, setDetailNota] =
     useState<ComprobanteSelectDto | null>(null);
 
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
+  const [voidReason, setVoidReason] = useState('');
 
   const {
     comprobantes,
@@ -84,6 +89,8 @@ export const ComprobanteNotaVentas = () => {
     successMessage,
     actualizarEstadoSunat,
     crearNota,
+    getPDF,
+    voidBill,
     clearSuccessMessage,
   } = useComprobantes();
 
@@ -115,6 +122,41 @@ export const ComprobanteNotaVentas = () => {
 
   const filterCount =
     Object.values(filters).filter(value => value !== '').length;
+
+  const handleDownloadPDF = async (comprobante: ComprobanteSelectDto) => {
+    try {
+      setDownloadingId(comprobante.id);
+      const fileName = `${comprobante.serie}-${comprobante.numero}`;
+      await getPDF(String(comprobante.id), 'A4', fileName);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteDocument = (comprobante: ComprobanteSelectDto) => {
+    setVoidReasonDialog({ open: true, comprobante });
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidReasonDialog.comprobante || !voidReason.trim()) {
+      return;
+    }
+
+    try {
+      setDeletingId(voidReasonDialog.comprobante.id);
+      const voidRequest = {
+        personaId: EMPRESA.id,
+        personaToken: EMPRESA.sunatConfig.personaToken || '',
+        documentId: String(voidReasonDialog.comprobante.id),
+        reason: voidReason,
+      };
+      await voidBill(voidRequest);
+      setVoidReasonDialog({ open: false, comprobante: null });
+      setVoidReason('');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
 
   const {
@@ -280,7 +322,7 @@ export const ComprobanteNotaVentas = () => {
 
         align: 'right',
 
-        width: '80px',
+        width: '120px',
 
         render: row => (
 
@@ -291,6 +333,9 @@ export const ComprobanteNotaVentas = () => {
             isUpdatingSunat={
               updatingSunatId === row.id
             }
+
+            isDownloading={downloadingId === row.id}
+            isDeleting={deletingId === row.id}
 
             onViewComprobante={
               setPreviewNota
@@ -303,6 +348,9 @@ export const ComprobanteNotaVentas = () => {
             onUpdateSunat={
               id => void actualizarEstadoSunat(id)
             }
+
+            onDownloadPDF={handleDownloadPDF}
+            onDeleteDocument={handleDeleteDocument}
 
           />
 
@@ -431,6 +479,74 @@ export const ComprobanteNotaVentas = () => {
 
           </div>
 
+        )}
+
+        {voidReasonDialog.open && (
+          <div style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            zIndex: 1000 
+          }}>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '24px', 
+              borderRadius: '8px', 
+              maxWidth: '500px', 
+              width: '100%',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
+                Anular Documento
+              </h3>
+              <p style={{ margin: '0 0 16px 0', color: '#666' }}>
+                Está por anular el documento {voidReasonDialog.comprobante?.serie}-{voidReasonDialog.comprobante?.numero}. 
+                Por favor, indique el motivo de la anulación (3-100 caracteres):
+              </p>
+              <div className="erp-form-group" style={{ marginBottom: '16px' }}>
+                <label className="erp-form-label">Motivo de anulación</label>
+                <textarea
+                  className="erp-input"
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="Ingrese el motivo..."
+                  rows={3}
+                  maxLength={100}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  {voidReason.length}/100 caracteres
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="erp-btn erp-btn-secondary"
+                  onClick={() => {
+                    setVoidReasonDialog({ open: false, comprobante: null });
+                    setVoidReason('');
+                  }}
+                  disabled={deletingId !== null}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="erp-btn erp-btn-danger"
+                  onClick={handleConfirmVoid}
+                  disabled={deletingId !== null || voidReason.trim().length < 3 || voidReason.trim().length > 100}
+                >
+                  {deletingId ? 'Anulando...' : 'Confirmar anulación'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
 
@@ -576,7 +692,7 @@ export const ComprobanteNotaVentas = () => {
                       ...previous,
                       estadoSunat:
                         event.target.value as
-                        ComprobanteEstadoSunat | '',
+                        'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '',
                     }))
                   }
                 >
@@ -589,8 +705,8 @@ export const ComprobanteNotaVentas = () => {
                     Pendiente
                   </option>
 
-                  <option value="ENVIADO">
-                    Enviado
+                  <option value="EXCEPCION">
+                    Excepción
                   </option>
 
                   <option value="ACEPTADO">
@@ -599,10 +715,6 @@ export const ComprobanteNotaVentas = () => {
 
                   <option value="RECHAZADO">
                     Rechazado
-                  </option>
-
-                  <option value="OBSERVADO">
-                    Observado
                   </option>
 
                 </select>
