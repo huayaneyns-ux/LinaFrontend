@@ -49,7 +49,8 @@
 .erp-input,
 .erp-form-input,
 .erp-form-select,
-.erp-form-textarea {
+.erp-form-textarea,
+.erp-form-control {
   height: 40px;
   padding: 0 12px;
   border: 1px solid var(--erp-input-border);
@@ -69,13 +70,15 @@
 
 .erp-input::placeholder,
 .erp-form-input::placeholder,
-.erp-form-textarea::placeholder {
+.erp-form-textarea::placeholder,
+.erp-form-control::placeholder {
   color: var(--erp-text-muted);
   opacity: 0.85;
 }
 
 .erp-form-select,
-select.erp-input {
+select.erp-input,
+select.erp-form-control {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -85,7 +88,8 @@ select.erp-input {
 }
 
 textarea.erp-input,
-.erp-form-textarea {
+textarea.erp-form-textarea,
+textarea.erp-form-control {
   height: auto;
   min-height: 88px;
   padding: 10px 12px;
@@ -96,14 +100,16 @@ textarea.erp-input,
 .erp-input:hover:not(:disabled):not(:read-only),
 .erp-form-input:hover:not(:read-only),
 .erp-form-select:hover:not(:disabled),
-.erp-form-textarea:hover:not(:read-only) {
+.erp-form-textarea:hover:not(:read-only),
+.erp-form-control:hover:not(:read-only) {
   border-color: #cbd5e1;
 }
 
 .erp-input:focus,
 .erp-form-input:focus,
 .erp-form-select:focus,
-.erp-form-textarea:focus {
+.erp-form-textarea:focus,
+.erp-form-control:focus {
   border-color: var(--erp-input-border-focus);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
   background-color: #ffffff;
@@ -128,7 +134,9 @@ textarea.erp-input,
 .erp-input:read-only,
 .erp-form-input:read-only,
 .erp-form-select:disabled,
-.erp-form-textarea:read-only {
+.erp-form-textarea:read-only,
+.erp-form-control:disabled,
+.erp-form-control:read-only {
   background-color: #f8fafc;
   color: var(--erp-text-secondary);
   cursor: default;
@@ -137,7 +145,9 @@ textarea.erp-input,
 .erp-input:disabled:focus,
 .erp-input:read-only:focus,
 .erp-form-input:read-only:focus,
-.erp-form-textarea:read-only:focus {
+.erp-form-textarea:read-only:focus,
+.erp-form-control:disabled:focus,
+.erp-form-control:read-only:focus {
   border-color: #e2e8f0;
   box-shadow: none;
 }

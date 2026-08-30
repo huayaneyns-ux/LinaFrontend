@@ -14,6 +14,7 @@ import '../Inventario/Inventario.css';
 import { ComprobantePagoVentas } from './components/ventas/ComprobanteVentasSection';
 import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
 import { ComprobanteTodosSection } from './components/todos/ComprobanteTodosSection';
+import { ComprobanteGuiaSection } from './components/guias/ComprobanteGuiaSection';
 
 type ComprobanteTab = ComprobanteSectionDefinition & {
   icon: ReactElement;
@@ -60,6 +61,7 @@ export function ComprobantesPage() {
         {activeTab === 'comprobantes' && < ComprobantePagoVentas />}
         {activeTab === 'notas' && < ComprobanteNotaVentas />}
         {activeTab === 'todos' && < ComprobanteTodosSection />}
+        {activeTab === 'guias' && < ComprobanteGuiaSection />}
       </div>
     </div>
   );

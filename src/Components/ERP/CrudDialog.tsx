@@ -20,6 +20,7 @@ interface CrudDialogProps {
   // Loading state
   loading?: boolean;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  hideFooter?: boolean;
 }
 
 const MODE_CONFIG: Record<DialogMode, { icon: ReactNode; iconClass: string; defaultTitle: string; defaultConfirm: string }> = {
@@ -42,6 +43,7 @@ const CrudDialog = ({
   cancelLabel = 'Cancelar',
   loading = false,
   size = 'md',
+  hideFooter = false,
 }: CrudDialogProps) => {
   if (!isOpen) return null;
 
@@ -99,7 +101,7 @@ const CrudDialog = ({
         </div>
 
         {/* Footer */}
-        <div className="erp-dialog-footer">
+        {!hideFooter && <div className="erp-dialog-footer">
           {!isViewMode && (
             <button
               type="button"
@@ -120,7 +122,7 @@ const CrudDialog = ({
           >
             {loading ? (mode === 'view' ? 'Cerrando...' : 'Guardando...') : resolvedConfirm}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );

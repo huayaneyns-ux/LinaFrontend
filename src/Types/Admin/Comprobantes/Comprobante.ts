@@ -22,10 +22,9 @@ export type ComprobanteEstado = 'BORRADOR' | 'EMITIDO' | 'ANULADO' | 'RECHAZADO'
 
 export type ComprobanteEstadoSunat =
   | 'PENDIENTE'
-  | 'ENVIADO'
+  | 'EXCEPCION'
   | 'ACEPTADO'
-  | 'RECHAZADO'
-  | 'OBSERVADO';
+  | 'RECHAZADO';
 
 export interface ComprobanteDetalleItem {
   productoServicio: string;
@@ -36,7 +35,7 @@ export interface ComprobanteDetalleItem {
   importe: number;
 }
 
-export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA';
+export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA' | 'LIQUIDACION_COMPRA';
 export type ComprobanteOrigen = 'VENTA' | 'MANUAL';
 
 export interface ComprobanteClienteData {
@@ -145,8 +144,7 @@ export type TipoNotaDebito =
   | 'Intereses por mora'
   | 'Aumento en el valor'
   | 'Penalidades'
-  | 'Otros conceptos'
-  | 'Ajustes de operaciones de exportación';
+  | 'Otros conceptos';
 
 
 export interface NotaComprobanteSelectDto {
@@ -301,8 +299,6 @@ export const motivosNotaDebito: TipoNotaDebito[] = [
 
   'Otros conceptos',
 
-  'Ajustes de operaciones de exportación',
-
 ];
 
 // Tipos para el formulario de notas
@@ -319,6 +315,7 @@ export interface NotaFormItem {
 export interface NotaFormData {
   tipo: TipoNota;
   motivo: TipoNotaCredito | TipoNotaDebito;
+  motivoDescripcion?: string;
   comprobanteRelacionado: {
     id: number;
     tipo: ComprobanteTipo;
@@ -335,4 +332,494 @@ export interface NotaFormData {
   detalle: NotaFormItem[];
   fechaEmision: string;
   observaciones?: string;
+}
+
+// Guías de remisión: contrato local usado mientras el proyecto no expone API propia.
+// Guías de remisión: contrato local usado mientras el proyecto no expone API propia.
+
+export type GuiaRemisionTipo =
+  | 'GUIA_REMISION_REMITENTE'
+  | 'GUIA_REMISION_TRANSPORTISTA';
+
+export type MotivoTrasladoRemitente =
+  | 'Venta'
+  | 'Venta sujeta a confirmación'
+  | 'Compra'
+  | 'Devolución'
+  | 'Consignación'
+  | 'Traslado entre establecimientos de la misma empresa'
+  | 'Traslado de bienes para transformación'
+  | 'Recojo de bienes'
+  | 'Traslado por emisor itinerante'
+  | 'Venta con entrega a terceros'
+  | 'Otros';
+
+export type ModalidadTransporte =
+  | 'TRANSPORTE_PRIVADO'
+  | 'TRANSPORTE_PUBLICO';
+
+export interface Ubicacion {
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  direccion: string;
+  codigoEstablecimiento?: string;
+  rucAsociado?: string;
+}
+
+export interface PersonaDocumento {
+  tipoDocumento: string;
+  numeroDocumento: string;
+  nombre: string;
+}
+
+export interface DatosTransportista {
+  ruc?: string;
+  razonSocial?: string;
+  registroMTC?: string;
+}
+
+export interface DatosVehiculo {
+  placa?: string;
+  marca?: string;
+  modelo?: string;
+  numeroAutorizacion?: string;
+  entidadEmisora?: string;
+}
+
+export interface DatosConductor {
+  tipoDocumento: string;
+  numeroDocumento: string;
+  nombre: string;
+  licenciaConducir?: string;
+  apellidos?: string;
+}
+
+export interface DatosPersonaGuia {
+  nombre: string;
+  ruc: string;
+}
+
+export interface DatosAduanerosGuia {
+  contenedores: Array<{
+    numero: string;
+    precinto: string;
+  }>;
+  tipoPuntoAduanero: 'PUERTO' | 'AEROPUERTO' | '';
+  puntoAduanero: string;
+  cantidadBultos?: number;
+}
+
+export interface BienTransportado {
+  descripcion: string;
+  cantidad: number;
+  unidadMedida: string;
+  pesoUnitario?: number;
+  pesoTotal?: number;
+}
+
+export interface GuiaRemisionRemitenteFormData {
+  tipo: 'GUIA_REMISION_REMITENTE';
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  fechaInicioTraslado: string;
+  destinatario: PersonaDocumento;
+  motivoTraslado: MotivoTrasladoRemitente;
+  modalidadTransporte: ModalidadTransporte;
+  puntoPartida: Ubicacion;
+  puntoLlegada: Ubicacion;
+  transportista?: DatosTransportista;
+  vehiculos?: DatosVehiculo[];
+  conductores?: DatosConductor[];
+  retornoVehiculoVacio?: boolean;
+  retornoEnvasesVacios?: boolean;
+  transbordoProgramado?: boolean;
+  vehiculosCategoriaM1L?: boolean;
+  trasladoTotal?: boolean;
+  datosTransportista?: boolean;
+  proveedor?: DatosPersonaGuia;
+  comprador?: DatosPersonaGuia;
+  descripcionMotivo?: string;
+  datosAduaneros?: DatosAduanerosGuia;
+  bienes: BienTransportado[];
+  pesoBrutoTotal: number;
+  unidadMedidaPeso: string;
+  observaciones?: string;
+}
+
+export interface GuiaRemisionTransportistaFormData {
+  tipo: 'GUIA_REMISION_TRANSPORTISTA';
+  serie: string;
+  numero?: string;
+  fechaEmision: string;
+  fechaInicioTraslado: string;
+  transportista: DatosTransportista;
+  remitente: PersonaDocumento;
+  destinatario: PersonaDocumento;
+  guiaRemitenteRelacionada?: {
+    id: number;
+    serie: string;
+    numero: string;
+  };
+  fletePagadoPor?: 'REMITENTE' | 'SUBCONTRATADOR' | 'TERCERO';
+  terceroFlete?: PersonaDocumento;
+
+  transporteSubcontratado?: boolean;
+  retornoVehiculoVacio?: boolean,
+  retornoEnvasesVacios?: boolean,
+  transbordoProgramado?: boolean,
+  trasladoTotalBienes?: boolean,
+
+  empresaSubcontrata?: string;
+  rucEmpresaSubcontrata?: string;
+  puntoPartida: Ubicacion;
+  puntoLlegada: Ubicacion;
+  vehiculos: DatosVehiculo[];
+  conductores: DatosConductor[];
+  bienes: BienTransportado[];
+  pesoBrutoTotal: number;
+  unidadMedidaPeso: string;
+  observaciones?: string;
+}
+
+export type GuiaRemisionFormData =
+  | GuiaRemisionRemitenteFormData
+  | GuiaRemisionTransportistaFormData;
+
+export interface GuiaRemisionSelectDto {
+  id: number;
+  tipo: GuiaRemisionTipo;
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  fechaTraslado: string;
+  remitente?: string;
+  destinatario?: string;
+  motivoTraslado?: string;
+  puntoPartida?: string;
+  puntoLlegada?: string;
+  pesoTotal?: number;
+  unidadMedidaPeso?: string;
+  estado: ComprobanteEstado;
+  estadoSunat: ComprobanteEstadoSunat;
+  transportista?: string;
+}
+
+// ==========================================
+// CONTRATO SUNAT - BOLETA Y FACTURA ELECTRÓNICA
+// ==========================================
+
+export interface SunatCbcText {
+  _text: string | number;
+}
+
+export interface SunatCbcWithAttributes {
+  _attributes: Record<string, string>;
+  _text: string | number;
+}
+
+export interface SunatNoteItem {
+  _text: string;
+  _attributes: {
+    languageLocaleID: string;
+  };
+}
+
+export interface SunatPartyIdentification {
+  'cbc:ID': {
+    _attributes: {
+      schemeID: string;
+    };
+    _text: string;
+  };
+}
+
+export interface SunatPartyLegalEntity {
+  'cbc:RegistrationName'?: {
+    _text: string;
+  };
+  'cbc:CompanyID'?: {
+    _text: string;
+  };
+  'cac:RegistrationAddress'?: {
+    'cbc:AddressTypeCode'?: {
+      _text: string;
+    };
+    'cac:AddressLine'?: {
+      'cbc:Line': {
+        _text: string;
+      };
+    };
+  };
+}
+
+export interface SunatParty {
+  'cac:PartyIdentification'?: SunatPartyIdentification;
+  'cac:PartyName'?: {
+    'cbc:Name': {
+      _text: string;
+    };
+  };
+  'cac:PartyLegalEntity': SunatPartyLegalEntity;
+}
+
+export interface SunatAccountingParty {
+  'cac:Party': SunatParty;
+}
+
+export interface SunatTaxScheme {
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:Name': {
+    _text: string;
+  };
+  'cbc:TaxTypeCode': {
+    _text: string;
+  };
+}
+
+export interface SunatTaxCategory {
+  'cbc:Percent'?: {
+    _text: number;
+  };
+  'cbc:TaxExemptionReasonCode'?: {
+    _text: string;
+  };
+  'cac:TaxScheme': SunatTaxScheme;
+}
+
+export interface SunatTaxSubtotal {
+  'cbc:TaxableAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:TaxAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:TaxCategory': SunatTaxCategory;
+}
+
+export interface SunatTaxTotal {
+  'cbc:TaxAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:TaxSubtotal': SunatTaxSubtotal[];
+}
+
+export interface SunatLegalMonetaryTotal {
+  'cbc:LineExtensionAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:TaxInclusiveAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cbc:PayableAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+}
+
+export interface SunatInvoiceLine {
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:InvoicedQuantity': {
+    _attributes: {
+      unitCode: string;
+    };
+    _text: string;
+  };
+  'cbc:LineExtensionAmount': {
+    _attributes: {
+      currencyID: string;
+    };
+    _text: string;
+  };
+  'cac:PricingReference': {
+    'cac:AlternativeConditionPrice': {
+      'cbc:PriceAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cbc:PriceTypeCode': {
+        _text: string;
+      };
+    };
+  };
+  'cac:TaxTotal': {
+    'cbc:TaxAmount': {
+      _attributes: {
+        currencyID: string;
+      };
+      _text: string;
+    };
+    'cac:TaxSubtotal': Array<{
+      'cbc:TaxableAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cbc:TaxAmount': {
+        _attributes: {
+          currencyID: string;
+        };
+        _text: string;
+      };
+      'cac:TaxCategory': {
+        'cbc:Percent': {
+          _text: number;
+        };
+        'cbc:TaxExemptionReasonCode': {
+          _text: string;
+        };
+        'cac:TaxScheme': {
+          'cbc:ID': {
+            _text: string;
+          };
+          'cbc:Name': {
+            _text: string;
+          };
+          'cbc:TaxTypeCode': {
+            _text: string;
+          };
+        };
+      };
+    }>;
+  };
+  'cac:Item': {
+    'cbc:Description': {
+      _text: string;
+    };
+  };
+  'cac:Price': {
+    'cbc:PriceAmount': {
+      _attributes: {
+        currencyID: string;
+      };
+      _text: string;
+    };
+  };
+}
+
+export interface SunatInvoiceDocumentBody {
+  'cbc:UBLVersionID': {
+    _text: string;
+  };
+  'cbc:CustomizationID': {
+    _text: string;
+  };
+  'cbc:ID': {
+    _text: string;
+  };
+  'cbc:IssueDate': {
+    _text: string;
+  };
+  'cbc:IssueTime': {
+    _text: string;
+  };
+  'cbc:InvoiceTypeCode': {
+    _attributes: {
+      listID: string;
+    };
+    _text: '01' | '03';
+  };
+  'cbc:Note': SunatNoteItem[];
+  'cbc:DocumentCurrencyCode': {
+    _text: string;
+  };
+  'cac:AccountingSupplierParty': SunatAccountingParty;
+  'cac:AccountingCustomerParty': SunatAccountingParty;
+  'cac:TaxTotal': SunatTaxTotal;
+  'cac:LegalMonetaryTotal': SunatLegalMonetaryTotal;
+  'cac:InvoiceLine': SunatInvoiceLine[];
+}
+
+export interface SunatDocumentPayload {
+  personaId: string;
+  personaToken: string;
+  fileName: string;
+  documentBody: SunatInvoiceDocumentBody | Record<string, any>;
+}
+
+export interface SunatSendResult {
+  success: boolean;
+  status: ComprobanteEstadoSunat;
+  codigoRespuestaSunat: string;
+  mensajeSunat: string;
+  responseTime: string;
+  cdr?: {
+    status?: string;
+    responseCode?: string;
+    description?: string;
+    notes?: string[];
+  };
+  pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
+  error?: string;
+}
+
+// API Document types based on the provided API documentation
+export interface DocumentResponse {
+  production: boolean;
+  status: ComprobanteEstadoSunat;
+  type: string; // Código del tipo: "01", "03", "D1", etc.
+  issueTime: number; // fecha de emisión en formato UNIX
+  responseTime: number; // fecha de respuesta SUNAT en formato UNIX
+  fileName: string; // Formato: "20123456789-01-F001-00000001"
+  xml: string; // URL del XML
+  cdr: string; // URL del CDR
+  faults: string[]; // arreglo de errores
+  notes: string[]; // arreglo de observaciones
+  personaId: string;
+  reference: string; // referencia enviada al momento de emitir
+}
+
+export interface GetAllQueryParams {
+  personaId: string;
+  personaToken: string;
+  limit?: number;
+  skip?: number;
+  from?: number; // fecha de emisión en formato UNIX
+  to?: number; // fecha de emisión en formato UNIX
+  status?: 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO';
+  type?: string; // Código del tipo: "01", "03", "D1", etc.
+  order?: 'ASC' | 'DESC';
+  serie?: string;
+  number?: string;
+}
+
+export type PDFFormat = 'A4' | 'A5' | 'ticket58mm' | 'ticket80mm';
+
+export interface VoidBillRequest {
+  personaId: string;
+  personaToken: string;
+  documentId: string;
+  reason: string; // 3 - 100 caracteres
+}
+
+export interface VoidBillResponse {
+  status: 'PENDIENTE';
+  documentId: string;
 }

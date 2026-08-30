@@ -19,6 +19,7 @@ import {
   motivosNotaCredito,
   motivosNotaDebito,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
+import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
 
 interface NewNotaDialogProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ interface NewNotaDialogProps {
   onGenerate: (data: NotaFormData) => Promise<boolean>;
 }
 
-type FormErrorKey = 'tipo' | 'motivo' | 'comprobanteRelacionado' | 'detalle' | 'importe' | 'cantidad';
+type FormErrorKey = 'tipo' | 'motivo' | 'motivoDescripcion' | 'comprobanteRelacionado' | 'clienteDocumento' | 'clienteNombre' | 'detalle' | 'importe' | 'cantidad';
 type FormErrors = Partial<Record<FormErrorKey, string>>;
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -47,6 +48,7 @@ const createEmptyItem = (): NotaFormItem => ({
 const createInitialForm = (): NotaFormData => ({
   tipo: 'NOTA_CREDITO',
   motivo: 'Anulación de la operación',
+  motivoDescripcion: '',
   comprobanteRelacionado: {
     id: 0,
     tipo: 'BOLETA',
@@ -121,7 +123,7 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
         serie: comprobante.serie,
         numero: comprobante.numero,
       },
-      // Si el comprobante tiene cliente, lo pre-cargamos pero es opcional
+      // Cargar datos del cliente del comprobante
       cliente: {
         tipoDocumento: comprobante.tipoDocumentoCliente || 'DNI',
         documento: comprobante.documentoCliente || '',
@@ -129,7 +131,7 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
         direccion: comprobante.direccionCliente || '',
         correo: comprobante.correoCliente || '',
       },
-      // Limpiar los ítems al cambiar de comprobante para no copiar automáticamente
+      // No copiar ítems automáticamente - el usuario debe agregarlos manualmente
       detalle: [],
     }));
     setErrors({});
@@ -152,14 +154,15 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
   };
 
   const handleMotivoChange = (motivo: string) => {
-    const config = getMotivoConfig(form.tipo, motivo);
-    
-    setForm(previous => ({
-      ...previous,
-      motivo: motivo as TipoNotaCredito | TipoNotaDebito,
-      // Limpiar ítems si el nuevo motivo no trabaja con ítems
-      detalle: config.trabajaConItems ? previous.detalle : [],
-    }));
+    setForm(previous => {
+      // Limpiar detalle al cambiar de motivo para consistencia
+      // El usuario debe agregar ítems manualmente según el nuevo motivo
+      return {
+        ...previous,
+        motivo: motivo as TipoNotaCredito | TipoNotaDebito,
+        detalle: [],
+      };
+    });
     setErrors({});
   };
 
@@ -210,9 +213,37 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
       nextErrors.motivo = 'Debe seleccionar el motivo de la nota';
     }
     
+    // Validar descripción del motivo (OBLIGATORIO)
+    if (!form.motivoDescripcion || !form.motivoDescripcion.trim()) {
+      nextErrors.motivoDescripcion = 'La descripción del motivo es obligatoria';
+    }
+    
     // Validar comprobante relacionado (OBLIGATORIO)
     if (!form.comprobanteRelacionado.id || !form.comprobanteRelacionado.serie || !form.comprobanteRelacionado.numero) {
       nextErrors.comprobanteRelacionado = 'Debe seleccionar el comprobante que modifica';
+    }
+    
+    // Validar documento del cliente (OBLIGATORIO para notas)
+    const docCliente = form.cliente.documento?.trim() || '';
+    if (!docCliente) {
+      nextErrors.clienteDocumento = 'El documento del cliente es obligatorio para notas';
+    } else {
+      // Validaciones según tipo de documento
+      if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(docCliente)) {
+        nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
+      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(docCliente)) {
+        nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
+      } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(docCliente)) {
+        nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
+      } else if (form.cliente.tipoDocumento === 'PASAPORTE' && docCliente.length < 6) {
+        nextErrors.clienteDocumento = 'El Pasaporte debe tener al menos 6 caracteres';
+      }
+    }
+    
+    // Validar nombre del cliente (OBLIGATORIO para notas)
+    const nombreCliente = form.cliente.nombre?.trim() || '';
+    if (!nombreCliente) {
+      nextErrors.clienteNombre = 'El nombre del cliente es obligatorio para notas';
     }
     
     // Validar detalle según configuración del motivo
@@ -242,9 +273,31 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
       nextErrors.importe = 'El importe total debe ser mayor a cero';
     }
     
-    // Validar que el importe de la nota no exceda el comprobante original para Nota de Crédito
-    if (selectedComprobante && form.tipo === 'NOTA_CREDITO' && totals.total > selectedComprobante.total) {
-      nextErrors.importe = `El importe de la nota (S/ ${totals.total.toFixed(2)}) no puede exceder el total del comprobante original (S/ ${selectedComprobante.total.toFixed(2)})`;
+    // Validar límites de monto según tipo de nota
+    if (selectedComprobante) {
+      if (form.tipo === 'NOTA_CREDITO') {
+        // Nota de crédito: no puede exceder el monto del comprobante original
+        if (totals.total > selectedComprobante.total) {
+          nextErrors.importe = `El importe de la nota de crédito (S/ ${totals.total.toFixed(2)}) no puede exceder el total del comprobante original (S/ ${selectedComprobante.total.toFixed(2)})`;
+        }
+        
+        // Validar que no exceda el monto por ítem individualmente
+        if (motivoConfig.trabajaConItems) {
+          form.detalle.forEach((item) => {
+            const originalItem = selectedComprobante.detalle.find(
+              orig => orig.productoServicio === item.productoServicio
+            );
+            if (originalItem && item.importe > originalItem.importe) {
+              nextErrors.importe = `El ítem "${item.productoServicio}" excede el importe disponible (S/ ${originalItem.importe.toFixed(2)})`;
+            }
+          });
+        }
+      } else if (form.tipo === 'NOTA_DEBITO') {
+        // Nota de débito: no tiene límite máximo, pero debe ser mayor a 0
+        if (totals.total <= 0) {
+          nextErrors.importe = 'El importe de la nota de débito debe ser mayor a cero';
+        }
+      }
     }
     
     setErrors(nextErrors);
@@ -285,27 +338,6 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
     return form.tipo === 'NOTA_CREDITO' ? 'Nueva Nota de Crédito' : 'Nueva Nota de Débito';
   };
 
-  const numberToWords = (num: number): string => {
-    // Implementación básica de número a letras
-    if (num === 0) return 'CERO';
-    const units = ['', 'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE'];
-    const teens = ['DIEZ', 'ONCE', 'DOCE', 'TRECE', 'CATORCE', 'QUINCE', 'DIECISEIS', 'DIECISIETE', 'DIECIOCHO', 'DIECINUEVE'];
-    const tens = ['', 'DIEZ', 'VEINTE', 'TREINTA', 'CUARENTA', 'CINCUENTA', 'SESENTA', 'SETENTA', 'OCHENTA', 'NOVENTA'];
-    
-    const intPart = Math.floor(num);
-    const decPart = Math.round((num - intPart) * 100);
-    
-    if (intPart >= 1000) return `${intPart} CON ${decPart}/100 SOLES`;
-    if (intPart >= 100) return `CIEN CON ${decPart}/100 SOLES`;
-    if (intPart >= 20) {
-      const ten = Math.floor(intPart / 10);
-      const unit = intPart % 10;
-      return `${tens[ten]} ${unit > 0 ? 'Y ' + units[unit] : ''} CON ${decPart}/100 SOLES`;
-    }
-    if (intPart >= 10) return `${teens[intPart - 10]} CON ${decPart}/100 SOLES`;
-    return `${units[intPart]} CON ${decPart}/100 SOLES`;
-  };
-
   return (
     <CrudDialog
       isOpen={isOpen}
@@ -340,6 +372,16 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
                 <option key={motivo} value={motivo}>{motivo}</option>
               ))}
             </select>
+          </FormField>
+          
+          <FormField label="Descripción del motivo" required error={errors.motivoDescripcion}>
+            <input 
+              type="text" 
+              className="erp-input" 
+              placeholder="Descripción adicional del motivo..."
+              value={form.motivoDescripcion || ''} 
+              onChange={event => setForm(previous => ({ ...previous, motivoDescripcion: event.target.value }))} 
+            />
           </FormField>
           
           <FormField label="Fecha de emisión">
@@ -396,6 +438,11 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
               {errors.comprobanteRelacionado}
             </div>
           )}
+          {errors.comprobanteRelacionado && (
+            <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--erp-danger)' }}>
+              {errors.comprobanteRelacionado}
+            </div>
+          )}
         </section>
 
         {/* Información del comprobante original (REFERENCIA) */}
@@ -434,46 +481,94 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
           </section>
         )}
 
-        {/* Datos del cliente (OPCIONAL) */}
-        <section className="erp-form-grid">
-          <FormField label="Cliente (opcional)">
-            <input 
-              type="text" 
-              className="erp-input" 
-              value={form.cliente.nombre || ''} 
-              onChange={event => setForm(previous => ({ 
-                ...previous, 
-                cliente: { ...previous.cliente, nombre: event.target.value } 
-              }))} 
-              placeholder="Nombre o razón social"
-            />
-          </FormField>
-          
-          <FormField label="RUC/DNI (opcional)">
-            <input 
-              type="text" 
-              className="erp-input" 
-              value={form.cliente.documento || ''} 
-              onChange={event => setForm(previous => ({ 
-                ...previous, 
-                cliente: { ...previous.cliente, documento: event.target.value } 
-              }))} 
-              placeholder="Número de documento"
-            />
-          </FormField>
-          
-          <FormField label="Dirección (opcional)">
-            <input 
-              type="text" 
-              className="erp-input" 
-              value={form.cliente.direccion || ''} 
-              onChange={event => setForm(previous => ({ 
-                ...previous, 
-                cliente: { ...previous.cliente, direccion: event.target.value } 
-              }))} 
-              placeholder="Dirección fiscal"
-            />
-          </FormField>
+        {/* Datos del cliente (OBLIGATORIO para notas) */}
+        <section>
+          <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
+            Datos del cliente <span style={{ color: 'var(--erp-danger)' }}>*</span>
+          </h3>
+          <div className="erp-form-grid">
+            <FormField label="Tipo de documento" required>
+              <select
+                className="erp-input"
+                value={form.cliente.tipoDocumento}
+                onChange={event => setForm(previous => ({ 
+                  ...previous, 
+                  cliente: { ...previous.cliente, tipoDocumento: event.target.value } 
+                }))}
+              >
+                <option value="DNI">DNI</option>
+                <option value="RUC">RUC</option>
+                <option value="CE">Carnet de Extranjería (CE)</option>
+                <option value="PASAPORTE">Pasaporte</option>
+              </select>
+            </FormField>
+            
+            <FormField 
+              label="Número de documento" 
+              required 
+              error={errors.clienteDocumento}
+            >
+              <input 
+                type="text" 
+                className="erp-input"
+                maxLength={form.cliente.tipoDocumento === 'RUC' ? 11 : form.cliente.tipoDocumento === 'DNI' ? 8 : form.cliente.tipoDocumento === 'CE' ? 12 : 20}
+                value={form.cliente.documento || ''} 
+                onChange={event => setForm(previous => ({ 
+                  ...previous, 
+                  cliente: { ...previous.cliente, documento: event.target.value } 
+                }))} 
+                placeholder={
+                  form.cliente.tipoDocumento === 'DNI' ? '8 dígitos' :
+                  form.cliente.tipoDocumento === 'RUC' ? '11 dígitos' :
+                  form.cliente.tipoDocumento === 'CE' ? '12 dígitos' :
+                  'Número de documento'
+                }
+              />
+            </FormField>
+            
+            <FormField 
+              label="Nombre / Razón social" 
+              required 
+              error={errors.clienteNombre}
+            >
+              <input 
+                type="text" 
+                className="erp-input" 
+                value={form.cliente.nombre || ''} 
+                onChange={event => setForm(previous => ({ 
+                  ...previous, 
+                  cliente: { ...previous.cliente, nombre: event.target.value } 
+                }))} 
+                placeholder="Nombre o razón social"
+              />
+            </FormField>
+            
+            <FormField label="Dirección">
+              <input 
+                type="text" 
+                className="erp-input" 
+                value={form.cliente.direccion || ''} 
+                onChange={event => setForm(previous => ({ 
+                  ...previous, 
+                  cliente: { ...previous.cliente, direccion: event.target.value } 
+                }))} 
+                placeholder="Dirección fiscal"
+              />
+            </FormField>
+            
+            <FormField label="Correo electrónico">
+              <input 
+                type="email" 
+                className="erp-input" 
+                value={form.cliente.correo || ''} 
+                onChange={event => setForm(previous => ({ 
+                  ...previous, 
+                  cliente: { ...previous.cliente, correo: event.target.value } 
+                }))} 
+                placeholder="correo@ejemplo.com"
+              />
+            </FormField>
+          </div>
         </section>
 
         {/* Ítems de la nota (SOLO cuando el motivo lo requiere) */}
@@ -665,15 +760,55 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
             </div>
           </section>
         )}
+        
+        {/* Mostrar totales también para motivos que no trabajan con ítems pero tienen detalle */}
+        {!motivoConfig.trabajaConItems && form.detalle.length > 0 && (
+          <section style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(3, 1fr)', 
+            gap: '16px',
+            padding: '16px',
+            background: 'var(--erp-surface)',
+            borderRadius: '6px',
+            border: '1px solid var(--erp-border)'
+          }}>
+            <div>
+              <label style={{ fontSize: '12px', color: 'var(--erp-text-secondary)', marginBottom: '4px', display: 'block' }}>
+                Subtotal
+              </label>
+              <div style={{ fontSize: '16px', fontWeight: '600' }}>
+                {formatAmount(totals.subtotal)}
+              </div>
+            </div>
+            
+            <div>
+              <label style={{ fontSize: '12px', color: 'var(--erp-text-secondary)', marginBottom: '4px', display: 'block' }}>
+                IGV (18%)
+              </label>
+              <div style={{ fontSize: '16px', fontWeight: '600' }}>
+                {formatAmount(totals.igv)}
+              </div>
+            </div>
+            
+            <div>
+              <label style={{ fontSize: '12px', color: 'var(--erp-text-secondary)', marginBottom: '4px', display: 'block' }}>
+                Total
+              </label>
+              <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--erp-primary)' }}>
+                {formatAmount(totals.total)}
+              </div>
+            </div>
+          </section>
+        )}
 
         {errors.importe && (
-          <div style={{ fontSize: '12px', color: 'var(--erp-danger)' }}>
+          <div style={{ padding: '8px 12px', marginTop: '8px', fontSize: '12px', color: 'var(--erp-danger)', backgroundColor: 'var(--erp-danger-light)', borderRadius: '4px' }}>
             {errors.importe}
           </div>
         )}
 
         {/* Importe en letras */}
-        {motivoConfig.trabajaConItems && form.detalle.length > 0 && (
+        {(motivoConfig.trabajaConItems || form.detalle.length > 0) && (
           <section>
             <FormField label="Importe en letras">
               <div style={{ 
@@ -683,7 +818,7 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
                 fontSize: '13px',
                 fontStyle: 'italic'
               }}>
-                {numberToWords(totals.total)}
+                {totalEnLetras(totals.total)}
               </div>
             </FormField>
           </section>

@@ -7,8 +7,8 @@ interface NotaTypeSelectorProps {
 
 const NotaTypeSelector = ({ selectedType, onTypeChange }: NotaTypeSelectorProps) => {
   return (
-    <div style={{ display: 'flex', gap: '18px', fontSize: '13px' }}>
-      <label>
+    <div style={{display: 'flex',gap: '18px', fontSize: '13px' }}>
+      <label style={{display: 'flex',gap: '5px'}}>
         <input
           type="radio"
           checked={selectedType === 'NOTA_CREDITO'}
@@ -16,7 +16,7 @@ const NotaTypeSelector = ({ selectedType, onTypeChange }: NotaTypeSelectorProps)
         />
         Nota de Crédito
       </label>
-      <label>
+      <label style={{display: 'flex',gap: '5px'}}>
         <input
           type="radio"
           checked={selectedType === 'NOTA_DEBITO'}

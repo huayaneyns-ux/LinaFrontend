@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import type {
   ComprobanteEstado,
-  ComprobanteEstadoSunat,
   ComprobanteSelectDto,
 } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 
@@ -30,38 +29,28 @@ import { useDataTable } from "../../../../../Hooks/useDataTable";
 
 import NewNotaDialog from "./NewComprobanteNotaDialog";
 
+import { EMPRESA } from "../../../../../Constantes/Empresa";
+
 
 
 interface NotaComprobanteFilters {
 
   estado: ComprobanteEstado | '';
-
-  estadoSunat: ComprobanteEstadoSunat | '';
-
+  estadoSunat: 'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '';
   tipo: 'NOTA_CREDITO' | 'NOTA_DEBITO' | '';
-
   fechaDesde: string;
-
   fechaHasta: string;
 
 }
 
 const DEFAULT_FILTERS: NotaComprobanteFilters = {
-
   estado: '',
-
   estadoSunat: '',
-
   tipo: '',
-
   fechaDesde: '',
-
   fechaHasta: '',
 
 };
-
-
-
 
 
 const formatAmount = (amount: number) =>
@@ -85,49 +74,89 @@ export const ComprobanteNotaVentas = () => {
   const [detailNota, setDetailNota] =
     useState<ComprobanteSelectDto | null>(null);
 
+  const [downloadingId, setDownloadingId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
+  const [voidReason, setVoidReason] = useState('');
 
   const {
-
     comprobantes,
-
     productosDisponibles,
-
     loading,
-
     generating,
-
     updatingSunatId,
-
     error,
-
     successMessage,
-
     actualizarEstadoSunat,
-
     crearNota,
-
+    getPDF,
+    voidBill,
     clearSuccessMessage,
-
   } = useComprobantes();
 
 
-  /*
-   * IMPORTANTE:
-   * Aquí filtramos únicamente las notas.
-   *
-   * Si tu backend ya devuelve solamente las notas,
-   * puedes utilizar directamente "comprobantes".
-   */
-
-  const notas = comprobantes.filter(
-    comprobante =>
-      comprobante.tipo === 'NOTA_CREDITO' ||
-      comprobante.tipo === 'NOTA_DEBITO'
-  );
+  const filteredNotas = useMemo(() => {
+    return comprobantes.filter(comprobante => {
+      if (comprobante.tipo !== 'NOTA_CREDITO' && comprobante.tipo !== 'NOTA_DEBITO') {
+        return false;
+      }
+      if (filters.tipo && comprobante.tipo !== filters.tipo) {
+        return false;
+      }
+      if (filters.estado && comprobante.estado !== filters.estado) {
+        return false;
+      }
+      if (filters.estadoSunat && comprobante.estadoSunat !== filters.estadoSunat) {
+        return false;
+      }
+      if (filters.fechaDesde && comprobante.fechaEmision < filters.fechaDesde) {
+        return false;
+      }
+      if (filters.fechaHasta && comprobante.fechaEmision > filters.fechaHasta) {
+        return false;
+      }
+      return true;
+    });
+  }, [comprobantes, filters]);
 
 
   const filterCount =
     Object.values(filters).filter(value => value !== '').length;
+
+  const handleDownloadPDF = async (comprobante: ComprobanteSelectDto) => {
+    try {
+      setDownloadingId(comprobante.id);
+      const fileName = `${comprobante.serie}-${comprobante.numero}`;
+      await getPDF(String(comprobante.id), 'A4', fileName);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  const handleDeleteDocument = (comprobante: ComprobanteSelectDto) => {
+    setVoidReasonDialog({ open: true, comprobante });
+  };
+
+  const handleConfirmVoid = async () => {
+    if (!voidReasonDialog.comprobante || !voidReason.trim()) {
+      return;
+    }
+
+    try {
+      setDeletingId(voidReasonDialog.comprobante.id);
+      const voidRequest = {
+        personaId: EMPRESA.id,
+        personaToken: EMPRESA.sunatConfig.personaToken || '',
+        documentId: String(voidReasonDialog.comprobante.id),
+        reason: voidReason,
+      };
+      await voidBill(voidRequest);
+      setVoidReasonDialog({ open: false, comprobante: null });
+      setVoidReason('');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
 
   const {
@@ -154,7 +183,7 @@ export const ComprobanteNotaVentas = () => {
 
   } = useDataTable<ComprobanteSelectDto>({
 
-    data: notas,
+    data: filteredNotas,
 
     searchKeys: [
       'serie',
@@ -175,71 +204,71 @@ export const ComprobanteNotaVentas = () => {
   const sharedColumns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    {
+      {
 
-      key: 'tipo',
+        key: 'tipo',
 
-      header: 'Tipo',
+        header: 'Tipo',
 
-      sortable: true,
+        sortable: true,
 
-      width: '150px',
+        width: '150px',
 
-      render: row => {
-        const labels: Record<string, string> = {
-          NOTA_CREDITO: 'Nota de Crédito',
-          NOTA_DEBITO: 'Nota de Débito',
-        };
-        return labels[row.tipo] || row.tipo;
+        render: row => {
+          const labels: Record<string, string> = {
+            NOTA_CREDITO: 'Nota de Crédito',
+            NOTA_DEBITO: 'Nota de Débito',
+          };
+          return labels[row.tipo] || row.tipo;
+        },
+
       },
 
-    },
+      {
 
-    {
+        key: 'serie',
 
-      key: 'serie',
+        header: 'Serie',
 
-      header: 'Serie',
+        sortable: true,
 
-      sortable: true,
+        width: '75px',
 
-      width: '75px',
+        render: row => (
+          <strong>
+            {row.serie}
+          </strong>
+        ),
 
-      render: row => (
-        <strong>
-          {row.serie}
-        </strong>
-      ),
+      },
 
-    },
+      {
 
-    {
+        key: 'numero',
 
-      key: 'numero',
+        header: 'Número',
 
-      header: 'Número',
+        sortable: true,
 
-      sortable: true,
+        width: '110px',
 
-      width: '110px',
+      },
 
-    },
+      {
 
-    {
+        key: 'fechaEmision',
 
-      key: 'fechaEmision',
+        header: 'Fecha',
 
-      header: 'Fecha',
+        sortable: true,
 
-      sortable: true,
+        width: '115px',
 
-      width: '115px',
+        render: row => formatDate(row.fechaEmision),
 
-      render: row => formatDate(row.fechaEmision),
+      },
 
-    },
-
-  ];
+    ];
 
 
   /*
@@ -249,81 +278,87 @@ export const ComprobanteNotaVentas = () => {
   const statusColumns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    {
+      {
 
-      key: 'estado',
+        key: 'estado',
 
-      header: 'Estado',
+        header: 'Estado',
 
-      sortable: true,
+        sortable: true,
 
-      width: '110px',
+        width: '110px',
 
-      render: row => (
-        <ComprobanteStatusBadge
-          status={row.estado}
-        />
-      ),
+        render: row => (
+          <ComprobanteStatusBadge
+            status={row.estado}
+          />
+        ),
 
-    },
+      },
 
-    {
+      {
 
-      key: 'estadoSunat',
+        key: 'estadoSunat',
 
-      header: 'Estado SUNAT',
+        header: 'Estado SUNAT',
 
-      sortable: true,
+        sortable: true,
 
-      width: '125px',
+        width: '125px',
 
-      render: row => (
-        <ComprobanteStatusBadge
-          status={row.estadoSunat}
-        />
-      ),
+        render: row => (
+          <ComprobanteStatusBadge
+            status={row.estadoSunat}
+          />
+        ),
 
-    },
+      },
 
-    {
+      {
 
-      key: 'actions',
+        key: 'actions',
 
-      header: 'Acciones',
+        header: 'Acciones',
 
-      align: 'right',
+        align: 'right',
 
-      width: '80px',
+        width: '120px',
 
-      render: row => (
+        render: row => (
 
-        <ComprobanteActions
+          <ComprobanteActions
 
-          comprobante={row}
+            comprobante={row}
 
-          isUpdatingSunat={
-            updatingSunatId === row.id
-          }
+            isUpdatingSunat={
+              updatingSunatId === row.id
+            }
 
-          onViewComprobante={
-            setPreviewNota
-          }
+            isDownloading={downloadingId === row.id}
+            isDeleting={deletingId === row.id}
 
-          onViewDetails={
-            setDetailNota
-          }
+            onViewComprobante={
+              setPreviewNota
+            }
 
-          onUpdateSunat={
-            id => void actualizarEstadoSunat(id)
-          }
+            onViewDetails={
+              setDetailNota
+            }
 
-        />
+            onUpdateSunat={
+              id => void actualizarEstadoSunat(id)
+            }
 
-      ),
+            onDownloadPDF={handleDownloadPDF}
+            onDeleteDocument={handleDeleteDocument}
 
-    },
+          />
 
-  ];
+        ),
+
+      },
+
+    ];
 
 
   /*
@@ -333,90 +368,49 @@ export const ComprobanteNotaVentas = () => {
   const columns:
     ColumnDef<ComprobanteSelectDto>[] = [
 
-    ...sharedColumns,
+      ...sharedColumns,
 
-    {
+      {
 
-      key: 'cliente',
+        key: 'cliente',
 
-      header: 'Cliente',
+        header: 'Cliente',
 
-      sortable: true,
+        sortable: true,
 
-      render: row =>
-        row.cliente,
+        render: row =>
+          row.cliente,
 
-    },
+      },
 
-    {
+      {
 
-      key: 'documentoCliente',
+        key: 'documentoCliente',
 
-      header: 'Documento',
+        header: 'Documento',
 
-      sortable: true,
+        sortable: true,
 
-      width: '125px',
+        width: '125px',
 
-      render: row =>
-        row.documentoCliente,
+        render: row =>
+          row.documentoCliente,
 
-    },
+      },
 
-    {
+      {
+        key: 'total',
+        header: 'Total',
+        sortable: true,
+        align: 'right',
+        width: '110px',
+        render: row =>
+          formatAmount(row.total),
+      },
 
-      key: 'total',
+      ...statusColumns,
 
-      header: 'Total',
-
-      sortable: true,
-
-      align: 'right',
-
-      width: '110px',
-
-      render: row =>
-        formatAmount(row.total),
-
-    },
-
-    ...statusColumns,
-
-  ];
-
-
-  /*
-   * APLICAR FILTROS
-   */
-
-  const filteredNotas =
-    processedData.filter(nota => {
-
-      if (
-        filters.tipo &&
-        nota.tipo !== filters.tipo
-      ) {
-        return false;
-      }
-
-      if (
-        filters.estado &&
-        nota.estado !== filters.estado
-      ) {
-        return false;
-      }
-
-      if (
-        filters.estadoSunat &&
-        nota.estadoSunat !== filters.estadoSunat
-      ) {
-        return false;
-      }
-
-      return true;
-
-    });
-
+    ];
 
   return (
 
@@ -485,6 +479,74 @@ export const ComprobanteNotaVentas = () => {
 
           </div>
 
+        )}
+
+        {voidReasonDialog.open && (
+          <div style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            backgroundColor: 'rgba(0, 0, 0, 0.5)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            zIndex: 1000 
+          }}>
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '24px', 
+              borderRadius: '8px', 
+              maxWidth: '500px', 
+              width: '100%',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>
+                Anular Documento
+              </h3>
+              <p style={{ margin: '0 0 16px 0', color: '#666' }}>
+                Está por anular el documento {voidReasonDialog.comprobante?.serie}-{voidReasonDialog.comprobante?.numero}. 
+                Por favor, indique el motivo de la anulación (3-100 caracteres):
+              </p>
+              <div className="erp-form-group" style={{ marginBottom: '16px' }}>
+                <label className="erp-form-label">Motivo de anulación</label>
+                <textarea
+                  className="erp-input"
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="Ingrese el motivo..."
+                  rows={3}
+                  maxLength={100}
+                  style={{ width: '100%', resize: 'vertical' }}
+                />
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                  {voidReason.length}/100 caracteres
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="erp-btn erp-btn-secondary"
+                  onClick={() => {
+                    setVoidReasonDialog({ open: false, comprobante: null });
+                    setVoidReason('');
+                  }}
+                  disabled={deletingId !== null}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="erp-btn erp-btn-danger"
+                  onClick={handleConfirmVoid}
+                  disabled={deletingId !== null || voidReason.trim().length < 3 || voidReason.trim().length > 100}
+                >
+                  {deletingId ? 'Anulando...' : 'Confirmar anulación'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
 
@@ -630,7 +692,7 @@ export const ComprobanteNotaVentas = () => {
                       ...previous,
                       estadoSunat:
                         event.target.value as
-                        ComprobanteEstadoSunat | '',
+                        'PENDIENTE' | 'EXCEPCION' | 'ACEPTADO' | 'RECHAZADO' | '',
                     }))
                   }
                 >
@@ -643,8 +705,8 @@ export const ComprobanteNotaVentas = () => {
                     Pendiente
                   </option>
 
-                  <option value="ENVIADO">
-                    Enviado
+                  <option value="EXCEPCION">
+                    Excepción
                   </option>
 
                   <option value="ACEPTADO">
@@ -653,10 +715,6 @@ export const ComprobanteNotaVentas = () => {
 
                   <option value="RECHAZADO">
                     Rechazado
-                  </option>
-
-                  <option value="OBSERVADO">
-                    Observado
                   </option>
 
                 </select>
@@ -730,7 +788,7 @@ export const ComprobanteNotaVentas = () => {
 
             columns={columns}
 
-            data={filteredNotas}
+            data={processedData}
 
             sortConfig={sortConfig}
 
