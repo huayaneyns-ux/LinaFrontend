@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { SunatTransmissionItemDto } from '../../../../../Types/Admin/Comprobantes/Comprobante';
 import { SunatTransmissionService } from '../../../../../Services/Admin/Comprobantes/SunatTransmissionService';
 import { SunatResponseTimeChart } from './SunatResponseTimeChart';
@@ -11,7 +11,6 @@ import {
   FiActivity,
   FiCheckCircle,
   FiAlertTriangle,
-  FiRefreshCw,
   FiEye,
   FiZap,
   FiLayers,
@@ -50,7 +49,6 @@ type SortOrder = 'asc' | 'desc';
 export const ComprobanteTiemposSection = () => {
   const [transmissions, setTransmissions] = useState<SunatTransmissionItemDto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedTransmission, setSelectedTransmission] = useState<SunatTransmissionItemDto | null>(null);
@@ -63,25 +61,19 @@ export const ComprobanteTiemposSection = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const loadTransmissions = useCallback(async () => {
+  const loadTransmissions = async () => {
     try {
       setLoading(true);
       const data = await SunatTransmissionService.getTransmisiones();
       setTransmissions(data);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     void loadTransmissions();
-  }, [loadTransmissions]);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    void loadTransmissions();
-  };
+  }, []);
 
   const handleResetFilters = () => {
     setFilters(DEFAULT_FILTERS);
@@ -225,7 +217,6 @@ export const ComprobanteTiemposSection = () => {
     const successRate = total > 0 ? ((successCount / total) * 100).toFixed(1) : '0';
 
     const slowCount = transmissions.filter((t) => t.responseTimeMs !== null && t.responseTimeMs > 2500).length;
-    const retryableCount = transmissions.filter((t) => t.isRetryable).length;
 
     return {
       total,
@@ -235,7 +226,6 @@ export const ComprobanteTiemposSection = () => {
       successCount,
       successRate,
       slowCount,
-      retryableCount,
     };
   }, [transmissions]);
 
@@ -407,18 +397,6 @@ export const ComprobanteTiemposSection = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button
-            type="button"
-            className="erp-btn erp-btn-sm erp-btn-secondary"
-            onClick={handleRefresh}
-            disabled={loading || refreshing}
-            title="Actualizar datos de la tabla SunatTransmission"
-          >
-            <FiRefreshCw className={refreshing ? 'spinning' : ''} />
-            {refreshing ? 'Actualizando...' : 'Refrescar'}
-          </button>
-        </div>
       </div>
 
       {/* Tarjetas KPI de Resumen */}
@@ -702,14 +680,13 @@ export const ComprobanteTiemposSection = () => {
                     Tiempo Respuesta {getSortIcon('responseTimeMs')}
                   </span>
                 </th>
-                <th style={{ width: '90px' }}>Reintento</th>
                 <th style={{ width: '70px', textAlign: 'center' }}>Detalle</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={9}>
                     <div className="erp-table-empty">
                       <span className="erp-table-empty-icon">⏳</span>
                       Cargando transmisiones de SUNAT...
@@ -718,7 +695,7 @@ export const ComprobanteTiemposSection = () => {
                 </tr>
               ) : paginatedData.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={9}>
                     <div className="erp-table-empty">
                       <span className="erp-table-empty-icon">📋</span>
                       No se encontraron transmisiones que coincidan con los filtros.
@@ -824,24 +801,6 @@ export const ComprobanteTiemposSection = () => {
 
                       {/* Tiempo de Respuesta */}
                       <td>{getResponseTimeBadge(item.responseTimeMs)}</td>
-
-                      {/* Reintentable */}
-                      <td>
-                        {item.isRetryable ? (
-                          <span style={{
-                            fontSize: '11px',
-                            backgroundColor: '#fef3c7',
-                            color: '#b45309',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            fontWeight: '600',
-                          }}>
-                            Sí
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '11px', color: '#94a3b8' }}>No</span>
-                        )}
-                      </td>
 
                       {/* Acciones */}
                       <td style={{ textAlign: 'center' }}>

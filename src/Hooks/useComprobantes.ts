@@ -23,6 +23,13 @@ export function useComprobantes() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  const getErrorMessage = (fallback: string, error: unknown) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
+  };
+
   const loadComprobantes = useCallback(async () => {
     try {
       setLoading(true);
@@ -37,8 +44,8 @@ export function useComprobantes() {
       setComprobantes(documentos);
       setNotasBaseDisponibles(notasBase);
       setComprasDisponibles(compras);
-    } catch {
-      setError('No se pudieron cargar los comprobantes. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudieron cargar los comprobantes. Intenta nuevamente.', error));
     } finally {
       setLoading(false);
     }
@@ -53,8 +60,8 @@ export function useComprobantes() {
       await loadComprobantes();
       setSuccessMessage(`${comprobante.tipo} ${comprobante.serie}-${comprobante.numero} emitido correctamente.`);
       return comprobante;
-    } catch {
-      setError('No se pudo generar el comprobante. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo generar el comprobante. Intenta nuevamente.', error));
       return null;
     } finally {
       setGenerating(false);
@@ -80,8 +87,8 @@ export function useComprobantes() {
           : 'Nota de débito emitida correctamente.',
       );
       return true;
-    } catch {
-      setError('No se pudo emitir la nota. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo emitir la nota. Intenta nuevamente.', error));
       return null;
     } finally {
       setGenerating(false);
@@ -97,8 +104,8 @@ export function useComprobantes() {
       await loadComprobantes();
       setSuccessMessage('Liquidación de compra emitida correctamente.');
       return true;
-    } catch {
-      setError('No se pudo emitir la liquidación de compra. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo emitir la liquidación de compra. Intenta nuevamente.', error));
       return null;
     } finally {
       setGenerating(false);
@@ -115,8 +122,8 @@ export function useComprobantes() {
       setSuccessMessage(
         `El estado SUNAT de ${actualizado.serie}-${actualizado.numero} se actualizó correctamente.`,
       );
-    } catch {
-      setError('No se pudo actualizar el estado SUNAT. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo actualizar el estado SUNAT. Intenta nuevamente.', error));
     } finally {
       setUpdatingSunatId(null);
     }
@@ -126,8 +133,8 @@ export function useComprobantes() {
     try {
       setError(null);
       return await ComprobanteVentasService.getById(documentId);
-    } catch {
-      setError('No se pudo obtener el documento. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo obtener el documento. Intenta nuevamente.', error));
       return null;
     }
   }, []);
@@ -146,8 +153,8 @@ export function useComprobantes() {
       document.body.removeChild(a);
       setSuccessMessage('PDF descargado correctamente.');
       return true;
-    } catch {
-      setError('No se pudo generar el PDF. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo generar el PDF. Intenta nuevamente.', error));
       return false;
     }
   }, []);
@@ -160,8 +167,8 @@ export function useComprobantes() {
       await loadComprobantes();
       setSuccessMessage(`Documento ${response.serie}-${response.numero} anulado correctamente.`);
       return response;
-    } catch {
-      setError('No se pudo anular el documento. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo anular el documento. Intenta nuevamente.', error));
       return null;
     }
   }, [loadComprobantes]);

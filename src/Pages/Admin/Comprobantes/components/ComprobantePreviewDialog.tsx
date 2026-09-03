@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import type { ComprobanteSelectDto } from '../../../../Types/Admin/Comprobantes/Comprobante';
+import { API_BASE_URL } from '../../../../Services/apiService';
 import ComprobanteStatusBadge from './ComprobanteStatusBadge';
 
 interface ComprobantePreviewDialogProps {
@@ -19,22 +21,86 @@ const TYPE_TITLES: Record<ComprobanteSelectDto['tipo'], string> = {
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
-const ComprobantePreviewDialog = ({ comprobante, onClose }: ComprobantePreviewDialogProps) => (
+const ComprobantePreviewDialog = ({ comprobante, onClose }: ComprobantePreviewDialogProps) => {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [loadingPdf, setLoadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    let objectUrl: string | null = null;
+
+    const loadPdf = async () => {
+      if (!comprobante) {
+        setPdfUrl(null);
+        setPdfError(null);
+        setLoadingPdf(false);
+        return;
+      }
+
+      try {
+        setLoadingPdf(true);
+        setPdfError(null);
+        const response = await fetch(`${API_BASE_URL}/facturacion/comprobantes/${comprobante.id}/pdf?format=A4`);
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || `No se pudo cargar el PDF (${response.status}).`);
+        }
+
+        const blob = await response.blob();
+        objectUrl = window.URL.createObjectURL(blob);
+        if (active) {
+          setPdfUrl(objectUrl);
+        }
+      } catch (error) {
+        if (active) {
+          setPdfUrl(null);
+          setPdfError(error instanceof Error ? error.message : 'No se pudo cargar el PDF desde el backend.');
+        }
+      } finally {
+        if (active) {
+          setLoadingPdf(false);
+        }
+      }
+    };
+
+    void loadPdf();
+
+    return () => {
+      active = false;
+      if (objectUrl) {
+        window.URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [comprobante]);
+
+  return (
   <CrudDialog
     isOpen={comprobante !== null}
     mode="view"
     onClose={onClose}
     onConfirm={onClose}
     title="Vista previa del comprobante"
-    subtitle="Maqueta local — no corresponde a un PDF emitido"
+    subtitle="PDF cargado desde el backend"
     size="lg"
   >
-    {comprobante?.pdfUrl ? (
+    {loadingPdf ? (
+      <div style={{ minHeight: '520px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--erp-text-muted)' }}>
+        Cargando PDF desde el backend...
+      </div>
+    ) : pdfUrl ? (
       <iframe
-        title={`Comprobante ${comprobante.serie}-${comprobante.numero}`}
-        src={comprobante.pdfUrl}
+        title={`Comprobante ${comprobante?.serie}-${comprobante?.numero}`}
+        src={pdfUrl}
         style={{ width: '100%', minHeight: '520px', border: 0 }}
       />
+    ) : pdfError ? (
+      <div style={{ minHeight: '520px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--erp-danger)', padding: '24px', textAlign: 'center' }}>
+        <div>
+          <strong>No se pudo cargar el PDF.</strong>
+          <div style={{ marginTop: '8px', fontSize: '13px' }}>{pdfError}</div>
+        </div>
+      </div>
     ) : comprobante ? (
       <article style={{ maxWidth: '560px', margin: '0 auto', border: '1px solid var(--erp-card-border)', padding: '28px', color: 'var(--erp-text-primary)', background: '#fff' }}>
         <header style={{ textAlign: 'center', borderBottom: '1px dashed var(--erp-border-color)', paddingBottom: '16px', marginBottom: '16px' }}>
@@ -75,6 +141,7 @@ const ComprobantePreviewDialog = ({ comprobante, onClose }: ComprobantePreviewDi
       </article>
     ) : null}
   </CrudDialog>
-);
+  );
+};
 
 export default ComprobantePreviewDialog;

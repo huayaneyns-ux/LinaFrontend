@@ -156,6 +156,7 @@ export interface LiquidacionCompraDisponibleDto {
     tipoDocumento: string;
     numeroDocumento: string;
     nombre: string;
+    nombreContacto?: string;
   };
   ubicacionVendedor: LiquidacionCompraUbicacionDisponibleDto | null;
   detalle: LiquidacionCompraDetalleDto[];
@@ -263,7 +264,7 @@ export type TipoNotaDebito =
 
 export interface NotaComprobanteSelectDto {
 
-  id: number;
+  id: string;
 
   serie: string,
 
@@ -301,7 +302,7 @@ export interface NotaComprobanteSelectDto {
 
   comprobanteRelacionado: {
 
-    id: number;
+    id: string;
 
     tipo: ComprobanteTipo;
 
@@ -354,7 +355,7 @@ export interface NotaComprobanteBaseCreateDto {
 
   comprobanteRelacionado: {
 
-    id: number;
+    id: string;
 
     tipo: ComprobanteTipo;
 
@@ -431,7 +432,7 @@ export interface NotaFormData {
   motivo: TipoNotaCredito | TipoNotaDebito;
   motivoDescripcion?: string;
   comprobanteRelacionado: {
-    id: number;
+    id: string;
     tipo: ComprobanteTipo;
     serie: string;
     numero: string;
@@ -954,8 +955,6 @@ export interface SunatTransmissionItemDto {
   sunatStatus: ComprobanteEstadoSunat | null;
   sunatDocumentId: string | null;
   errorMessage: string | null;
-  isRetryable: boolean;
-  nextRetryAt: string | null;
   respondedAt: string | null;
   createdAt: string;
   responseTimeMs: number | null;
@@ -978,4 +977,3 @@ export interface SunatTransmissionFilters {
   fechaDesde: string;
   fechaHasta: string;
 }
-

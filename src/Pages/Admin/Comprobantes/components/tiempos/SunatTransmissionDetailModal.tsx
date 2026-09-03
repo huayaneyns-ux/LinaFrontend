@@ -34,6 +34,10 @@ export const SunatTransmissionDetailModal = ({
 
   const isSuccess = transmission.transmissionStatus === 'SUCCESS';
   const isError = transmission.transmissionStatus === 'ERROR';
+  const sunatStatusNormalized = (transmission.sunatStatus ?? '').toString().toUpperCase();
+  const showErrorDetails =
+    Boolean(transmission.errorMessage) &&
+    (isError || sunatStatusNormalized === 'EXCEPCION' || sunatStatusNormalized === 'EXCEPTION' || sunatStatusNormalized === 'ERROR' || sunatStatusNormalized === 'RECHAZADO');
 
   return (
     <div style={{
@@ -314,13 +318,6 @@ export const SunatTransmissionDetailModal = ({
               </div>
 
               <div>
-                <strong style={{ color: '#64748b' }}>Es Reintentable (IsRetryable):</strong>
-                <p style={{ margin: '2px 0 0 0', fontWeight: '600', color: transmission.isRetryable ? '#b45309' : '#475569' }}>
-                  {transmission.isRetryable ? 'Sí (Permite reintento automático)' : 'No'}
-                </p>
-              </div>
-
-              <div>
                 <strong style={{ color: '#64748b' }}>Fecha de Envío (CreatedAt):</strong>
                 <p style={{ margin: '2px 0 0 0', color: '#1e293b' }}>
                   {formatDateTime(transmission.createdAt)}
@@ -333,20 +330,11 @@ export const SunatTransmissionDetailModal = ({
                   {formatDateTime(transmission.respondedAt)}
                 </p>
               </div>
-
-              {transmission.nextRetryAt && (
-                <div style={{ gridColumn: 'span 2' }}>
-                  <strong style={{ color: '#64748b' }}>Próximo Reintento Programado (NextRetryAt):</strong>
-                  <p style={{ margin: '2px 0 0 0', color: '#b45309', fontWeight: '600' }}>
-                    {formatDateTime(transmission.nextRetryAt)}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Mensaje de Error si existió */}
-          {transmission.errorMessage && (
+          {showErrorDetails && transmission.errorMessage && (
             <div style={{
               backgroundColor: '#fef2f2',
               border: '1px solid #fca5a5',

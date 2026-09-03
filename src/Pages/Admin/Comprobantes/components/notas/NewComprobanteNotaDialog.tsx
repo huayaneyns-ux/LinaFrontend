@@ -54,13 +54,13 @@ const createInitialForm = (): NotaFormData => ({
   motivo: 'Anulación de la operación',
   motivoDescripcion: '',
   comprobanteRelacionado: {
-    id: 0,
+    id: '',
     tipo: 'BOLETA',
     serie: '',
     numero: '',
   },
   cliente: {
-    tipoDocumento: 'DNI',
+    tipoDocumento: '',
     documento: '',
     nombre: '',
     direccion: '',
@@ -96,7 +96,7 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
   }, [comprobanteSearch, comprobantesBase]);
 
   const selectedComprobante = useMemo(
-    () => comprobantesBase.find((comp) => Number(comp.id) === form.comprobanteRelacionado.id),
+    () => comprobantesBase.find((comp) => comp.id === form.comprobanteRelacionado.id) || null,
     [comprobantesBase, form.comprobanteRelacionado.id],
   );
 
@@ -111,20 +111,20 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     total: Number(form.detalle.reduce((sum, item) => sum + item.importe, 0).toFixed(2)),
   }), [form.detalle]);
 
-  const selectComprobante = (comprobanteId: number) => {
-    const comprobante = comprobantesBase.find((comp) => Number(comp.id) === comprobanteId);
+  const selectComprobante = (comprobanteId: string) => {
+    const comprobante = comprobantesBase.find((comp) => comp.id === comprobanteId);
     if (!comprobante) return;
 
     setForm((previous) => ({
       ...previous,
       comprobanteRelacionado: {
-        id: Number(comprobante.id),
+        id: comprobante.id,
         tipo: comprobante.tipo,
         serie: comprobante.serie,
         numero: comprobante.numero,
       },
       cliente: {
-        tipoDocumento: comprobante.clienteTipoDocumento || 'DNI',
+        tipoDocumento: comprobante.clienteTipoDocumento || '',
         documento: comprobante.clienteDocumento || '',
         nombre: comprobante.clienteNombre || '',
         direccion: comprobante.clienteDireccion || '',
@@ -308,11 +308,11 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
             className="erp-input"
             style={{ marginTop: '8px' }}
             value={form.comprobanteRelacionado.id || ''}
-            onChange={(event) => selectComprobante(Number(event.target.value))}
+            onChange={(event) => selectComprobante(event.target.value)}
           >
             <option value="">Seleccionar comprobante</option>
             {filteredComprobantes.map((comp) => (
-              <option key={comp.id} value={Number(comp.id)}>
+              <option key={comp.id} value={comp.id}>
                 {comp.tipo} - {comp.serie}-{comp.numero} · {comp.clienteNombre} · {formatAmount(comp.total)}
               </option>
             ))}

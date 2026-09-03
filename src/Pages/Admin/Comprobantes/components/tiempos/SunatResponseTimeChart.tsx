@@ -43,6 +43,12 @@ export const SunatResponseTimeChart = ({
     return { avg, min, max, count: validTimes.length };
   }, [chartItems]);
 
+  const formatDuration = (ms: number | null) => {
+    if (ms === null || ms <= 0) return '0 ms';
+    if (ms < 1000) return `${ms} ms`;
+    return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
+  };
+
   // Dimensiones del SVG
   const width = 860;
   const height = 240;
@@ -51,10 +57,22 @@ export const SunatResponseTimeChart = ({
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
 
-  // Escala Y (ms) con techo redondeado
+  // Escala Y (ms) ajustada al rango real para evitar que los valores pequeños queden aplastados
   const yMax = useMemo(() => {
-    const rawMax = Math.max(stats.max, 2500);
-    return Math.ceil(rawMax / 500) * 500;
+    const rawMax = Math.max(stats.max, 1);
+    if (rawMax <= 100) {
+      return Math.max(50, Math.ceil(rawMax / 10) * 10);
+    }
+    if (rawMax <= 500) {
+      return Math.ceil((rawMax * 1.2) / 50) * 50;
+    }
+    if (rawMax <= 1000) {
+      return Math.ceil((rawMax * 1.2) / 100) * 100;
+    }
+    if (rawMax <= 5000) {
+      return Math.ceil((rawMax * 1.2) / 250) * 250;
+    }
+    return Math.ceil((rawMax * 1.2) / 500) * 500;
   }, [stats.max]);
 
   const getY = (ms: number | null) => {
@@ -295,7 +313,7 @@ export const SunatResponseTimeChart = ({
                     fill="#94a3b8"
                     fontFamily="inherit"
                   >
-                    {msVal >= 1000 ? `${(msVal / 1000).toFixed(1)}s` : `${msVal}ms`}
+                    {formatDuration(msVal)}
                   </text>
                 </g>
               );
@@ -331,7 +349,7 @@ export const SunatResponseTimeChart = ({
                   fill="#ffffff"
                   fontFamily="inherit"
                 >
-                  Promedio: {stats.avg} ms
+                  Promedio: {formatDuration(stats.avg)}
                 </text>
               </g>
             )}
@@ -478,9 +496,7 @@ export const SunatResponseTimeChart = ({
                 </text>
                 {/* Tiempo en ms */}
                 <text x="10" y="38" fill="#ffffff" fontSize="15" fontWeight="700" fontFamily="inherit">
-                  {hoveredPoint.item.responseTimeMs !== null
-                    ? `${hoveredPoint.item.responseTimeMs} ms`
-                    : 'Sin respuesta'}
+                  {formatDuration(hoveredPoint.item.responseTimeMs)}
                 </text>
                 {/* Estado SUNAT y HTTP */}
                 <text x="10" y="55" fill={getColor(hoveredPoint.item)} fontSize="11" fontWeight="600" fontFamily="inherit">
@@ -509,7 +525,7 @@ export const SunatResponseTimeChart = ({
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
           <FiClock style={{ color: '#4f46e5' }} />
-          Tiempo promedio: <strong>{stats.avg} ms</strong> ({stats.min} ms min / {stats.max} ms max)
+          Tiempo promedio: <strong>{formatDuration(stats.avg)}</strong> ({formatDuration(stats.min)} min / {formatDuration(stats.max)} max)
         </span>
       </div>
     </div>

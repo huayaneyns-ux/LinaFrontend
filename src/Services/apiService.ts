@@ -1,7 +1,27 @@
 export const API_BASE_URL = 'http://localhost:5081/api';
 
 class ApiService {
-    public async    request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    private async readErrorMessage(response: Response): Promise<string> {
+        const errorText = await response.text();
+
+        if (!errorText) {
+            return `API Error: ${response.status}`;
+        }
+
+        try {
+            const parsed = JSON.parse(errorText) as Record<string, unknown>;
+            const message = parsed.mensaje ?? parsed.message ?? parsed.detail ?? parsed.error;
+            if (typeof message === 'string' && message.trim()) {
+                return message.trim();
+            }
+        } catch {
+            // Keep the raw response text below.
+        }
+
+        return errorText;
+    }
+
+    public async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
             headers: {
@@ -12,8 +32,8 @@ class ApiService {
 
         // Handle generic error responses
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error: ${response.status} - ${errorText}`);
+            const errorMessage = await this.readErrorMessage(response);
+            throw new Error(errorMessage);
         }
 
         // Attempt to parse JSON
@@ -34,8 +54,8 @@ class ApiService {
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error: ${response.status} - ${errorText}`);
+            const errorMessage = await this.readErrorMessage(response);
+            throw new Error(errorMessage);
         }
 
         try {

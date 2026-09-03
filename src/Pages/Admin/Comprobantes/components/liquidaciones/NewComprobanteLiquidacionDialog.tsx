@@ -29,6 +29,8 @@ type LocationForm = {
   codigoEstablecimiento?: string;
 };
 
+type SellerDocumentType = 'DNI' | 'CE';
+
 const today = () => new Date().toISOString().slice(0, 10);
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
@@ -40,12 +42,19 @@ const emptyLocation: LocationForm = {
   codigoEstablecimiento: '0000',
 };
 
+const emptySeller = {
+  tipoDocumento: 'DNI' as SellerDocumentType,
+  numeroDocumento: '',
+  nombre: '',
+};
+
 const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, onClose, onGenerate }: Props) => {
   const [search, setSearch] = useState('');
   const [selectedCompraId, setSelectedCompraId] = useState<number>(0);
   const [fechaEmision, setFechaEmision] = useState(today());
   const [moneda, setMoneda] = useState<'PEN' | 'USD'>('PEN');
   const [observaciones, setObservaciones] = useState('');
+  const [seller, setSeller] = useState(emptySeller);
   const [sellerLocation, setSellerLocation] = useState<LocationForm>(emptyLocation);
   const [pointOfSale, setPointOfSale] = useState<LocationForm>(emptyLocation);
   const [error, setError] = useState('');
@@ -92,6 +101,7 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
       : undefined;
 
     const sellerDistrict = ubigeo || distritos.find((item) => item.name === compra.ubicacionVendedor?.distrito);
+    const sellerName = compra.vendedor.nombreContacto?.trim() || compra.vendedor.nombre.trim();
 
     setSellerLocation({
       departmentId: sellerDistrict?.department_id || '',
@@ -99,6 +109,11 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
       districtUbigeo: sellerDistrict?.id || '',
       address: compra.ubicacionVendedor?.direccion || '',
       codigoEstablecimiento: '0000',
+    });
+    setSeller({
+      tipoDocumento: 'DNI',
+      numeroDocumento: '',
+      nombre: sellerName,
     });
   };
 
@@ -108,6 +123,7 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
     setFechaEmision(today());
     setMoneda('PEN');
     setObservaciones('');
+    setSeller(emptySeller);
     setSellerLocation(emptyLocation);
     setPointOfSale(emptyLocation);
     setError('');
@@ -115,6 +131,11 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
 
   const validate = () => {
     if (!selectedCompra) return 'Debe seleccionar una compra.';
+    if (!seller.tipoDocumento) return 'El tipo de documento del vendedor es obligatorio.';
+    if (!seller.numeroDocumento.trim()) return 'El número de documento del vendedor es obligatorio.';
+    if (seller.tipoDocumento === 'DNI' && !/^\d{8}$/.test(seller.numeroDocumento.trim())) return 'El DNI del vendedor debe tener exactamente 8 dígitos.';
+    if (seller.tipoDocumento === 'CE' && !/^[a-z0-9]{6,12}$/i.test(seller.numeroDocumento.trim())) return 'El CE del vendedor debe tener entre 6 y 12 caracteres alfanuméricos.';
+    if (!seller.nombre.trim()) return 'El nombre del vendedor es obligatorio.';
     if (!sellerLocation.districtUbigeo || !sellerLocation.address.trim()) return 'La ubicación del vendedor es obligatoria.';
     if (!pointOfSale.districtUbigeo || !pointOfSale.address.trim()) return 'El punto de venta es obligatorio.';
     if (!fechaEmision) return 'La fecha de emisión es obligatoria.';
@@ -134,7 +155,11 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
       fechaEmision,
       moneda,
       observaciones,
-      vendedor: selectedCompra.vendedor,
+      vendedor: {
+        tipoDocumento: seller.tipoDocumento,
+        numeroDocumento: seller.numeroDocumento.trim(),
+        nombre: seller.nombre.trim(),
+      },
       ubicacionVendedor: {
         distritoId: 0,
         codigoUbigeo: sellerLocation.districtUbigeo,
@@ -172,7 +197,7 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
       <div style={{ display: 'grid', gap: '20px' }}>
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Compra origen</h3>
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por código, fecha o vendedor..." />
+          <SearchInput value={search} onChange={setSearch} placeholder="Buscar por código, fecha o proveedor..." />
           <select className="erp-input" style={{ marginTop: '8px' }} value={selectedCompraId || ''} onChange={(event) => selectCompra(Number(event.target.value))}>
             <option value="">Seleccionar compra</option>
             {filteredCompras.map((compra) => (
@@ -186,8 +211,9 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
         {selectedCompra && (
           <section style={{ padding: '16px', borderRadius: '6px', background: 'var(--erp-surface)', border: '1px solid var(--erp-border)' }}>
             <div className="erp-form-grid">
-              <FormField label="Documento vendedor"><input className="erp-input" readOnly value={`${selectedCompra.vendedor.tipoDocumento} ${selectedCompra.vendedor.numeroDocumento}`} /></FormField>
-              <FormField label="Nombre vendedor"><input className="erp-input" readOnly value={selectedCompra.vendedor.nombre} /></FormField>
+              <FormField label="Proveedor origen"><input className="erp-input" readOnly value={selectedCompra.vendedor.nombre} /></FormField>
+              <FormField label="Documento proveedor"><input className="erp-input" readOnly value={`${selectedCompra.vendedor.tipoDocumento} ${selectedCompra.vendedor.numeroDocumento}`} /></FormField>
+              <FormField label="Contacto sugerido"><input className="erp-input" readOnly value={selectedCompra.vendedor.nombreContacto || 'No registrado'} /></FormField>
               <FormField label="Fecha compra"><input className="erp-input" readOnly value={selectedCompra.fechaCompra} /></FormField>
               <FormField label="Total"><input className="erp-input" readOnly value={formatAmount(selectedCompra.total)} /></FormField>
             </div>
@@ -204,6 +230,37 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
               <option value="USD">USD</option>
             </select>
           </FormField>
+        </section>
+
+        <section>
+          <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Datos del vendedor</h3>
+          <div className="erp-form-grid">
+            <FormField label="Tipo documento" required>
+              <select className="erp-input" value={seller.tipoDocumento} onChange={(event) => setSeller((prev) => ({ ...prev, tipoDocumento: event.target.value as SellerDocumentType, numeroDocumento: '' }))}>
+                <option value="DNI">DNI</option>
+                <option value="CE">CE</option>
+              </select>
+            </FormField>
+            <FormField label="Número documento" required>
+              <input
+                className="erp-input"
+                inputMode="numeric"
+                maxLength={seller.tipoDocumento === 'DNI' ? 8 : 12}
+                value={seller.numeroDocumento}
+                onChange={(event) => {
+                  const raw = event.target.value.replace(/[^a-z0-9]/gi, '');
+                  setSeller((prev) => ({
+                    ...prev,
+                    numeroDocumento: prev.tipoDocumento === 'DNI' ? raw.replace(/\D/g, '').slice(0, 8) : raw.slice(0, 12),
+                  }));
+                }}
+                placeholder={seller.tipoDocumento === 'DNI' ? '8 dígitos' : '6 a 12 caracteres'}
+              />
+            </FormField>
+            <FormField label="Nombre vendedor" required>
+              <input className="erp-input" value={seller.nombre} onChange={(event) => setSeller((prev) => ({ ...prev, nombre: event.target.value }))} />
+            </FormField>
+          </div>
         </section>
 
         <section>

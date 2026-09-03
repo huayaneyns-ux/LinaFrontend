@@ -237,6 +237,7 @@ function normalizeCompraLiquidacion(raw: Record<string, unknown>): LiquidacionCo
       tipoDocumento: toStringValue(vendedor.tipoDocumento ?? vendedor.TipoDocumento),
       numeroDocumento: toStringValue(vendedor.numeroDocumento ?? vendedor.NumeroDocumento),
       nombre: toStringValue(vendedor.nombre ?? vendedor.Nombre),
+      nombreContacto: toStringValue(vendedor.nombreContacto ?? vendedor.NombreContacto) || undefined,
     },
     ubicacionVendedor: ubicacionVendedor
       ? {
