@@ -9,7 +9,7 @@ interface ComprobanteActionsProps {
   isDeleting?: boolean;
   onViewComprobante: (comprobante: ComprobanteSelectDto) => void;
   onViewDetails: (comprobante: ComprobanteSelectDto) => void;
-  onUpdateSunat: (id: number) => void;
+  onUpdateSunat: (id: string | number) => void;
   onDownloadPDF?: (comprobante: ComprobanteSelectDto) => void;
   onDeleteDocument?: (comprobante: ComprobanteSelectDto) => void;
 }
@@ -48,7 +48,7 @@ const ComprobanteActions = ({
       <IconButton
         icon={isDownloading ? <FiLoader /> : <FiDownload />}
         tooltip={isDownloading ? 'Descargando PDF...' : 'Descargar comprobante'}
-        variant="info"
+        variant="primary"
         disabled={isDownloading}
         onClick={() => onDownloadPDF(comprobante)}
       />

@@ -74,8 +74,8 @@ export const ComprobanteNotaVentas = () => {
   const [detailNota, setDetailNota] =
     useState<ComprobanteSelectDto | null>(null);
 
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
   const [voidReason, setVoidReason] = useState('');
 
@@ -145,7 +145,7 @@ export const ComprobanteNotaVentas = () => {
     try {
       setDeletingId(voidReasonDialog.comprobante.id);
       const voidRequest = {
-        personaId: EMPRESA.id,
+        personaId: EMPRESA.sunatConfig.personaId,
         personaToken: EMPRESA.sunatConfig.personaToken || '',
         documentId: String(voidReasonDialog.comprobante.id),
         reason: voidReason,

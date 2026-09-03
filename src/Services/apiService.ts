@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://localhost:7146/api';
+export const API_BASE_URL = 'http://localhost:5081/api';
 
 class ApiService {
     public async    request<T>(endpoint: string, options?: RequestInit): Promise<T> {

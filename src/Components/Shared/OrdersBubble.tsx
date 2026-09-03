@@ -4,6 +4,7 @@ import { PedidoService } from '../../Services/Admin/Ventas/Pedido';
 import type { PedidoSelectDto } from '../../Types/Admin/Ventas/Pedido';
 import PedidoDetalleModal from './PedidoDetalleModal';
 import { FiTruck, FiClock, FiCheckCircle, FiChevronRight, FiPackage } from 'react-icons/fi';
+import { getNumericUserId } from '../../Utils/auth';
 import '../../Styles/Components/OrdersBubble.css';
 
 const ESTADOS: Record<number, { label: string; clase: string }> = {
@@ -38,7 +39,7 @@ export const OrdersBubble: React.FC = () => {
   const [selectedPedidoId, setSelectedPedidoId] = useState<number | null>(null);
   const bubbleRef = useRef<HTMLDivElement>(null);
 
-  const numericUserId = usuario?.id ? (typeof usuario.id === 'number' ? usuario.id : parseInt(String(usuario.id).replace(/\D/g, ''), 10)) : 0;
+  const numericUserId = getNumericUserId(usuario) ?? 0;
 
   const fetchUserPedidos = async () => {
     if (!isAuthenticated || !usuario) return;

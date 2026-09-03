@@ -82,13 +82,27 @@ const ComprobanteDetailDialog = ({ comprobante, onClose }: ComprobanteDetailDial
             <section>
               <h3 style={{ margin: '0 0 12px', fontSize: '14px' }}>Datos del cliente</h3>
               <div className="erp-form-grid">
-                <DetailField label="Tipo de documento" value={comprobante.tipoDocumentoCliente} />
-                <DetailField label="Número" value={comprobante.documentoCliente} />
-                <DetailField label="Nombre / Razón social" value={comprobante.cliente} />
-                <DetailField label="Dirección" value={comprobante.direccionCliente} />
-                <DetailField label="Correo" value={comprobante.correoCliente} />
+              <DetailField label="Tipo de documento" value={comprobante.tipoDocumentoCliente} />
+              <DetailField label="Número" value={comprobante.documentoCliente} />
+              <DetailField label="Nombre / Razón social" value={comprobante.cliente} />
+              <DetailField label="Dirección" value={comprobante.direccionCliente} />
+              <DetailField label="Correo" value={comprobante.correoCliente} />
+              {comprobante.fechaVencimiento && <DetailField label="Fecha de vencimiento" value={comprobante.fechaVencimiento} />}
+              {comprobante.pago && <DetailField label="Forma de pago" value={comprobante.pago.formaPago} />}
+            </div>
+            {comprobante.pago?.cuotas?.length ? (
+              <div className="erp-form-group" style={{ marginTop: '10px' }}>
+                <span className="erp-form-label">Cuotas</span>
+                <div style={{ fontSize: '13px' }}>
+                  {comprobante.pago.cuotas.map((cuota, index) => (
+                    <div key={`${cuota.fechaVencimiento}-${index}`}>
+                      Cuota {index + 1}: {formatAmount(cuota.monto)} vence {cuota.fechaVencimiento}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </section>
+            ) : null}
+          </section>
           )}
 
           <section>

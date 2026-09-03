@@ -7,20 +7,25 @@ import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
 import type {
   ComprobanteEmitibleTipo,
   ComprobanteFormData,
-  ProductoComprobanteMockDto,
   VentaOrigenComprobanteDto,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
 
 interface NewComprobanteDialogProps {
   isOpen: boolean;
   ventas: VentaOrigenComprobanteDto[];
-  productos?: ProductoComprobanteMockDto[];
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: ComprobanteFormData) => Promise<boolean>;
 }
 
-type FormErrorKey = 'clienteNombre' | 'clienteDocumento' | 'fechaVencimiento' | 'detalle';
+type FormErrorKey =
+  | 'clienteNombre'
+  | 'clienteDocumento'
+  | 'fechaVencimiento'
+  | 'detalle'
+  | 'clienteDireccion'
+  | 'pago'
+  | 'moneda';
 type FormErrors = Partial<Record<FormErrorKey, string>>;
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -33,6 +38,11 @@ const createInitialForm = (): ComprobanteFormData => ({
   detalle: [],
   fechaEmision: today(),
   fechaVencimiento: '',
+  moneda: 'PEN',
+  pago: {
+    formaPago: 'CONTADO',
+    cuotas: [],
+  },
   observaciones: '',
 });
 
@@ -56,11 +66,8 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     } else if (form.tipo === 'BOLETA') {
       // Para boleta, mostrar ventas con DNI o sin documento (clientes generales)
       filtered = ventas.filter(venta => !venta.cliente.documento || venta.cliente.documento.length !== 11);
-    } else if (form.tipo === 'LIQUIDACION_COMPRA') {
-      // Para liquidación de compra, mostrar todas las ventas
-      filtered = ventas;
     }
-    
+
     if (!query) return filtered;
     return filtered.filter(venta => [venta.id, venta.codigo, venta.fecha, venta.cliente.nombre, String(venta.total)]
       .some(value => value.toLowerCase().includes(query)));
@@ -160,6 +167,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         tipo: newTipo,
         cliente: clienteData,
         fechaVencimiento: newTipo === 'FACTURA' ? prev.fechaVencimiento : '',
+        moneda: prev.moneda,
+        pago: newTipo === 'FACTURA'
+          ? prev.pago
+          : { formaPago: 'CONTADO', cuotas: [] },
         ventaOrigenId: '', // Limpiar venta seleccionada al cambiar tipo
         detalle: [], // Limpiar detalle al cambiar tipo
       };
@@ -183,44 +194,54 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
       } else if (!/^\d{11}$/.test(form.cliente.documento.trim())) {
         nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
       }
-    } else if (form.tipo === 'LIQUIDACION_COMPRA') {
-      if (!form.cliente.nombre.trim()) {
-        nextErrors.clienteNombre = 'El nombre del vendedor / proveedor es obligatorio';
-      }
-      if (!form.cliente.documento.trim()) {
-        nextErrors.clienteDocumento = 'El documento del vendedor es obligatorio';
-      } else if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
+      if (form.cliente.tipoDocumento !== 'RUC') {
+        nextErrors.clienteDocumento = 'La factura solo permite RUC';
       }
     } else if (form.tipo === 'BOLETA') {
-      // Validaciones adicionales para boleta cuando se ingresa documento
       if (form.cliente.documento.trim()) {
         if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
           nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
         } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
           nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(form.cliente.documento.trim())) {
-          nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'PASAPORTE' && form.cliente.documento.trim().length < 6) {
-          nextErrors.clienteDocumento = 'El Pasaporte debe tener al menos 6 caracteres';
+        } else if (form.cliente.tipoDocumento === 'CE' && form.cliente.documento.trim().length < 6) {
+          nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener al menos 6 caracteres';
         }
-      }
-      if (totals.total >= 700) {
         if (!form.cliente.nombre.trim()) {
-          nextErrors.clienteNombre = 'Para boletas de S/ 700 a más, el nombre es obligatorio';
+          nextErrors.clienteNombre = 'Si registras documento en boleta, el nombre es obligatorio';
         }
-        if (!form.cliente.documento.trim()) {
-          nextErrors.clienteDocumento = 'Para boletas de S/ 700 a más, el documento es obligatorio';
+        if (!form.cliente.direccion.trim()) {
+          nextErrors.clienteDireccion = 'Si registras documento en boleta, la dirección es obligatoria';
         }
       }
     }
 
     if (form.tipo === 'FACTURA' && form.fechaVencimiento && form.fechaVencimiento < form.fechaEmision) {
       nextErrors.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la emisión';
+    }
+
+    if (form.moneda !== 'PEN' && form.moneda !== 'USD') {
+      nextErrors.moneda = 'La moneda permitida es PEN o USD';
+    }
+
+    if (form.tipo === 'FACTURA') {
+      if (form.pago.formaPago === 'CREDITO') {
+        if (form.pago.cuotas.length === 0) {
+          nextErrors.pago = 'Agrega al menos una cuota para factura a crédito';
+        } else {
+          const totalCuotas = Number(form.pago.cuotas.reduce((sum, cuota) => sum + cuota.monto, 0).toFixed(2));
+          const cuotaInvalida = form.pago.cuotas.some(
+            cuota => cuota.monto < 0.01 || !cuota.fechaVencimiento || cuota.fechaVencimiento <= today(),
+          );
+
+          if (cuotaInvalida) {
+            nextErrors.pago = 'Cada cuota debe tener monto válido y vencimiento posterior a hoy';
+          } else if (totalCuotas !== totals.total) {
+            nextErrors.pago = 'La suma de cuotas debe coincidir exactamente con el total';
+          }
+        }
+      } else if (form.pago.cuotas.length > 0) {
+        nextErrors.pago = 'La factura al contado no debe registrar cuotas';
+      }
     }
 
     if (form.detalle.length === 0) {
@@ -243,9 +264,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
   const typeLabel = form.tipo === 'BOLETA'
     ? 'Boleta'
-    : form.tipo === 'FACTURA'
-      ? 'Factura'
-      : 'Liquidación de Compra';
+    : 'Factura';
 
   return (
     <CrudDialog
@@ -269,11 +288,20 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             >
               <option value="BOLETA">Boleta de Venta</option>
               <option value="FACTURA">Factura</option>
-              <option value="LIQUIDACION_COMPRA">Liquidación de Compra</option>
             </select>
           </FormField>
           <FormField label="Fecha de emisión">
             <input type="date" className="erp-input" value={form.fechaEmision} onChange={event => setForm(previous => ({ ...previous, fechaEmision: event.target.value }))} />
+          </FormField>
+          <FormField label="Moneda" error={errors.moneda}>
+            <select
+              className="erp-input"
+              value={form.moneda}
+              onChange={event => setForm(previous => ({ ...previous, moneda: event.target.value as 'PEN' | 'USD' }))}
+            >
+              <option value="PEN">PEN</option>
+              <option value="USD">USD</option>
+            </select>
           </FormField>
           {form.tipo === 'FACTURA' && (
             <FormField label="Fecha de vencimiento" error={errors.fechaVencimiento}>
@@ -299,7 +327,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
-            {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : form.tipo === 'LIQUIDACION_COMPRA' ? 'Datos del Vendedor / Proveedor' : 'Datos del Cliente'}
+            {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
           </h3>
           {selectedSale && form.tipo === 'BOLETA' && !selectedSale.cliente.documento && (
             <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
@@ -320,14 +348,13 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
                     <option value="DNI">DNI</option>
                     <option value="RUC">RUC</option>
                     <option value="CE">Carnet de Extranjería (CE)</option>
-                    {form.tipo === 'BOLETA' && <option value="PASAPORTE">Pasaporte</option>}
                   </>
                 )}
               </select>
             </FormField>
             <FormField
               label="Número de documento"
-              required={form.tipo === 'FACTURA' || form.tipo === 'LIQUIDACION_COMPRA' || totals.total >= 700}
+              required={form.tipo === 'FACTURA'}
               error={errors.clienteDocumento}
             >
               <input
@@ -338,17 +365,136 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
               />
             </FormField>
             <FormField
-              label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : form.tipo === 'LIQUIDACION_COMPRA' ? 'Nombre del vendedor' : 'Nombre del cliente'}
-              required={form.tipo === 'FACTURA' || form.tipo === 'LIQUIDACION_COMPRA' || totals.total >= 700}
+              label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
+              required={form.tipo === 'FACTURA' || Boolean(form.cliente.documento.trim())}
               error={errors.clienteNombre}
             >
               <input className="erp-input" value={form.cliente.nombre} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, nombre: event.target.value } }))} />
             </FormField>
-            <FormField label="Dirección" required={form.tipo === 'LIQUIDACION_COMPRA'}>
+            <FormField label="Dirección" required={Boolean(form.cliente.documento.trim())} error={errors.clienteDireccion}>
               <input className="erp-input" value={form.cliente.direccion} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, direccion: event.target.value } }))} />
             </FormField>
           </div>
         </section>
+
+        {form.tipo === 'FACTURA' && (
+          <section>
+            <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Forma de pago</h3>
+            <div className="erp-form-grid">
+              <FormField label="Forma de pago" required error={errors.pago}>
+                <select
+                  className="erp-input"
+                  value={form.pago.formaPago}
+                  onChange={event =>
+                    setForm(previous => ({
+                      ...previous,
+                      pago: {
+                        formaPago: event.target.value as 'CONTADO' | 'CREDITO',
+                        cuotas: event.target.value === 'CREDITO' ? previous.pago.cuotas : [],
+                      },
+                    }))
+                  }
+                >
+                  <option value="CONTADO">Contado</option>
+                  <option value="CREDITO">Crédito</option>
+                </select>
+              </FormField>
+            </div>
+
+            {form.pago.formaPago === 'CREDITO' && (
+              <div style={{ display: 'grid', gap: '12px' }}>
+                {form.pago.cuotas.map((cuota, index) => (
+                  <div key={`cuota-${index}`} className="erp-form-grid">
+                    <FormField label={`Cuota ${index + 1} - monto`} required>
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        className="erp-input"
+                        value={cuota.monto}
+                        onChange={event =>
+                          setForm(previous => ({
+                            ...previous,
+                            pago: {
+                              ...previous.pago,
+                              cuotas: previous.pago.cuotas.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, monto: Number(event.target.value) }
+                                  : item,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                    </FormField>
+                    <FormField label={`Cuota ${index + 1} - vencimiento`} required>
+                      <input
+                        type="date"
+                        className="erp-input"
+                        value={cuota.fechaVencimiento}
+                        onChange={event =>
+                          setForm(previous => ({
+                            ...previous,
+                            pago: {
+                              ...previous.pago,
+                              cuotas: previous.pago.cuotas.map((item, itemIndex) =>
+                                itemIndex === index
+                                  ? { ...item, fechaVencimiento: event.target.value }
+                                  : item,
+                              ),
+                            },
+                          }))
+                        }
+                      />
+                    </FormField>
+                    <div style={{ display: 'flex', alignItems: 'end' }}>
+                      <button
+                        type="button"
+                        className="erp-btn erp-btn-danger"
+                        onClick={() =>
+                          setForm(previous => ({
+                            ...previous,
+                            pago: {
+                              ...previous.pago,
+                              cuotas: previous.pago.cuotas.filter((_, itemIndex) => itemIndex !== index),
+                            },
+                          }))
+                        }
+                      >
+                        Quitar cuota
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    type="button"
+                    className="erp-btn erp-btn-secondary"
+                    onClick={() =>
+                      setForm(previous => ({
+                        ...previous,
+                        pago: {
+                          ...previous.pago,
+                          cuotas: [
+                            ...previous.pago.cuotas,
+                            { monto: 0, fechaVencimiento: '' },
+                          ],
+                        },
+                      }))
+                    }
+                  >
+                    Agregar cuota
+                  </button>
+                  <span style={{ fontSize: '12px', color: 'var(--erp-text-muted)' }}>
+                    Suma cuotas: {formatAmount(form.pago.cuotas.reduce((sum, cuota) => sum + cuota.monto, 0))}
+                  </span>
+                </div>
+                {errors.pago && <div className="erp-form-error">{errors.pago}</div>}
+              </div>
+            )}
+          </section>
+        )}
 
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Detalle de la venta</h3>
@@ -411,9 +557,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         <section style={{ padding: '12px', background: 'var(--erp-bg-light)', borderRadius: '6px', fontSize: '13px' }}>
           <strong style={{ display: 'block', marginBottom: '6px' }}>RESUMEN DEL COMPROBANTE</strong>
           <div>Tipo: {typeLabel} · Venta de origen: {selectedSale ? `Venta #${selectedSale.id}` : 'No seleccionada'} · Cliente: {form.cliente.nombre || 'No especificado'}</div>
-          <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
+          <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Moneda: {form.moneda} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
           <div>Subtotal: {formatAmount(totals.subtotal)} · IGV: {formatAmount(totals.igv)} · Total: {formatAmount(totals.total)}</div>
           {form.tipo === 'FACTURA' && <div>Fecha de vencimiento: {form.fechaVencimiento || 'No especificada'}</div>}
+          {form.tipo === 'FACTURA' && <div>Forma de pago: {form.pago.formaPago}{form.pago.formaPago === 'CREDITO' ? ` · ${form.pago.cuotas.length} cuota(s)` : ''}</div>}
           {form.observaciones && <div>Observaciones: {form.observaciones}</div>}
         </section>
       </div>
@@ -422,4 +569,3 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 };
 
 export default NewComprobanteDialog;
-

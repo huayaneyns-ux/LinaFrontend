@@ -1,8 +1,6 @@
 export type ComprobanteSection =
   | 'todos'
-  | 'comprobantes'
-  | 'guias'
-  | 'notas';
+  | 'comprobantes';
 
 export interface ComprobanteSectionDefinition {
   id: ComprobanteSection;
@@ -24,9 +22,12 @@ export type ComprobanteEstadoSunat =
   | 'PENDIENTE'
   | 'EXCEPCION'
   | 'ACEPTADO'
-  | 'RECHAZADO';
+  | 'RECHAZADO'
+  | 'ENVIADO'
+  | 'OBSERVADO';
 
 export interface ComprobanteDetalleItem {
+  itemId?: string;
   productoServicio: string;
   codigo: string;
   cantidad: number;
@@ -35,7 +36,7 @@ export interface ComprobanteDetalleItem {
   importe: number;
 }
 
-export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA' | 'LIQUIDACION_COMPRA';
+export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA';
 export type ComprobanteOrigen = 'VENTA' | 'MANUAL';
 
 export interface ComprobanteClienteData {
@@ -64,6 +65,14 @@ export interface ComprobanteFormData {
   detalle: ComprobanteFormItem[];
   fechaEmision: string;
   fechaVencimiento: string;
+  moneda: 'PEN' | 'USD';
+  pago: {
+    formaPago: 'CONTADO' | 'CREDITO';
+    cuotas: Array<{
+      monto: number;
+      fechaVencimiento: string;
+    }>;
+  };
   observaciones: string;
 }
 
@@ -86,7 +95,7 @@ export interface ProductoComprobanteMockDto {
 }
 
 export interface ComprobanteSelectDto {
-  id: number;
+  id: string | number;
   tipo: ComprobanteTipo;
   serie: string;
   numero: string;
@@ -109,7 +118,11 @@ export interface ComprobanteSelectDto {
   fechaConsultaSunat: string;
   fechaEnvioSunat: string;
   detalle: ComprobanteDetalleItem[];
+  documentId?: string;
+  fileName?: string;
   pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
   fechaTraslado?: string;
   puntoPartida?: string;
   puntoLlegada?: string;
@@ -123,6 +136,14 @@ export interface ComprobanteSelectDto {
   ventaOrigenId?: string;
   fechaVencimiento?: string;
   observaciones?: string;
+  pago?: {
+    formaPago: string;
+    cuotas: Array<{
+      numero?: number;
+      monto: number;
+      fechaVencimiento: string;
+    }>;
+  };
 }
 
 export type TipoNota =
@@ -813,8 +834,6 @@ export interface GetAllQueryParams {
 export type PDFFormat = 'A4' | 'A5' | 'ticket58mm' | 'ticket80mm';
 
 export interface VoidBillRequest {
-  personaId: string;
-  personaToken: string;
   documentId: string;
   reason: string; // 3 - 100 caracteres
 }

@@ -176,7 +176,7 @@ export const ComprobanteMockService = {
     );
     const total = Number((subtotal + igv).toFixed(2));
     const id =
-      Math.max(...comprobantesStore.map((comprobante) => comprobante.id), 0) +
+      Math.max(...comprobantesStore.map((comprobante) => Number(comprobante.id) || 0), 0) +
       1;
 
     // 1. Construir el payload JSON SUNAT exacto (contrato UBL 2.1)
@@ -239,7 +239,7 @@ export const ComprobanteMockService = {
     const serie = formData.serie || autoNumber.serie;
     const numero = formData.numero || autoNumber.numero;
     const id =
-      Math.max(...comprobantesStore.map((comprobante) => comprobante.id), 0) +
+      Math.max(...comprobantesStore.map((comprobante) => Number(comprobante.id) || 0), 0) +
       1;
 
     // 1. Construir el payload JSON SUNAT exacto para Transportista (Tipo 31)
@@ -328,7 +328,7 @@ export const ComprobanteMockService = {
     const serie = formData.serie || autoNumber.serie;
     const numero = formData.numero || autoNumber.numero;
     const id =
-      Math.max(...comprobantesStore.map((comprobante) => comprobante.id), 0) +
+      Math.max(...comprobantesStore.map((comprobante) => Number(comprobante.id) || 0), 0) +
       1;
 
     // 1. Construir el payload JSON SUNAT exacto para Remitente (Tipo 09)
@@ -478,7 +478,7 @@ export const ComprobanteMockService = {
     );
     const total = Number((subtotal + igv).toFixed(2));
     const id =
-      Math.max(...comprobantesStore.map((comprobante) => comprobante.id), 0) +
+      Math.max(...comprobantesStore.map((comprobante) => Number(comprobante.id) || 0), 0) +
       1;
 
     const fechaEmisionRelacionado =

@@ -118,7 +118,7 @@ const NewNotaDialog = ({ isOpen, comprobantes, productos, loading, onClose, onGe
     setForm(previous => ({
       ...previous,
       comprobanteRelacionado: {
-        id: comprobante.id,
+        id: Number(comprobante.id),
         tipo: comprobante.tipo,
         serie: comprobante.serie,
         numero: comprobante.numero,

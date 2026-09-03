@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactNode } from 'react';
 
 import type {
   ComprobanteEstado,
-  ComprobanteEstadoSunat,
   ComprobanteSelectDto,
   GuiaRemisionFormData,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
@@ -49,8 +48,8 @@ export const ComprobanteGuiaSection = () => {
   const [newGuiaOpen, setNewGuiaOpen] = useState(false);
   const [previewComprobante, setPreviewComprobante] = useState<ComprobanteSelectDto | null>(null);
   const [detailComprobante, setDetailComprobante] = useState<ComprobanteSelectDto | null>(null);
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
   const [voidReason, setVoidReason] = useState('');
 
@@ -140,7 +139,7 @@ export const ComprobanteGuiaSection = () => {
     try {
       setDeletingId(voidReasonDialog.comprobante.id);
       const voidRequest = {
-        personaId: EMPRESA.id,
+        personaId: EMPRESA.sunatConfig.personaId,
         personaToken: EMPRESA.sunatConfig.personaToken || '',
         documentId: String(voidReasonDialog.comprobante.id),
         reason: voidReason,
@@ -498,7 +497,7 @@ export const ComprobanteGuiaSection = () => {
               c.tipo === 'GUIA_REMISION_TRANSPORTISTA',
           )
           .map((c) => ({
-            id: c.id,
+            id: Number(c.id),
             tipo: c.tipo as any,
             serie: c.serie,
             numero: c.numero,

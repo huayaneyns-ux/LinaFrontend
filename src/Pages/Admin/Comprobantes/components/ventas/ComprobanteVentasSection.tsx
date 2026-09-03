@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { ComprobanteEstado, ComprobanteEstadoSunat, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
+import type { ComprobanteEstado, ComprobanteSelectDto, ComprobanteTipo } from "../../../../../Types/Admin/Comprobantes/Comprobante";
 import { useComprobantes } from "../../../../../Hooks/useComprobantes";
 import type { ColumnDef } from "../../../../../Components/ERP/DataTable";
 import { formatDate } from "../../../../../Utils/formatters";
@@ -12,7 +12,6 @@ import ComprobantePreviewDialog from "../ComprobantePreviewDialog";
 import ComprobanteDetailDialog from "../ComprobanteDetailDialog";
 import NewComprobanteDialog from "./NewComprobanteVentasDialog";
 import { useDataTable } from "../../../../../Hooks/useDataTable";
-import { EMPRESA } from "../../../../../Constantes/Empresa";
 
     interface ComprobanteFilters {
         tipo: ComprobanteTipo | '';
@@ -33,7 +32,6 @@ import { EMPRESA } from "../../../../../Constantes/Empresa";
     const VENTAS_ALLOWED_TYPES: ComprobanteTipo[] = [
         'FACTURA',
         'BOLETA',
-        'LIQUIDACION_COMPRA'
     ];
 
     const TYPE_LABELS: Record<ComprobanteSelectDto['tipo'], string> = {
@@ -55,15 +53,14 @@ import { EMPRESA } from "../../../../../Constantes/Empresa";
         const [newComprobanteOpen, setNewComprobanteOpen] = useState(false);
         const [previewComprobante, setPreviewComprobante] = useState<ComprobanteSelectDto | null>(null);
         const [detailComprobante, setDetailComprobante] = useState<ComprobanteSelectDto | null>(null);
-        const [downloadingId, setDownloadingId] = useState<number | null>(null);
-        const [deletingId, setDeletingId] = useState<number | null>(null);
+        const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+        const [deletingId, setDeletingId] = useState<string | number | null>(null);
         const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
         const [voidReason, setVoidReason] = useState('');
         
         const {
             comprobantes,
             ventasDisponibles,
-            productosDisponibles,
             loading,
             generating,
             updatingSunatId,
@@ -100,8 +97,6 @@ import { EMPRESA } from "../../../../../Constantes/Empresa";
             try {
                 setDeletingId(voidReasonDialog.comprobante.id);
                 const voidRequest = {
-                    personaId: EMPRESA.id,
-                    personaToken: EMPRESA.sunatConfig.personaToken || '',
                     documentId: String(voidReasonDialog.comprobante.id),
                     reason: voidReason,
                 };
@@ -308,7 +303,6 @@ import { EMPRESA } from "../../../../../Constantes/Empresa";
                                         <option value="">Todos</option>
                                         <option value="FACTURA">Factura</option>
                                         <option value="BOLETA">Boleta</option>
-                                        <option value="LIQUIDACION_COMPRA">Liquidación de Compra</option>
                                     </select>
                                 </div>
                                 <div className="erp-form-group">
@@ -373,7 +367,6 @@ import { EMPRESA } from "../../../../../Constantes/Empresa";
                     <NewComprobanteDialog
                         isOpen={newComprobanteOpen}
                         ventas={ventasDisponibles}
-                        productos={productosDisponibles}
                         loading={generating}
                         onClose={() => setNewComprobanteOpen(false)}
                         onGenerate={async form => (await crearComprobante(form)) !== null}

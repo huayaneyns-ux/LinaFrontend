@@ -11,7 +11,6 @@ import Pagination from "../../../../../Components/ERP/Pagination";
 import ComprobantePreviewDialog from "../ComprobantePreviewDialog";
 import ComprobanteDetailDialog from "../ComprobanteDetailDialog";
 import { useDataTable } from "../../../../../Hooks/useDataTable";
-import { EMPRESA } from "../../../../../Constantes/Empresa";
 
 interface ComprobanteTodosFilters {
     tipo: ComprobanteTipo | '';
@@ -29,14 +28,14 @@ const DEFAULT_FILTERS: ComprobanteTodosFilters = {
     fechaHasta: '',
 };
 
-const TYPE_LABELS: Record<ComprobanteSelectDto['tipo'], string> = {
-    BOLETA: 'Boleta',
-    FACTURA: 'Factura',
-    NOTA_CREDITO: 'Nota de Crédito',
-    NOTA_DEBITO: 'Nota de Débito',
-    LIQUIDACION_COMPRA: 'Liquidación de Compra',
-    GUIA_REMISION_REMITENTE: 'Guía Remitente',
-    GUIA_REMISION_TRANSPORTISTA: 'Guía Transportista',
+    const TYPE_LABELS: Record<ComprobanteSelectDto['tipo'], string> = {
+        BOLETA: 'Boleta',
+        FACTURA: 'Factura',
+        NOTA_CREDITO: 'Nota de Crédito',
+        NOTA_DEBITO: 'Nota de Débito',
+        LIQUIDACION_COMPRA: 'Liquidación de Compra',
+        GUIA_REMISION_REMITENTE: 'Guía Remitente',
+        GUIA_REMISION_TRANSPORTISTA: 'Guía Transportista',
 };
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
@@ -47,8 +46,8 @@ export const ComprobanteTodosSection = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [previewComprobante, setPreviewComprobante] = useState<ComprobanteSelectDto | null>(null);
     const [detailComprobante, setDetailComprobante] = useState<ComprobanteSelectDto | null>(null);
-    const [downloadingId, setDownloadingId] = useState<number | null>(null);
-    const [deletingId, setDeletingId] = useState<number | null>(null);
+    const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+    const [deletingId, setDeletingId] = useState<string | number | null>(null);
     const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
     const [voidReason, setVoidReason] = useState('');
     
@@ -88,8 +87,6 @@ export const ComprobanteTodosSection = () => {
         try {
             setDeletingId(voidReasonDialog.comprobante.id);
             const voidRequest = {
-                personaId: EMPRESA.id,
-                personaToken: EMPRESA.sunatConfig.personaToken || '',
                 documentId: String(voidReasonDialog.comprobante.id),
                 reason: voidReason,
             };
@@ -291,11 +288,6 @@ export const ComprobanteTodosSection = () => {
                                     <option value="">Todos</option>
                                     <option value="BOLETA">Boleta</option>
                                     <option value="FACTURA">Factura</option>
-                                    <option value="LIQUIDACION_COMPRA">Liquidación de Compra</option>
-                                    <option value="NOTA_CREDITO">Nota de Crédito</option>
-                                    <option value="NOTA_DEBITO">Nota de Débito</option>
-                                    <option value="GUIA_REMISION_REMITENTE">Guía Remitente</option>
-                                    <option value="GUIA_REMISION_TRANSPORTISTA">Guía Transportista</option>
                                 </select>
                             </div>
                             <div className="erp-form-group">

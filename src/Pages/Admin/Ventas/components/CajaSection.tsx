@@ -13,6 +13,7 @@ import type {
 } from '../../../../Types/Admin/Ventas/Caja';
 import { useAuth } from '../../../../Context/AuthContext';
 import { resolveImageUrl, isActivoEstado } from '../../../../Utils/imageUtils';
+import { getNumericUserId } from '../../../../Utils/auth';
 import { downloadComprobantePdf } from '../../../../Utils/generateComprobantePdf';
 import {
   FiSearch,
@@ -369,10 +370,14 @@ const CajaSection = () => {
         precioUnitario: i.producto.precioVenta,
       }));
 
-      const idUsuario = usuario?.id ? Number(usuario.id) : 1;
+      const idUsuario = getNumericUserId(usuario);
+      if (!idUsuario) {
+        setError('Sesión inválida. Vuelva a iniciar sesión.');
+        return;
+      }
       const payload: CajaVentaInsertDto = {
         idCliente: selectedClient.id,
-        idUsuario: isNaN(idUsuario) ? 1 : idUsuario,
+        idUsuario,
         igv: Number(totals.igv.toFixed(4)),
         detalle,
         pagos: pagosPayload,
