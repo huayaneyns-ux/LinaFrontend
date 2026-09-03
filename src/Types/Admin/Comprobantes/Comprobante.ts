@@ -2,6 +2,7 @@ export type ComprobanteSection =
   | 'todos'
   | 'comprobantes'
   | 'notas'
+  | 'pendientes'
   | 'liquidaciones'
   | 'tiempos-sunat';
 

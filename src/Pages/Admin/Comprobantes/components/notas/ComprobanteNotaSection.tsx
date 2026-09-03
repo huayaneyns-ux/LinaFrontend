@@ -31,6 +31,8 @@ import NewNotaDialog from "./NewComprobanteNotaDialog";
 
 import { EMPRESA } from "../../../../../Constantes/Empresa";
 
+const PENDING_SUNAT = new Set(['PENDIENTE', 'EXCEPCION', 'NO_ENVIADO']);
+
 
 
 interface NotaComprobanteFilters {
@@ -98,6 +100,12 @@ export const ComprobanteNotaVentas = () => {
   const filteredNotas = useMemo(() => {
     return comprobantes.filter(comprobante => {
       if (comprobante.tipo !== 'NOTA_CREDITO' && comprobante.tipo !== 'NOTA_DEBITO') {
+        return false;
+      }
+      if (comprobante.estado === 'ANULADO') {
+        return false;
+      }
+      if (PENDING_SUNAT.has(comprobante.estadoSunat)) {
         return false;
       }
       if (filters.tipo && comprobante.tipo !== filters.tipo) {

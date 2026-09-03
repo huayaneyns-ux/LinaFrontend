@@ -6,6 +6,7 @@ import {
   FiEdit3,
   FiShoppingBag,
   FiActivity,
+  FiClock,
 } from 'react-icons/fi';
 import type {
   ComprobanteSection,
@@ -17,6 +18,7 @@ import { ComprobanteTodosSection } from './components/todos/ComprobanteTodosSect
 import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
 import { ComprobanteLiquidacionSection } from './components/liquidaciones/ComprobanteLiquidacionSection';
 import { ComprobanteTiemposSection } from './components/tiempos/ComprobanteTiemposSection';
+import { ComprobantePendientesSection } from './components/pendientes/ComprobantePendientesSection';
 
 type ComprobanteTab = ComprobanteSectionDefinition & {
   icon: ReactElement;
@@ -26,6 +28,7 @@ const TABS: readonly ComprobanteTab[] = [
   { id: 'todos', label: 'Todos', icon: <FiClipboard /> },
   { id: 'comprobantes', label: 'Comprobantes', icon: <FiFileText /> },
   { id: 'notas', label: 'Notas', icon: <FiEdit3 /> },
+  { id: 'pendientes', label: 'Pendientes', icon: <FiClock /> },
   { id: 'liquidaciones', label: 'Liquidaciones', icon: <FiShoppingBag /> },
   { id: 'tiempos-sunat', label: 'Tiempos SUNAT', icon: <FiActivity /> },
 ];
@@ -64,6 +67,7 @@ export function ComprobantesPage() {
         {activeTab === 'comprobantes' && < ComprobantePagoVentas />}
         {activeTab === 'todos' && < ComprobanteTodosSection />}
         {activeTab === 'notas' && <ComprobanteNotaVentas />}
+        {activeTab === 'pendientes' && <ComprobantePendientesSection />}
         {activeTab === 'liquidaciones' && <ComprobanteLiquidacionSection />}
         {activeTab === 'tiempos-sunat' && <ComprobanteTiemposSection />}
       </div>

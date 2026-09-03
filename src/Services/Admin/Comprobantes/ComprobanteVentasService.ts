@@ -471,6 +471,16 @@ export const ComprobanteVentasService = {
     return normalizeComprobante(data);
   },
 
+  async reenviarSunat(id: string): Promise<ComprobanteSelectDto> {
+    const data = await api.request<Record<string, unknown>>(
+      `/facturacion/comprobantes/${id}/reenviar-sunat`,
+      {
+        method: 'POST',
+      },
+    );
+    return normalizeComprobante(data);
+  },
+
   async getPDF(id: string, format: PDFFormat): Promise<Blob> {
     return fetchPdf(
       `${API_BASE_URL}/facturacion/comprobantes/${id}/pdf?format=${encodeURIComponent(format)}`,

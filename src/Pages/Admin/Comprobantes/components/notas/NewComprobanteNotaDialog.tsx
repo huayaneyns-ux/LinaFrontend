@@ -94,11 +94,11 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
 
   const filteredComprobantes = useMemo(() => {
     const query = comprobanteSearch.trim().toLowerCase();
-    if (!query) return comprobantesBase;
-    return comprobantesBase.filter((comp) =>
-      [comp.serie, comp.numero, comp.clienteNombre, comp.clienteDocumento, String(comp.total)]
-        .some((value) => value.toLowerCase().includes(query)),
-    );
+    return comprobantesBase.filter((comp) => {
+      if (!query) return true;
+      return [comp.serie, comp.numero, comp.clienteNombre, comp.clienteDocumento, String(comp.total)]
+        .some((value) => value.toLowerCase().includes(query));
+    });
   }, [comprobanteSearch, comprobantesBase]);
 
   const selectedComprobante = useMemo(

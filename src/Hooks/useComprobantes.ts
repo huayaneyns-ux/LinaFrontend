@@ -20,6 +20,7 @@ export function useComprobantes() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [updatingSunatId, setUpdatingSunatId] = useState<string | number | null>(null);
+  const [resendingSunatId, setResendingSunatId] = useState<string | number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -129,6 +130,25 @@ export function useComprobantes() {
     }
   }, [loadComprobantes]);
 
+  const reenviarSunat = useCallback(async (id: string | number) => {
+    try {
+      setResendingSunatId(id);
+      setError(null);
+      setSuccessMessage(null);
+      const actualizado = await ComprobanteVentasService.reenviarSunat(String(id));
+      await loadComprobantes();
+      setSuccessMessage(
+        `El documento ${actualizado.serie}-${actualizado.numero} fue reenviado a SUNAT.`,
+      );
+      return actualizado;
+    } catch (error) {
+      setError(getErrorMessage('No se pudo reenviar el documento a SUNAT. Intenta nuevamente.', error));
+      return null;
+    } finally {
+      setResendingSunatId(null);
+    }
+  }, [loadComprobantes]);
+
   const getById = useCallback(async (documentId: string) => {
     try {
       setError(null);
@@ -188,6 +208,7 @@ export function useComprobantes() {
     loading,
     generating,
     updatingSunatId,
+    resendingSunatId,
     error,
     successMessage,
     loadComprobantes,
@@ -196,6 +217,7 @@ export function useComprobantes() {
     crearLiquidacion,
     crearGuia: async (_form?: unknown) => true,
     actualizarEstadoSunat,
+    reenviarSunat,
     getById,
     getPDF,
     voidBill,
