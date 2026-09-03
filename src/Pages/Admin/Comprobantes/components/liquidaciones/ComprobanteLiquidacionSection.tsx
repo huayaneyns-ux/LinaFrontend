@@ -178,7 +178,7 @@ export const ComprobanteLiquidacionSection = () => {
           onSort={handleSort}
           emptyMessage="No hay liquidaciones registradas."
         />
-        <Pagination currentPage={pagination.page} totalPages={totalPages} pageSize={pagination.pageSize} totalItems={totalItems} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        <Pagination page={pagination.page} totalPages={totalPages} pageSize={pagination.pageSize} totalItems={totalItems} onPageChange={setPage} onPageSizeChange={setPageSize} />
 
         <ComprobantePreviewDialog comprobante={preview} onClose={() => setPreview(null)} />
         <ComprobanteDetailDialog comprobante={detail} onClose={() => setDetail(null)} />

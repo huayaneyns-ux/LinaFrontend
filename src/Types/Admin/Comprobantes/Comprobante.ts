@@ -2,7 +2,8 @@ export type ComprobanteSection =
   | 'todos'
   | 'comprobantes'
   | 'notas'
-  | 'liquidaciones';
+  | 'liquidaciones'
+  | 'tiempos-sunat';
 
 export interface ComprobanteSectionDefinition {
   id: ComprobanteSection;
@@ -934,3 +935,47 @@ export interface VoidBillResponse {
   status: 'PENDIENTE';
   documentId: string;
 }
+
+// ==========================================
+// SUNAT TRANSMISSION - dbo.SunatTransmission
+// ==========================================
+
+export type SunatTransmissionOperationType = 'SEND' | 'VOID' | 'STATUS_QUERY';
+
+export type SunatTransmissionStatus = 'PENDING' | 'SUCCESS' | 'ERROR';
+
+export interface SunatTransmissionItemDto {
+  id: string;
+  voucherId: string;
+  attemptNumber: number;
+  operationType: SunatTransmissionOperationType | string;
+  transmissionStatus: SunatTransmissionStatus | string;
+  httpStatus: number | null;
+  sunatStatus: ComprobanteEstadoSunat | null;
+  sunatDocumentId: string | null;
+  errorMessage: string | null;
+  isRetryable: boolean;
+  nextRetryAt: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  responseTimeMs: number | null;
+
+  // Campos adicionales del Voucher vinculado (dbo.Voucher)
+  voucherTypeCode?: string;
+  series?: string;
+  number?: string;
+  total?: number;
+  customerName?: string;
+}
+
+export interface SunatTransmissionFilters {
+  busqueda: string;
+  operationType: string;
+  sunatStatus: string;
+  transmissionStatus: string;
+  tipoComprobante: string;
+  rangoVelocidad: 'TODOS' | 'RAPIDO' | 'MODERADO' | 'LENTO' | 'SIN_RESPUESTA';
+  fechaDesde: string;
+  fechaHasta: string;
+}
+

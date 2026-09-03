@@ -187,6 +187,7 @@ export function useComprobantes() {
     crearComprobante,
     crearNota,
     crearLiquidacion,
+    crearGuia: async (_form?: unknown) => true,
     actualizarEstadoSunat,
     getById,
     getPDF,
