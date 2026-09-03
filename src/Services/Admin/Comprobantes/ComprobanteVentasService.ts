@@ -319,6 +319,14 @@ function buildNotaPayload(formData: NotaFormData, base: NotaComprobanteBaseDto):
     throw new Error('El motivo seleccionado no tiene código SUNAT configurado.');
   }
 
+  if (
+    base.tipo === 'BOLETA' &&
+    formData.tipo === 'NOTA_CREDITO' &&
+    ['Descuento global o por ítem', 'Devolución total o por ítem', 'Bonificaciones'].includes(formData.motivo)
+  ) {
+    throw new Error('Las notas de crédito 04, 05 y 08 no pueden vincularse a una boleta.');
+  }
+
   return {
     voucherReferenciaId: base.id,
     fechaEmision: formData.fechaEmision,

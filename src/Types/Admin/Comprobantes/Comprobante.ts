@@ -25,6 +25,7 @@ export type ComprobanteEstadoSunat =
   | 'PENDIENTE'
   | 'EXCEPCION'
   | 'ACEPTADO'
+  | 'ANULADO'
   | 'RECHAZADO'
   | 'ENVIADO'
   | 'OBSERVADO';

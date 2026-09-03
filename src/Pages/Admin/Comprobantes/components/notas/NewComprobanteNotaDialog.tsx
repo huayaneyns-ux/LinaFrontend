@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiInfo, FiPlus, FiTrash2 } from 'react-icons/fi';
 import CrudDialog from '../../../../../Components/ERP/CrudDialog';
 import FormField from '../../../../../Components/ERP/FormField';
@@ -81,6 +81,12 @@ const calculateItem = (item: NotaFormItem): NotaFormItem => {
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
+const MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA = new Set<TipoNotaCredito>([
+  'Descuento global o por ítem',
+  'Devolución total o por ítem',
+  'Bonificaciones',
+]);
+
 const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate }: NewNotaDialogProps) => {
   const [form, setForm] = useState<NotaFormData>(createInitialForm);
   const [comprobanteSearch, setComprobanteSearch] = useState('');
@@ -135,8 +141,17 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     setErrors({});
   };
 
+  const getAvailableMotivos = (tipo: TipoNota, sunatTypeCode?: string) => {
+    const baseMotivos = tipo === 'NOTA_CREDITO' ? motivosNotaCredito : motivosNotaDebito;
+    if (tipo !== 'NOTA_CREDITO' || sunatTypeCode !== '03') {
+      return baseMotivos;
+    }
+
+    return baseMotivos.filter((motivo) => !MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA.has(motivo as TipoNotaCredito));
+  };
+
   const handleTypeChange = (tipo: TipoNota) => {
-    const nuevoMotivo = tipo === 'NOTA_CREDITO' ? motivosNotaCredito[0] : motivosNotaDebito[0];
+    const nuevoMotivo = getAvailableMotivos(tipo, selectedComprobante?.sunatTypeCode)[0];
     setForm((previous) => ({
       ...previous,
       tipo,
@@ -244,7 +259,24 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     onClose();
   };
 
-  const motives = form.tipo === 'NOTA_CREDITO' ? motivosNotaCredito : motivosNotaDebito;
+  const motives = useMemo(
+    () => getAvailableMotivos(form.tipo, selectedComprobante?.sunatTypeCode),
+    [form.tipo, selectedComprobante?.sunatTypeCode],
+  );
+
+  useEffect(() => {
+    if (form.tipo !== 'NOTA_CREDITO' || selectedComprobante?.sunatTypeCode !== '03') {
+      return;
+    }
+
+    if (MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA.has(form.motivo as TipoNotaCredito)) {
+      setForm((previous) => ({
+        ...previous,
+        motivo: getAvailableMotivos('NOTA_CREDITO', '03')[0] as TipoNotaCredito,
+        detalle: [],
+      }));
+    }
+  }, [form.motivo, form.tipo, selectedComprobante?.sunatTypeCode]);
 
   return (
     <CrudDialog

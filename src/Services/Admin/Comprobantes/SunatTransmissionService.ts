@@ -7,9 +7,11 @@ function normalizeTransmission(raw: Record<string, unknown>): SunatTransmissionI
 
   let responseTimeMs: number | null = null;
   if (raw.responseTimeMs !== undefined && raw.responseTimeMs !== null) {
-    responseTimeMs = Number(raw.responseTimeMs);
+    const parsed = Number(raw.responseTimeMs);
+    responseTimeMs = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   } else if (raw.ResponseTimeMs !== undefined && raw.ResponseTimeMs !== null) {
-    responseTimeMs = Number(raw.ResponseTimeMs);
+    const parsed = Number(raw.ResponseTimeMs);
+    responseTimeMs = Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
   } else if (createdAt && respondedAtStr) {
     const diff = new Date(respondedAtStr).getTime() - new Date(createdAt).getTime();
     if (!Number.isNaN(diff) && diff >= 0) {

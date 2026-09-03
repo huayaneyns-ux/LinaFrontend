@@ -39,9 +39,15 @@ const ComprobanteActions = ({
     />
     <IconButton
       icon={isUpdatingSunat ? <FiLoader /> : <FiRefreshCw />}
-      tooltip={isUpdatingSunat ? 'Consultando estado SUNAT...' : 'Actualizar estado SUNAT'}
+      tooltip={
+        comprobante.estado === 'ANULADO' && comprobante.estadoSunat === 'ANULADO'
+          ? 'Documento anulado confirmado por SUNAT'
+          : isUpdatingSunat
+            ? 'Consultando estado SUNAT...'
+            : 'Actualizar estado SUNAT'
+      }
       variant="success"
-      disabled={isUpdatingSunat}
+      disabled={isUpdatingSunat || (comprobante.estado === 'ANULADO' && comprobante.estadoSunat === 'ANULADO')}
       onClick={() => onUpdateSunat(comprobante.id)}
     />
     {onDownloadPDF && (
@@ -56,9 +62,15 @@ const ComprobanteActions = ({
     {onDeleteDocument && (
       <IconButton
         icon={isDeleting ? <FiLoader /> : <FiTrash2 />}
-        tooltip={isDeleting ? 'Anulando documento...' : 'Anular documento'}
+        tooltip={
+          comprobante.estado === 'ANULADO' && comprobante.estadoSunat === 'ANULADO'
+            ? 'Documento anulado confirmado por SUNAT'
+            : isDeleting
+              ? 'Anulando documento...'
+              : 'Anular documento'
+        }
         variant="danger"
-        disabled={isDeleting}
+        disabled={isDeleting || (comprobante.estado === 'ANULADO' && comprobante.estadoSunat === 'ANULADO')}
         onClick={() => onDeleteDocument(comprobante)}
       />
     )}
