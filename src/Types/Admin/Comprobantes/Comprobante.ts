@@ -1,6 +1,8 @@
 export type ComprobanteSection =
   | 'todos'
-  | 'comprobantes';
+  | 'comprobantes'
+  | 'notas'
+  | 'liquidaciones';
 
 export interface ComprobanteSectionDefinition {
   id: ComprobanteSection;
@@ -92,6 +94,96 @@ export interface ProductoComprobanteMockDto {
   codigo: string;
   nombre: string;
   precio: number;
+}
+
+export interface NotaComprobanteBaseItemDto {
+  id: string;
+  productoId: number | null;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  valorVenta: number;
+  igv: number;
+  importe: number;
+  unidadMedida: string;
+}
+
+export interface NotaComprobanteBaseDto {
+  id: string;
+  tipo: 'BOLETA' | 'FACTURA';
+  sunatTypeCode: string;
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  moneda: 'PEN' | 'USD';
+  clienteNombre: string;
+  clienteTipoDocumento: string;
+  clienteDocumento: string;
+  clienteDireccion: string;
+  subtotal: number;
+  igv: number;
+  total: number;
+  items: NotaComprobanteBaseItemDto[];
+}
+
+export interface LiquidacionCompraUbicacionDisponibleDto {
+  distritoId: number;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  direccion: string;
+}
+
+export interface LiquidacionCompraDetalleDto {
+  productoId: number;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  valorVenta: number;
+  igv: number;
+  importe: number;
+  unidadMedida: string;
+}
+
+export interface LiquidacionCompraDisponibleDto {
+  compraId: number;
+  codigo: string;
+  fechaCompra: string;
+  vendedor: {
+    tipoDocumento: string;
+    numeroDocumento: string;
+    nombre: string;
+  };
+  ubicacionVendedor: LiquidacionCompraUbicacionDisponibleDto | null;
+  detalle: LiquidacionCompraDetalleDto[];
+  subtotal: number;
+  igv: number;
+  total: number;
+}
+
+export interface LiquidacionCompraFormData {
+  compraOrigenId: number;
+  fechaEmision: string;
+  moneda: 'PEN' | 'USD';
+  observaciones: string;
+  vendedor: {
+    tipoDocumento: string;
+    numeroDocumento: string;
+    nombre: string;
+  };
+  ubicacionVendedor: {
+    distritoId: number;
+    direccion: string;
+    codigoUbigeo?: string;
+  };
+  puntoVenta: {
+    distritoId: number;
+    direccion: string;
+    codigoUbigeo?: string;
+    codigoEstablecimiento?: string;
+  };
 }
 
 export interface ComprobanteSelectDto {

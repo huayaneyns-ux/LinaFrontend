@@ -3,6 +3,8 @@ import type { ReactElement } from 'react';
 import {
   FiClipboard,
   FiFileText,
+  FiEdit3,
+  FiShoppingBag,
 } from 'react-icons/fi';
 import type {
   ComprobanteSection,
@@ -11,6 +13,8 @@ import type {
 import '../Inventario/Inventario.css';
 import { ComprobantePagoVentas } from './components/ventas/ComprobanteVentasSection';
 import { ComprobanteTodosSection } from './components/todos/ComprobanteTodosSection';
+import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
+import { ComprobanteLiquidacionSection } from './components/liquidaciones/ComprobanteLiquidacionSection';
 
 type ComprobanteTab = ComprobanteSectionDefinition & {
   icon: ReactElement;
@@ -19,6 +23,8 @@ type ComprobanteTab = ComprobanteSectionDefinition & {
 const TABS: readonly ComprobanteTab[] = [
   { id: 'todos', label: 'Todos', icon: <FiClipboard /> },
   { id: 'comprobantes', label: 'Comprobantes', icon: <FiFileText /> },
+  { id: 'notas', label: 'Notas', icon: <FiEdit3 /> },
+  { id: 'liquidaciones', label: 'Liquidaciones', icon: <FiShoppingBag /> },
 ];
 
 export function ComprobantesPage() {
@@ -54,6 +60,8 @@ export function ComprobantesPage() {
       <div className="erp-tab-content">
         {activeTab === 'comprobantes' && < ComprobantePagoVentas />}
         {activeTab === 'todos' && < ComprobanteTodosSection />}
+        {activeTab === 'notas' && <ComprobanteNotaVentas />}
+        {activeTab === 'liquidaciones' && <ComprobanteLiquidacionSection />}
       </div>
     </div>
   );
