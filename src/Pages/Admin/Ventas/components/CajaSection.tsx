@@ -46,6 +46,7 @@ interface PagoForm {
 
 type ClientStatus = 'idle' | 'pending' | 'valid' | 'invalid';
 type SalePhase = 'editing' | 'confirmed';
+type TipoComprobante = 'BOLETA' | 'FACTURA';
 
 const EMPTY_CLIENT_FORM: CajaClienteInsertDto = {
   nombreApellido: '',
@@ -76,6 +77,8 @@ const CajaSection = () => {
   const [clientStatus, setClientStatus] = useState<ClientStatus>('idle');
   const [selectedClient, setSelectedClient] = useState<CajaClienteDto | null>(null);
   const [searchingClient, setSearchingClient] = useState(false);
+  const [tipoComprobante, setTipoComprobante] = useState<TipoComprobante>('BOLETA');
+  const [rucFactura, setRucFactura] = useState('');
 
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [clientForm, setClientForm] = useState<CajaClienteInsertDto>(EMPTY_CLIENT_FORM);
@@ -144,6 +147,8 @@ const CajaSection = () => {
     setSearchDni('');
     setSelectedClient(null);
     setClientStatus('idle');
+    setTipoComprobante('BOLETA');
+    setRucFactura('');
     setUseMultiplePayments(false);
     setPagos([{ ...createEmptyPago(metodosPago), monto: '' }]);
     setSuccessMsg(null);
@@ -349,6 +354,13 @@ const CajaSection = () => {
 
   const handleFinalizeSale = async () => {
     if (!selectedClient) return;
+    if (tipoComprobante === 'FACTURA') {
+      const ruc = rucFactura.trim();
+      if (!/^\d{11}$/.test(ruc)) {
+        setError('Para emitir factura debes ingresar un RUC válido de 11 dígitos.');
+        return;
+      }
+    }
     const pagosPayload = buildPagosPayload();
     if (!pagosPayload) {
       setError('Verifique los montos: la suma de pagos debe igualar el total.');
@@ -378,6 +390,16 @@ const CajaSection = () => {
       const payload: CajaVentaInsertDto = {
         idCliente: selectedClient.id,
         idUsuario,
+        tipoComprobante,
+        clienteFiscal: tipoComprobante === 'FACTURA'
+          ? {
+              tipoDocumento: 'RUC',
+              documento: rucFactura.trim(),
+              nombre: selectedClient.nombreApellido,
+              direccion: '',
+              correo: selectedClient.correo || '',
+            }
+          : undefined,
         igv: Number(totals.igv.toFixed(4)),
         detalle,
         pagos: pagosPayload,
@@ -397,7 +419,7 @@ const CajaSection = () => {
         metodos: metodosPago,
       });
 
-      setSuccessMsg(`Venta registrada — Comprobante #${response.idVenta}. PDF descargado.`);
+      setSuccessMsg(`Venta registrada — Comprobante #${response.idVenta}. El voucher se está enviando en segundo plano.`);
       resetSale();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al registrar la venta');
@@ -599,6 +621,46 @@ const CajaSection = () => {
                     <span>Realizar pago</span>
                   </div>
 
+                  <div className="caja-document-choice">
+                    <label className="caja-split-toggle">
+                      <input
+                        type="radio"
+                        name="tipoComprobante"
+                        checked={tipoComprobante === 'BOLETA'}
+                        onChange={() => {
+                          setTipoComprobante('BOLETA');
+                          setRucFactura('');
+                        }}
+                      />
+                      Boleta
+                    </label>
+                    <label className="caja-split-toggle">
+                      <input
+                        type="radio"
+                        name="tipoComprobante"
+                        checked={tipoComprobante === 'FACTURA'}
+                        onChange={() => setTipoComprobante('FACTURA')}
+                      />
+                      Factura
+                    </label>
+                  </div>
+
+                  {tipoComprobante === 'FACTURA' && (
+                    <div className="caja-invoice-fields">
+                      <input
+                        type="text"
+                        className="erp-input"
+                        placeholder="RUC para factura *"
+                        value={rucFactura}
+                        maxLength={11}
+                        onChange={e => setRucFactura(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                      />
+                      <p className="caja-pago-hint">
+                        La factura requiere RUC. Si no lo ingresas, no se enviará a SUNAT.
+                      </p>
+                    </div>
+                  )}
+
                   {metodosPago.length === 0 ? (
                     <p className="caja-empty">No hay métodos de pago disponibles</p>
                   ) : (
@@ -682,7 +744,7 @@ const CajaSection = () => {
                   onClick={handleFinalizeSale}
                   disabled={processing || metodosPago.length === 0}
                 >
-                  {processing ? 'Registrando...' : 'Confirmar venta y descargar boleta'}
+                  {processing ? 'Registrando...' : `Confirmar venta y emitir ${tipoComprobante === 'FACTURA' ? 'factura' : 'boleta'}`}
                 </button>
               </>
             )}

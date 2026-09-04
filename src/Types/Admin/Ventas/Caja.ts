@@ -18,6 +18,14 @@ export interface CajaClienteInsertDto {
   correo: string;
 }
 
+export interface CajaComprobanteFiscalDto {
+  tipoDocumento: string;
+  documento: string;
+  nombre: string;
+  direccion: string;
+  correo: string;
+}
+
 
 // =====================================
 // DETALLE DE VENTA
@@ -50,6 +58,10 @@ export interface CajaVentaInsertDto {
   idCliente: number;
 
   idUsuario: number;
+
+  tipoComprobante: 'BOLETA' | 'FACTURA';
+
+  clienteFiscal?: CajaComprobanteFiscalDto;
 
   igv: number;
 
