@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:7146/api';
+const API_BASE_URL = 'https://localhost:7146/api';
 const API_KEY = 'UNFV_FIIS2026';
 
 class ApiService {
