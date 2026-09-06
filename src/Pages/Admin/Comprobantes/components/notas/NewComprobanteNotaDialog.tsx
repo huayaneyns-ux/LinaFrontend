@@ -20,6 +20,7 @@ import NotaTypeSelector from './NotaTypeSelector';
 interface NewNotaDialogProps {
   isOpen: boolean;
   comprobantesBase: NotaComprobanteBaseDto[];
+  comprobantesBaseDebito: NotaComprobanteBaseDto[];
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: NotaFormData) => Promise<boolean | null>;
@@ -40,6 +41,7 @@ type FormErrors = Partial<Record<FormErrorKey, string>>;
 const today = () => new Date().toISOString().slice(0, 10);
 
 const createEmptyItem = (): NotaFormItem => ({
+  voucherItemReferenciaId: undefined,
   productoId: null,
   codigo: '',
   productoServicio: '',
@@ -87,23 +89,24 @@ const MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA = new Set<TipoNotaCredito>([
   'Bonificaciones',
 ]);
 
-const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate }: NewNotaDialogProps) => {
+const NewNotaDialog = ({ isOpen, comprobantesBase, comprobantesBaseDebito, loading, onClose, onGenerate }: NewNotaDialogProps) => {
   const [form, setForm] = useState<NotaFormData>(createInitialForm);
   const [comprobanteSearch, setComprobanteSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
+  const basesActivas = form.tipo === 'NOTA_DEBITO' ? comprobantesBaseDebito : comprobantesBase;
 
   const filteredComprobantes = useMemo(() => {
     const query = comprobanteSearch.trim().toLowerCase();
-    return comprobantesBase.filter((comp) => {
+    return basesActivas.filter((comp) => {
       if (!query) return true;
       return [comp.serie, comp.numero, comp.clienteNombre, comp.clienteDocumento, String(comp.total)]
         .some((value) => value.toLowerCase().includes(query));
     });
-  }, [comprobanteSearch, comprobantesBase]);
+  }, [comprobanteSearch, basesActivas]);
 
   const selectedComprobante = useMemo(
-    () => comprobantesBase.find((comp) => comp.id === form.comprobanteRelacionado.id) || null,
-    [comprobantesBase, form.comprobanteRelacionado.id],
+    () => basesActivas.find((comp) => comp.id === form.comprobanteRelacionado.id) || null,
+    [basesActivas, form.comprobanteRelacionado.id],
   );
 
   const motivoConfig = useMemo(
@@ -118,7 +121,7 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
   }), [form.detalle]);
 
   const selectComprobante = (comprobanteId: string) => {
-    const comprobante = comprobantesBase.find((comp) => comp.id === comprobanteId);
+    const comprobante = basesActivas.find((comp) => comp.id === comprobanteId);
     if (!comprobante) return;
 
     setForm((previous) => ({
@@ -141,9 +144,9 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     setErrors({});
   };
 
-  const getAvailableMotivos = (tipo: TipoNota, sunatTypeCode?: string) => {
+  const getAvailableMotivos = (tipo: TipoNota) => {
     const baseMotivos = tipo === 'NOTA_CREDITO' ? motivosNotaCredito : motivosNotaDebito;
-    if (tipo !== 'NOTA_CREDITO' || sunatTypeCode !== '03') {
+    if (tipo !== 'NOTA_CREDITO' || selectedComprobante?.sunatTypeCode !== '03') {
       return baseMotivos;
     }
 
@@ -151,7 +154,7 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
   };
 
   const handleTypeChange = (tipo: TipoNota) => {
-    const nuevoMotivo = getAvailableMotivos(tipo, selectedComprobante?.sunatTypeCode)[0];
+    const nuevoMotivo = getAvailableMotivos(tipo)[0];
     setForm((previous) => ({
       ...previous,
       tipo,
@@ -175,6 +178,7 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     if (!product) return;
 
     updateItem(index, {
+      voucherItemReferenciaId: product.id,
       productoId: product.productoId,
       codigo: product.codigo,
       productoServicio: product.descripcion,
@@ -216,7 +220,8 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
 
     if (selectedComprobante && motivoConfig.trabajaConItems) {
       form.detalle.forEach((item) => {
-        const baseItem = selectedComprobante.items.find((source) => source.descripcion === item.productoServicio);
+        const baseItem = selectedComprobante.items.find((source) => source.id === item.voucherItemReferenciaId)
+          ?? selectedComprobante.items.find((source) => source.descripcion === item.productoServicio);
         if (baseItem && item.cantidad > baseItem.cantidad) {
           nextErrors.cantidad = `El ítem "${item.productoServicio}" excede la cantidad disponible (${baseItem.cantidad})`;
         }
@@ -260,19 +265,16 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
   };
 
   const motives = useMemo(
-    () => getAvailableMotivos(form.tipo, selectedComprobante?.sunatTypeCode),
+    () => getAvailableMotivos(form.tipo),
     [form.tipo, selectedComprobante?.sunatTypeCode],
   );
 
   useEffect(() => {
-    if (form.tipo !== 'NOTA_CREDITO' || selectedComprobante?.sunatTypeCode !== '03') {
-      return;
-    }
-
-    if (MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA.has(form.motivo as TipoNotaCredito)) {
+    if (form.tipo === 'NOTA_CREDITO' && selectedComprobante?.sunatTypeCode === '03'
+      && MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA.has(form.motivo as TipoNotaCredito)) {
       setForm((previous) => ({
         ...previous,
-        motivo: getAvailableMotivos('NOTA_CREDITO', '03')[0] as TipoNotaCredito,
+        motivo: getAvailableMotivos('NOTA_CREDITO')[0] as TipoNotaCredito,
         detalle: [],
       }));
     }
@@ -418,7 +420,7 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
                   <label style={{ fontSize: '11px', color: 'var(--erp-text-secondary)', marginBottom: '2px', display: 'block' }}>Producto base</label>
                   <select
                     className="erp-input"
-                    value={selectedComprobante?.items.find((baseItem) => baseItem.descripcion === item.productoServicio)?.id || ''}
+                    value={item.voucherItemReferenciaId || ''}
                     onChange={(event) => selectProduct(index, event.target.value)}
                     disabled={form.tipo === 'NOTA_DEBITO' && form.motivo === 'Intereses por mora'}
                   >

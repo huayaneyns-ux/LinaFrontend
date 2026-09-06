@@ -329,6 +329,7 @@ function buildNotaPayload(formData: NotaFormData, base: NotaComprobanteBaseDto):
     },
     items: formData.detalle.map((item) => {
       const itemBase = base.items.find((baseItem) =>
+        baseItem.id === item.voucherItemReferenciaId ||
         (item.productoId && baseItem.productoId === item.productoId) ||
         (item.codigo && baseItem.codigo === item.codigo) ||
         baseItem.descripcion === item.productoServicio

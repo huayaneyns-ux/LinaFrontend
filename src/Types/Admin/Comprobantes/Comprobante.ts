@@ -417,6 +417,7 @@ export const motivosNotaDebito: TipoNotaDebito[] = [
 
 // Tipos para el formulario de notas
 export interface NotaFormItem {
+  voucherItemReferenciaId?: string;
   productoId: number | null;
   codigo: string;
   productoServicio: string;

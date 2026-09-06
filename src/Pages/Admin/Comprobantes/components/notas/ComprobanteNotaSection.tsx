@@ -84,6 +84,7 @@ export const ComprobanteNotaVentas = () => {
   const {
     comprobantes,
     notasBaseDisponibles,
+    notasBaseDebitoDisponibles,
     loading,
     generating,
     updatingSunatId,
@@ -864,6 +865,7 @@ export const ComprobanteNotaVentas = () => {
             isOpen={newNotaOpen}
 
             comprobantesBase={notasBaseDisponibles}
+            comprobantesBaseDebito={notasBaseDebitoDisponibles}
 
             loading={generating}
 

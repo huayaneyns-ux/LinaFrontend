@@ -16,6 +16,7 @@ export function useComprobantes() {
   const [comprobantes, setComprobantes] = useState<ComprobanteSelectDto[]>([]);
   const [ventasDisponibles, setVentasDisponibles] = useState<VentaOrigenComprobanteDto[]>([]);
   const [notasBaseDisponibles, setNotasBaseDisponibles] = useState<NotaComprobanteBaseDto[]>([]);
+  const [notasBaseDebitoDisponibles, setNotasBaseDebitoDisponibles] = useState<NotaComprobanteBaseDto[]>([]);
   const [comprasDisponibles, setComprasDisponibles] = useState<LiquidacionCompraDisponibleDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -37,15 +38,17 @@ export function useComprobantes() {
         setLoading(true);
       }
       setError(null);
-      const [ventas, documentos, notasBase, compras] = await Promise.all([
+      const [ventas, documentos, notasBase, notasBaseDebito, compras] = await Promise.all([
         ComprobanteVentasService.getVentasDisponibles(),
         ComprobanteVentasService.getComprobantes(),
         ComprobanteVentasService.getBasesNotas(),
+        ComprobanteVentasService.getBasesNotasDebito(),
         ComprobanteVentasService.getComprasDisponiblesLiquidacion(),
       ]);
       setVentasDisponibles(ventas);
       setComprobantes(documentos);
       setNotasBaseDisponibles(notasBase);
+      setNotasBaseDebitoDisponibles(notasBaseDebito);
       setComprasDisponibles(compras);
     } catch (error) {
       setError(getErrorMessage('No se pudieron cargar los comprobantes. Intenta nuevamente.', error));
@@ -80,7 +83,8 @@ export function useComprobantes() {
       setGenerating(true);
       setError(null);
       setSuccessMessage(null);
-      const base = notasBaseDisponibles.find((item) => item.id === String(formData.comprobanteRelacionado.id));
+      const bases = formData.tipo === 'NOTA_DEBITO' ? notasBaseDebitoDisponibles : notasBaseDisponibles;
+      const base = bases.find((item) => item.id === String(formData.comprobanteRelacionado.id));
       if (!base) {
         setError('El comprobante base de la nota ya no está disponible.');
         return null;
@@ -100,7 +104,7 @@ export function useComprobantes() {
     } finally {
       setGenerating(false);
     }
-  }, [loadComprobantes, notasBaseDisponibles]);
+  }, [loadComprobantes, notasBaseDisponibles, notasBaseDebitoDisponibles]);
 
   const crearLiquidacion = useCallback(async (formData: LiquidacionCompraFormData) => {
     try {
@@ -225,6 +229,7 @@ export function useComprobantes() {
     comprobantes,
     ventasDisponibles,
     notasBaseDisponibles,
+    notasBaseDebitoDisponibles,
     comprasDisponibles,
     loading,
     generating,
