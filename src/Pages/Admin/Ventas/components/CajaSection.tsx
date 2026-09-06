@@ -128,9 +128,10 @@ const CajaSection = () => {
   }, [loadInitialData]);
 
   const totals = useMemo(() => {
-    const subtotal = cart.reduce((s, i) => s + i.producto.precioVenta * i.cantidad, 0);
-    const igv = subtotal * 0.18;
-    const total = subtotal + igv;
+    // precioVenta ya incluye IGV. Solo separamos base e impuesto.
+    const total = cart.reduce((s, i) => s + i.producto.precioVenta * i.cantidad, 0);
+    const subtotal = total / 1.18;
+    const igv = total - subtotal;
     return { subtotal, igv, total };
   }, [cart]);
 
