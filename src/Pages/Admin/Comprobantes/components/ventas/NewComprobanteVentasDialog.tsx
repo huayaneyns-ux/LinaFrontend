@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiLock } from 'react-icons/fi';
 import CrudDialog from '../../../../../Components/ERP/CrudDialog';
 import FormField from '../../../../../Components/ERP/FormField';
 import SearchInput from '../../../../../Components/ERP/SearchInput';
 import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
+import { ComprobanteVentasService } from '../../../../../Services/Admin/Comprobantes/ComprobanteVentasService';
 import type {
   ComprobanteEmitibleTipo,
   ComprobanteFormData,
@@ -25,7 +26,8 @@ type FormErrorKey =
   | 'detalle'
   | 'clienteDireccion'
   | 'pago'
-  | 'moneda';
+  | 'moneda'
+  | 'persona';
 type FormErrors = Partial<Record<FormErrorKey, string>>;
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -53,6 +55,12 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
   const [form, setForm] = useState<ComprobanteFormData>(createInitialForm);
   const [saleSearch, setSaleSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
+  const [consultandoPersona, setConsultandoPersona] = useState(false);
+
+  useEffect(() => {
+    const fechaServidor = ventas.find(venta => venta.fechaEmisionServidor)?.fechaEmisionServidor;
+    if (fechaServidor) setForm(previous => ({ ...previous, fechaEmision: fechaServidor }));
+  }, [ventas]);
 
   const selectedSale = ventas.find(venta => venta.id === form.ventaOrigenId);
   const filteredSales = useMemo(() => {
@@ -61,11 +69,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     
     // Filtrar por tipo de comprobante correspondiente
     if (form.tipo === 'FACTURA') {
-      // Para factura, mostrar solo ventas con RUC (11 dígitos)
-      filtered = ventas.filter(venta => venta.cliente.documento && venta.cliente.documento.length === 11);
+      // Factura muestra todas las ventas elegibles; el RUC del receptor se consulta aparte.
+      filtered = ventas;
     } else if (form.tipo === 'BOLETA') {
-      // Para boleta, mostrar ventas con DNI o sin documento (clientes generales)
-      filtered = ventas.filter(venta => !venta.cliente.documento || venta.cliente.documento.length !== 11);
+      filtered = ventas;
     }
 
     if (!query) return filtered;
@@ -84,51 +91,17 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     const sale = ventas.find(venta => venta.id === saleId);
     if (!sale) return;
     
-    const isRuc = sale.cliente.documento && sale.cliente.documento.length === 11;
+    const isRuc = sale.cliente.tipoDocumento.toUpperCase() === 'RUC' || sale.cliente.documento.length === 11;
     
-    // Solo cambiar el tipo de comprobante si aún no hay uno seleccionado o si el tipo actual no coincide con el documento
-    let shouldChangeTipo = false;
-    if (form.tipo === 'BOLETA' && isRuc) {
-      shouldChangeTipo = true;
-    } else if (form.tipo === 'FACTURA' && !isRuc) {
-      shouldChangeTipo = true;
-    }
+    const newTipo = form.tipo;
     
-    const newTipo = shouldChangeTipo 
-      ? (isRuc ? 'FACTURA' : 'BOLETA') 
-      : form.tipo;
-    
-    // Para factura, siempre llenar datos del cliente
-    // Para boleta con RUC, dejar datos vacíos (clientes generales)
-    // Para boleta con DNI, llenar datos del cliente
-    let clienteData;
-    if (newTipo === 'FACTURA') {
-      clienteData = {
-        tipoDocumento: isRuc ? 'RUC' : (sale.cliente.tipoDocumento || 'DNI'),
-        documento: sale.cliente.documento || '',
-        nombre: sale.cliente.nombre || '',
-        direccion: sale.cliente.direccion || '',
-        correo: sale.cliente.correo || '',
-      };
-    } else if (newTipo === 'BOLETA' && isRuc) {
-      // Boleta con RUC - dejar datos vacíos (cliente general)
-      clienteData = {
-        tipoDocumento: 'DNI',
-        documento: '',
-        nombre: '',
-        direccion: '',
-        correo: '',
-      };
-    } else {
-      // Boleta con DNI o sin documento - llenar datos del cliente
-      clienteData = {
-        tipoDocumento: sale.cliente.tipoDocumento || 'DNI',
-        documento: sale.cliente.documento || '',
-        nombre: sale.cliente.nombre || '',
-        direccion: sale.cliente.direccion || '',
-        correo: sale.cliente.correo || '',
-      };
-    }
+    const clienteData = {
+      tipoDocumento: newTipo === 'FACTURA' ? 'RUC' : (sale.cliente.tipoDocumento || (isRuc ? 'RUC' : 'DNI')),
+      documento: newTipo === 'FACTURA' ? '' : (sale.cliente.documento || ''),
+      nombre: '',
+      direccion: '',
+      correo: '',
+    };
     
     setForm(previous => ({
       ...previous,
@@ -139,6 +112,32 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
       detalle: sale.detalle.map(item => ({ ...item })),
     }));
     setErrors({});
+    if (clienteData.documento) {
+      void consultarPersona(clienteData.tipoDocumento as 'DNI' | 'RUC', clienteData.documento);
+    }
+  };
+
+  const consultarPersona = async (tipoDocumento: 'DNI' | 'RUC', numero: string) => {
+    const documento = numero.trim();
+    const valido = tipoDocumento === 'DNI' ? /^\d{8}$/.test(documento) : /^\d{11}$/.test(documento);
+    if (!valido) return;
+    setConsultandoPersona(true);
+    setErrors(previous => ({ ...previous, persona: undefined }));
+    try {
+      const persona = await ComprobanteVentasService.consultarPersona(tipoDocumento, documento);
+      if (!persona.success || !persona.nombre || !persona.direccion) {
+        throw new Error(persona.mensaje || 'No se encontraron datos completos del documento.');
+      }
+      setForm(previous => ({
+        ...previous,
+        cliente: { ...previous.cliente, tipoDocumento, documento: persona.numero || documento, nombre: persona.nombre || '', direccion: persona.direccion || '' },
+      }));
+    } catch (error) {
+      setForm(previous => ({ ...previous, cliente: { ...previous.cliente, nombre: '', direccion: '' } }));
+      setErrors(previous => ({ ...previous, persona: error instanceof Error ? error.message : 'No se pudo consultar el documento.' }));
+    } finally {
+      setConsultandoPersona(false);
+    }
   };
 
   const handleTipoChange = (newTipo: ComprobanteEmitibleTipo) => {
@@ -150,11 +149,11 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         nextTipoDoc = 'DNI';
       }
       
-      // Limpiar datos del cliente si cambiamos a BOLETA y el cliente actual tiene RUC
+      // Al cambiar de tipo se debe volver a consultar el documento fiscal.
       let clienteData = { ...prev.cliente, tipoDocumento: nextTipoDoc };
-      if (newTipo === 'BOLETA' && prev.cliente.tipoDocumento === 'RUC') {
+      if (newTipo === 'FACTURA' || (newTipo === 'BOLETA' && prev.cliente.tipoDocumento === 'RUC')) {
         clienteData = {
-          tipoDocumento: 'DNI',
+          tipoDocumento: newTipo === 'FACTURA' ? 'RUC' : 'DNI',
           documento: '',
           nombre: '',
           direccion: '',
@@ -198,51 +197,20 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         nextErrors.clienteDocumento = 'La factura solo permite RUC';
       }
     } else if (form.tipo === 'BOLETA') {
-      if (form.cliente.documento.trim()) {
-        if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
-          nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
-          nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'CE' && form.cliente.documento.trim().length < 6) {
-          nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener al menos 6 caracteres';
-        }
-        if (!form.cliente.nombre.trim()) {
-          nextErrors.clienteNombre = 'Si registras documento en boleta, el nombre es obligatorio';
-        }
-        if (!form.cliente.direccion.trim()) {
-          nextErrors.clienteDireccion = 'Si registras documento en boleta, la dirección es obligatoria';
-        }
+      if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
+        nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
+      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
+        nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
       }
-    }
-
-    if (form.tipo === 'FACTURA' && form.fechaVencimiento && form.fechaVencimiento < form.fechaEmision) {
-      nextErrors.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la emisión';
+      if (!form.cliente.nombre.trim()) nextErrors.clienteNombre = 'Consulta el DNI/RUC para obtener el nombre';
+      if (!form.cliente.direccion.trim()) nextErrors.clienteDireccion = 'Consulta el DNI/RUC para obtener la dirección';
     }
 
     if (form.moneda !== 'PEN' && form.moneda !== 'USD') {
       nextErrors.moneda = 'La moneda permitida es PEN o USD';
     }
 
-    if (form.tipo === 'FACTURA') {
-      if (form.pago.formaPago === 'CREDITO') {
-        if (form.pago.cuotas.length === 0) {
-          nextErrors.pago = 'Agrega al menos una cuota para factura a crédito';
-        } else {
-          const totalCuotas = Number(form.pago.cuotas.reduce((sum, cuota) => sum + cuota.monto, 0).toFixed(2));
-          const cuotaInvalida = form.pago.cuotas.some(
-            cuota => cuota.monto < 0.01 || !cuota.fechaVencimiento || cuota.fechaVencimiento <= today(),
-          );
-
-          if (cuotaInvalida) {
-            nextErrors.pago = 'Cada cuota debe tener monto válido y vencimiento posterior a hoy';
-          } else if (totalCuotas !== totals.total) {
-            nextErrors.pago = 'La suma de cuotas debe coincidir exactamente con el total';
-          }
-        }
-      } else if (form.pago.cuotas.length > 0) {
-        nextErrors.pago = 'La factura al contado no debe registrar cuotas';
-      }
-    }
+    if (form.pago.formaPago !== 'CONTADO' || form.pago.cuotas.length > 0) nextErrors.pago = 'El comprobante solo permite pago CONTADO';
 
     if (form.detalle.length === 0) {
       nextErrors.detalle = 'Agrega al menos un ítem al comprobante';
@@ -291,7 +259,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             </select>
           </FormField>
           <FormField label="Fecha de emisión">
-            <input type="date" className="erp-input" value={form.fechaEmision} onChange={event => setForm(previous => ({ ...previous, fechaEmision: event.target.value }))} />
+            <input type="date" className="erp-input" value={form.fechaEmision} readOnly disabled />
           </FormField>
           <FormField label="Moneda" error={errors.moneda}>
             <select
@@ -303,11 +271,6 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
               <option value="USD">USD</option>
             </select>
           </FormField>
-          {form.tipo === 'FACTURA' && (
-            <FormField label="Fecha de vencimiento" error={errors.fechaVencimiento}>
-              <input type="date" className="erp-input" value={form.fechaVencimiento} onChange={event => setForm(previous => ({ ...previous, fechaVencimiento: event.target.value }))} />
-            </FormField>
-          )}
         </section>
 
         <section>
@@ -329,11 +292,9 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
             {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
           </h3>
-          {selectedSale && form.tipo === 'BOLETA' && !selectedSale.cliente.documento && (
-            <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
-              Cliente general - Datos del cliente opcionales
-            </p>
-          )}
+          <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
+            Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.
+          </p>
           <div className="erp-form-grid">
             <FormField label="Tipo de documento">
               <select
@@ -341,160 +302,40 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
                 value={form.cliente.tipoDocumento}
                 onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, tipoDocumento: event.target.value } }))}
               >
-                {form.tipo === 'FACTURA' ? (
-                  <option value="RUC">RUC</option>
-                ) : (
-                  <>
-                    <option value="DNI">DNI</option>
-                    <option value="RUC">RUC</option>
-                    <option value="CE">Carnet de Extranjería (CE)</option>
-                  </>
-                )}
+                {form.tipo === 'FACTURA' ? <option value="RUC">RUC</option> : <><option value="DNI">DNI</option><option value="RUC">RUC</option></>}
               </select>
             </FormField>
             <FormField
               label="Número de documento"
-              required={form.tipo === 'FACTURA'}
+              required
               error={errors.clienteDocumento}
             >
               <input
                 className="erp-input"
                 maxLength={form.cliente.tipoDocumento === 'RUC' ? 11 : form.cliente.tipoDocumento === 'DNI' ? 8 : 15}
                 value={form.cliente.documento}
-                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value } }))}
+                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value, nombre: '', direccion: '' } }))}
+                onBlur={event => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', event.target.value)}
               />
+              <button type="button" className="erp-btn erp-btn-secondary" disabled={consultandoPersona} onClick={() => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', form.cliente.documento)}>
+                {consultandoPersona ? 'Consultando...' : 'Consultar documento'}
+              </button>
             </FormField>
             <FormField
               label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
-              required={form.tipo === 'FACTURA' || Boolean(form.cliente.documento.trim())}
+              required
               error={errors.clienteNombre}
             >
-              <input className="erp-input" value={form.cliente.nombre} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, nombre: event.target.value } }))} />
+              <input className="erp-input" value={form.cliente.nombre} readOnly disabled />
             </FormField>
-            <FormField label="Dirección" required={Boolean(form.cliente.documento.trim())} error={errors.clienteDireccion}>
-              <input className="erp-input" value={form.cliente.direccion} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, direccion: event.target.value } }))} />
+            <FormField label="Dirección" required error={errors.clienteDireccion}>
+              <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
             </FormField>
           </div>
+          {errors.persona && <div className="erp-form-error">{errors.persona}</div>}
         </section>
 
-        {form.tipo === 'FACTURA' && (
-          <section>
-            <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Forma de pago</h3>
-            <div className="erp-form-grid">
-              <FormField label="Forma de pago" required error={errors.pago}>
-                <select
-                  className="erp-input"
-                  value={form.pago.formaPago}
-                  onChange={event =>
-                    setForm(previous => ({
-                      ...previous,
-                      pago: {
-                        formaPago: event.target.value as 'CONTADO' | 'CREDITO',
-                        cuotas: event.target.value === 'CREDITO' ? previous.pago.cuotas : [],
-                      },
-                    }))
-                  }
-                >
-                  <option value="CONTADO">Contado</option>
-                  <option value="CREDITO">Crédito</option>
-                </select>
-              </FormField>
-            </div>
-
-            {form.pago.formaPago === 'CREDITO' && (
-              <div style={{ display: 'grid', gap: '12px' }}>
-                {form.pago.cuotas.map((cuota, index) => (
-                  <div key={`cuota-${index}`} className="erp-form-grid">
-                    <FormField label={`Cuota ${index + 1} - monto`} required>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
-                        className="erp-input"
-                        value={cuota.monto}
-                        onChange={event =>
-                          setForm(previous => ({
-                            ...previous,
-                            pago: {
-                              ...previous.pago,
-                              cuotas: previous.pago.cuotas.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, monto: Number(event.target.value) }
-                                  : item,
-                              ),
-                            },
-                          }))
-                        }
-                      />
-                    </FormField>
-                    <FormField label={`Cuota ${index + 1} - vencimiento`} required>
-                      <input
-                        type="date"
-                        className="erp-input"
-                        value={cuota.fechaVencimiento}
-                        onChange={event =>
-                          setForm(previous => ({
-                            ...previous,
-                            pago: {
-                              ...previous.pago,
-                              cuotas: previous.pago.cuotas.map((item, itemIndex) =>
-                                itemIndex === index
-                                  ? { ...item, fechaVencimiento: event.target.value }
-                                  : item,
-                              ),
-                            },
-                          }))
-                        }
-                      />
-                    </FormField>
-                    <div style={{ display: 'flex', alignItems: 'end' }}>
-                      <button
-                        type="button"
-                        className="erp-btn erp-btn-danger"
-                        onClick={() =>
-                          setForm(previous => ({
-                            ...previous,
-                            pago: {
-                              ...previous.pago,
-                              cuotas: previous.pago.cuotas.filter((_, itemIndex) => itemIndex !== index),
-                            },
-                          }))
-                        }
-                      >
-                        Quitar cuota
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-                  <button
-                    type="button"
-                    className="erp-btn erp-btn-secondary"
-                    onClick={() =>
-                      setForm(previous => ({
-                        ...previous,
-                        pago: {
-                          ...previous.pago,
-                          cuotas: [
-                            ...previous.pago.cuotas,
-                            { monto: 0, fechaVencimiento: '' },
-                          ],
-                        },
-                      }))
-                    }
-                  >
-                    Agregar cuota
-                  </button>
-                  <span style={{ fontSize: '12px', color: 'var(--erp-text-muted)' }}>
-                    Suma cuotas: {formatAmount(form.pago.cuotas.reduce((sum, cuota) => sum + cuota.monto, 0))}
-                  </span>
-                </div>
-                {errors.pago && <div className="erp-form-error">{errors.pago}</div>}
-              </div>
-            )}
-          </section>
-        )}
+        <p style={{ margin: 0, color: 'var(--erp-text-muted)', fontSize: '12px' }}>Forma de pago: CONTADO · efectivo</p>
 
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Detalle de la venta</h3>
@@ -533,7 +374,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
         <section style={{ marginLeft: 'auto', minWidth: '260px', display: 'grid', gap: '6px', fontSize: '13px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>Subtotal</span><strong>{formatAmount(totals.subtotal)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV (18%)</span><strong>{formatAmount(totals.igv)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV</span><strong>{formatAmount(totals.igv)}</strong></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', fontSize: '16px' }}><strong>TOTAL</strong><strong>{formatAmount(totals.total)}</strong></div>
         </section>
 
@@ -559,8 +400,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
           <div>Tipo: {typeLabel} · Venta de origen: {selectedSale ? `Venta #${selectedSale.id}` : 'No seleccionada'} · Cliente: {form.cliente.nombre || 'No especificado'}</div>
           <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Moneda: {form.moneda} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
           <div>Subtotal: {formatAmount(totals.subtotal)} · IGV: {formatAmount(totals.igv)} · Total: {formatAmount(totals.total)}</div>
-          {form.tipo === 'FACTURA' && <div>Fecha de vencimiento: {form.fechaVencimiento || 'No especificada'}</div>}
-          {form.tipo === 'FACTURA' && <div>Forma de pago: {form.pago.formaPago}{form.pago.formaPago === 'CREDITO' ? ` · ${form.pago.cuotas.length} cuota(s)` : ''}</div>}
+          <div>Forma de pago: CONTADO · efectivo</div>
           {form.observaciones && <div>Observaciones: {form.observaciones}</div>}
         </section>
       </div>

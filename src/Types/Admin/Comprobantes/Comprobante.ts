@@ -85,6 +85,7 @@ export interface VentaOrigenComprobanteDto {
   id: string;
   codigo: string;
   fecha: string;
+  fechaEmisionServidor?: string;
   cliente: ComprobanteClienteData;
   detalle: ComprobanteFormItem[];
   subtotal: number;
@@ -411,10 +412,6 @@ export const motivosNotaDebito: TipoNotaDebito[] = [
   'Intereses por mora',
 
   'Aumento en el valor',
-
-  'Penalidades',
-
-  'Otros conceptos',
 
 ];
 

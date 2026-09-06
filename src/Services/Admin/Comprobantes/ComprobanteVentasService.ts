@@ -13,27 +13,25 @@ import type {
 interface EmitirComprobantePayload {
   tipo: 'BOLETA' | 'FACTURA';
   ventaOrigenId: number;
-  fechaEmision: string;
-  fechaVencimiento?: string;
   moneda: 'PEN' | 'USD';
   observaciones?: string;
   cliente: {
     tipoDocumento: string;
     documento: string;
-    nombre: string;
-    direccion: string;
-    correo: string;
   };
-  pago?: {
-    formaPago: 'CONTADO' | 'CREDITO';
-    cuotas: Array<{
-      monto: number;
-      fechaVencimiento: string;
-    }>;
-  };
+  pago: { formaPago: 'CONTADO'; cuotas: [] };
+}
+
+export interface PersonaConsultaDto {
+  success: boolean;
+  mensaje: string;
+  numero?: string;
+  nombre?: string;
+  direccion?: string;
 }
 
 interface EmitirNotaPayload {
+  solicitudId?: string;
   voucherReferenciaId: string;
   fechaEmision: string;
   moneda: 'PEN' | 'USD';
@@ -44,12 +42,14 @@ interface EmitirNotaPayload {
     descripcion: string;
   };
   items: Array<{
+    ambito?: 'COMPROBANTE' | 'ITEM';
     voucherItemReferenciaId?: string;
     productoId?: number;
     codigo?: string;
     descripcion: string;
     cantidad: number;
     precioUnitario: number;
+    montoAdicionalSinIgv?: number;
     unidadMedida: string;
   }>;
 }
@@ -112,6 +112,7 @@ function normalizeVenta(raw: Record<string, unknown>): VentaOrigenComprobanteDto
     id: String(raw.id ?? raw.Id ?? ''),
     codigo: String(raw.codigo ?? raw.Codigo ?? ''),
     fecha: String(raw.fecha ?? raw.Fecha ?? ''),
+    fechaEmisionServidor: String(raw.fechaEmisionServidor ?? raw.FechaEmisionServidor ?? ''),
     cliente: {
       tipoDocumento: String(cliente.tipoDocumento ?? cliente.TipoDocumento ?? ''),
       documento: String(cliente.documento ?? cliente.Documento ?? ''),
@@ -273,23 +274,13 @@ function buildEmitirPayload(formData: ComprobanteFormData): EmitirComprobantePay
   return {
     tipo: formData.tipo,
     ventaOrigenId: Number(formData.ventaOrigenId),
-    fechaEmision: formData.fechaEmision,
-    fechaVencimiento: formData.fechaVencimiento || undefined,
     moneda: formData.moneda,
     observaciones: formData.observaciones || undefined,
     cliente: {
       tipoDocumento: formData.cliente.tipoDocumento,
       documento: formData.cliente.documento,
-      nombre: formData.cliente.nombre,
-      direccion: formData.cliente.direccion,
-      correo: formData.cliente.correo,
     },
-    pago: formData.tipo === 'FACTURA'
-      ? {
-          formaPago: formData.pago.formaPago,
-          cuotas: formData.pago.cuotas,
-        }
-      : undefined,
+    pago: { formaPago: 'CONTADO', cuotas: [] },
   };
 }
 
@@ -306,8 +297,6 @@ const NOTA_CREDITO_CODES: Record<string, string> = {
 const NOTA_DEBITO_CODES: Record<string, string> = {
   'Intereses por mora': '01',
   'Aumento en el valor': '02',
-  Penalidades: '03',
-  'Otros conceptos': '11',
 };
 
 function buildNotaPayload(formData: NotaFormData, base: NotaComprobanteBaseDto): EmitirNotaPayload {
@@ -328,6 +317,7 @@ function buildNotaPayload(formData: NotaFormData, base: NotaComprobanteBaseDto):
   }
 
   return {
+    solicitudId: crypto.randomUUID(),
     voucherReferenciaId: base.id,
     fechaEmision: formData.fechaEmision,
     moneda: base.moneda,
@@ -343,15 +333,20 @@ function buildNotaPayload(formData: NotaFormData, base: NotaComprobanteBaseDto):
         (item.codigo && baseItem.codigo === item.codigo) ||
         baseItem.descripcion === item.productoServicio
       );
+      const esInteresesPorMora = formData.tipo === 'NOTA_DEBITO' && formData.motivo === 'Intereses por mora';
 
       return {
-        voucherItemReferenciaId: itemBase?.id,
-        productoId: item.productoId ?? undefined,
-        codigo: item.codigo || undefined,
-        descripcion: item.productoServicio,
-        cantidad: item.cantidad,
+        ambito: esInteresesPorMora ? 'COMPROBANTE' : (itemBase ? 'ITEM' : 'COMPROBANTE'),
+        voucherItemReferenciaId: esInteresesPorMora ? undefined : itemBase?.id,
+        productoId: esInteresesPorMora ? undefined : (item.productoId ?? undefined),
+        codigo: esInteresesPorMora ? undefined : (item.codigo || undefined),
+        descripcion: esInteresesPorMora
+          ? (item.productoServicio || `Intereses moratorios por pago fuera de fecha de ${base.tipo === 'FACTURA' ? 'la Factura' : 'la Boleta'} ${base.serie}-${base.numero}`)
+          : item.productoServicio,
+        cantidad: esInteresesPorMora ? 1 : item.cantidad,
         precioUnitario: item.precio,
-        unidadMedida: itemBase?.unidadMedida || 'NIU',
+        montoAdicionalSinIgv: item.precio,
+        unidadMedida: esInteresesPorMora ? 'ZZ' : (itemBase?.unidadMedida || 'NIU'),
       };
     }),
   };
@@ -422,9 +417,24 @@ export const ComprobanteVentasService = {
     return normalizeComprobante(data);
   },
 
+  async consultarPersona(tipoDocumento: 'DNI' | 'RUC', numero: string): Promise<PersonaConsultaDto> {
+    return api.request<PersonaConsultaDto>('/persona/consultar', {
+      method: 'POST',
+      body: JSON.stringify({ tipoDocumento, numero }),
+    });
+  },
+
   async getBasesNotas(): Promise<NotaComprobanteBaseDto[]> {
     const data = await api.request<Record<string, unknown>[]>(
       '/facturacion/comprobantes/notas/bases',
+      { method: 'GET' },
+    );
+    return data.map(normalizeNotaBase);
+  },
+
+  async getBasesNotasDebito(): Promise<NotaComprobanteBaseDto[]> {
+    const data = await api.request<Record<string, unknown>[]>(
+      '/facturacion/comprobantes/notas/debito/bases',
       { method: 'GET' },
     );
     return data.map(normalizeNotaBase);

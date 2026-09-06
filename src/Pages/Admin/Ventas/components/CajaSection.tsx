@@ -46,11 +46,15 @@ interface PagoForm {
 
 type ClientStatus = 'idle' | 'pending' | 'valid' | 'invalid';
 type SalePhase = 'editing' | 'confirmed';
-type TipoComprobante = 'BOLETA' | 'FACTURA';
+type TipoComprobante = 'BOLETA' | 'FACTURA' | 'SIN_COMPROBANTE';
 
 const EMPTY_CLIENT_FORM: CajaClienteInsertDto = {
   nombreApellido: '',
   dni: '',
+  tipoDocumento: 'DNI',
+  documento: '',
+  direccion: '',
+  ubigeo: '',
   telefono: '',
   correo: '',
 };
@@ -109,8 +113,9 @@ const CajaSection = () => {
       ]);
       setProductos(prods.filter(p => p.estado));
       const activos = metodos.filter(m => isActivoEstado(m.estado));
-      setMetodosPago(activos);
-      setPagos([createEmptyPago(activos)]);
+      const efectivos = activos.filter(m => m.nombre.trim().toUpperCase() === 'EFECTIVO');
+      setMetodosPago(efectivos);
+      setPagos([createEmptyPago(efectivos)]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos de caja');
     } finally {
@@ -123,11 +128,17 @@ const CajaSection = () => {
   }, [loadInitialData]);
 
   const totals = useMemo(() => {
-    const total = cart.reduce((s, i) => s + i.producto.precioVenta * i.cantidad, 0);
-    const subtotal = total / 1.18;
-    const igv = total - subtotal;
+    const subtotal = cart.reduce((s, i) => s + i.producto.precioVenta * i.cantidad, 0);
+    const igv = subtotal * 0.18;
+    const total = subtotal + igv;
     return { subtotal, igv, total };
   }, [cart]);
+
+  useEffect(() => {
+    if (tipoComprobante === 'SIN_COMPROBANTE' && totals.total > 5) {
+      setTipoComprobante('BOLETA');
+    }
+  }, [tipoComprobante, totals.total]);
 
   const filteredProducts = useMemo(() => {
     const q = productSearch.toLowerCase().trim();
@@ -159,7 +170,7 @@ const CajaSection = () => {
 
   const applyClient = (client: CajaClienteDto) => {
     setSelectedClient(client);
-    setSearchDni(client.dni);
+    setSearchDni(client.documento || client.dni);
     setClientStatus('valid');
     setShowCreateDialog(false);
     setShowDniExistsDialog(false);
@@ -167,8 +178,8 @@ const CajaSection = () => {
   };
 
   const handleSearchClientByDni = async () => {
-    const dni = searchDni.trim();
-    if (!dni) {
+    const documento = searchDni.trim();
+    if (!documento) {
       setClientStatus('idle');
       setSelectedClient(null);
       return;
@@ -177,8 +188,9 @@ const CajaSection = () => {
     setClientStatus('pending');
     setSelectedClient(null);
     try {
-      const client = await CajaService.buscarClientePorDni(dni);
-      if (client?.id) {
+      const tipoDocumento = /^\d{11}$/.test(documento) ? 'RUC' : 'DNI';
+      const client = await CajaService.buscarClientePorDocumento(tipoDocumento, documento);
+      if (client && (client.id || client.documento || client.dni)) {
         applyClient(client);
       } else {
         setClientStatus('invalid');
@@ -200,12 +212,15 @@ const CajaSection = () => {
 
   const handleCreateClientSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientForm.nombreApellido.trim() || !clientForm.dni.trim()) return;
+    if (!clientForm.nombreApellido.trim() || !(clientForm.documento || clientForm.dni).trim()) return;
+
+    const numero = (clientForm.documento || clientForm.dni).trim();
+    const tipo = /^\d{11}$/.test(numero) ? 'RUC' : 'DNI';
 
     setSavingClient(true);
     setError(null);
     try {
-      const existing = await CajaService.buscarClientePorDni(clientForm.dni.trim());
+      const existing = await CajaService.buscarClientePorDocumento(tipo, numero);
       if (existing?.id) {
         setExistingClientFound(existing);
         setShowDniExistsDialog(true);
@@ -216,15 +231,25 @@ const CajaSection = () => {
     }
 
     try {
-      const res = await CajaService.crearCliente(clientForm);
+      const res = await CajaService.crearCliente({
+        ...clientForm,
+        tipoDocumento: tipo,
+        documento: numero,
+        dni: tipo === 'DNI' ? numero : '',
+      });
       if (res?.idCliente) {
-        applyClient({
-          id: res.idCliente,
-          nombreApellido: clientForm.nombreApellido,
-          dni: clientForm.dni,
-          telefono: clientForm.telefono,
-          correo: clientForm.correo,
-        });
+        if (res.cliente) applyClient(res.cliente);
+        else {
+          applyClient({
+            id: res.idCliente,
+            nombreApellido: clientForm.nombreApellido,
+            dni: tipo === 'DNI' ? numero : '',
+            tipoDocumento: tipo,
+            documento: numero,
+            telefono: clientForm.telefono,
+            correo: clientForm.correo,
+          });
+        }
       } else {
         setError(res?.mensaje || 'No se pudo registrar el cliente');
       }
@@ -312,22 +337,14 @@ const CajaSection = () => {
     setPagos(prev => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
   };
 
-  const addPagoRow = () => {
-    setPagos(prev => [...prev, createEmptyPago(metodosPago)]);
-  };
-
-  const removePagoRow = (idx: number) => {
-    if (pagos.length <= 1) return;
-    setPagos(prev => prev.filter((_, i) => i !== idx));
-  };
-
   const handleConfirmOrder = () => {
     if (cart.length === 0) {
       setError('Agregue al menos un producto al carrito');
       return;
     }
-    if (!selectedClient || clientStatus !== 'valid') {
-      setError('Debe buscar y validar un cliente por DNI antes de confirmar');
+    const sinComprobante = tipoComprobante === 'SIN_COMPROBANTE';
+    if ((!selectedClient || clientStatus !== 'valid') && !sinComprobante) {
+      setError('Debe buscar y validar un cliente. La opción sin comprobante solo está disponible hasta S/ 5.');
       return;
     }
     setError(null);
@@ -353,12 +370,27 @@ const CajaSection = () => {
   };
 
   const handleFinalizeSale = async () => {
-    if (!selectedClient) return;
+    const sinComprobante = tipoComprobante === 'SIN_COMPROBANTE';
+    if (!selectedClient && !sinComprobante) {
+      setError('Debe buscar y validar un cliente. La opción sin comprobante solo está disponible hasta S/ 5.');
+      return;
+    }
+    let clienteParaVenta = selectedClient;
     if (tipoComprobante === 'FACTURA') {
       const ruc = rucFactura.trim();
-      if (!/^\d{11}$/.test(ruc)) {
+      const clienteEsRuc = selectedClient?.tipoDocumento === 'RUC' || /^\d{11}$/.test(selectedClient?.documento || '');
+      const rucFinal = clienteEsRuc ? (selectedClient?.documento || '') : ruc;
+      if (!/^\d{11}$/.test(rucFinal)) {
         setError('Para emitir factura debes ingresar un RUC válido de 11 dígitos.');
         return;
+      }
+      if (!clienteEsRuc) {
+        try {
+          clienteParaVenta = await CajaService.buscarClientePorDocumento('RUC', rucFinal);
+        } catch {
+          setError('No se pudo validar el RUC en API Perú.');
+          return;
+        }
       }
     }
     const pagosPayload = buildPagosPayload();
@@ -388,38 +420,41 @@ const CajaSection = () => {
         return;
       }
       const payload: CajaVentaInsertDto = {
-        idCliente: selectedClient.id,
+        idCliente: clienteParaVenta?.id ?? null,
         idUsuario,
         tipoComprobante,
         clienteFiscal: tipoComprobante === 'FACTURA'
           ? {
               tipoDocumento: 'RUC',
-              documento: rucFactura.trim(),
-              nombre: selectedClient.nombreApellido,
-              direccion: '',
-              correo: selectedClient.correo || '',
+              documento: clienteParaVenta?.documento || rucFactura.trim(),
+              nombre: clienteParaVenta?.nombreApellido || '',
+              direccion: clienteParaVenta?.direccion || '',
+              correo: clienteParaVenta?.correo || '',
             }
           : undefined,
-        igv: Number(totals.igv.toFixed(4)),
+        // Venta.igv almacena la tasa porcentual vigente, no el importe calculado.
+        igv: 18,
         detalle,
         pagos: pagosPayload,
       };
 
       const response = await CajaService.registrarVenta(payload);
 
-      await downloadComprobantePdf({
-        idVenta: response.idVenta,
-        cliente: selectedClient,
-        vendedor: vendedorNombre,
-        items: cart,
-        subtotal: totals.subtotal,
-        igv: totals.igv,
-        total: totals.total,
-        pagos: pagosPayload,
-        metodos: metodosPago,
-      });
+      if (clienteParaVenta) {
+        await downloadComprobantePdf({
+          idVenta: response.idVenta,
+          cliente: clienteParaVenta,
+          vendedor: vendedorNombre,
+          items: cart,
+          subtotal: totals.subtotal,
+          igv: totals.igv,
+          total: totals.total,
+          pagos: pagosPayload,
+          metodos: metodosPago,
+        });
+      }
 
-      setSuccessMsg(`Venta registrada — Comprobante #${response.idVenta}. El voucher se está enviando en segundo plano.`);
+      setSuccessMsg(response.mensaje || `Venta registrada correctamente #${response.idVenta}.`);
       resetSale();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al registrar la venta');
@@ -436,7 +471,6 @@ const CajaSection = () => {
   };
 
   const statusInfo = clientStatusLabel();
-  const pagosSum = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
 
   return (
     <div className="caja-container">
@@ -496,9 +530,9 @@ const CajaSection = () => {
               <input
                 type="text"
                 className="erp-input"
-                placeholder="DNI del cliente (8 dígitos)"
+                placeholder="DNI (8) o RUC (11) del cliente"
                 value={searchDni}
-                maxLength={8}
+                maxLength={11}
                 onChange={e => {
                   setSearchDni(e.target.value.replace(/\D/g, ''));
                   if (clientStatus !== 'idle') {
@@ -513,7 +547,7 @@ const CajaSection = () => {
                 className="erp-btn erp-btn-primary caja-btn-search"
                 onClick={handleSearchClientByDni}
                 disabled={searchingClient || !searchDni.trim()}
-                aria-label="Buscar cliente por DNI"
+                aria-label="Buscar cliente por DNI o RUC"
                 title="Buscar cliente"
               >
                 <FiSearch />
@@ -528,7 +562,7 @@ const CajaSection = () => {
             {selectedClient && (
               <div className="caja-client-fields">
                 <div><strong>Nombre:</strong> {selectedClient.nombreApellido}</div>
-                <div><strong>DNI:</strong> {selectedClient.dni}</div>
+                <div><strong>{selectedClient.tipoDocumento || 'Documento'}:</strong> {selectedClient.documento || selectedClient.dni}</div>
                 <div><strong>Teléfono:</strong> {selectedClient.telefono || '—'}</div>
                 <div><strong>Correo:</strong> {selectedClient.correo || '—'}</div>
               </div>
@@ -643,9 +677,23 @@ const CajaSection = () => {
                       />
                       Factura
                     </label>
+                    {totals.total <= 5 && (
+                      <label className="caja-split-toggle">
+                        <input
+                          type="radio"
+                          name="tipoComprobante"
+                          checked={tipoComprobante === 'SIN_COMPROBANTE'}
+                          onChange={() => {
+                            setTipoComprobante('SIN_COMPROBANTE');
+                            setRucFactura('');
+                          }}
+                        />
+                        Sin comprobante
+                      </label>
+                    )}
                   </div>
 
-                  {tipoComprobante === 'FACTURA' && (
+                  {tipoComprobante === 'FACTURA' && selectedClient?.tipoDocumento !== 'RUC' && !/^\d{11}$/.test(selectedClient?.documento || '') && (
                     <div className="caja-invoice-fields">
                       <input
                         type="text"
@@ -656,7 +704,7 @@ const CajaSection = () => {
                         onChange={e => setRucFactura(e.target.value.replace(/\D/g, '').slice(0, 11))}
                       />
                       <p className="caja-pago-hint">
-                        La factura requiere RUC. Si no lo ingresas, no se enviará a SUNAT.
+                        La factura requiere un RUC válido y se enviará a SUNAT al guardar la venta.
                       </p>
                     </div>
                   )}
@@ -665,34 +713,10 @@ const CajaSection = () => {
                     <p className="caja-empty">No hay métodos de pago disponibles</p>
                   ) : (
                     <>
-                      <label className="caja-split-toggle">
-                        <input
-                          type="checkbox"
-                          checked={useMultiplePayments}
-                          onChange={e => {
-                            setUseMultiplePayments(e.target.checked);
-                            if (e.target.checked) {
-                              setPagos([
-                                { ...createEmptyPago(metodosPago), monto: '' },
-                                { ...createEmptyPago(metodosPago), monto: '' },
-                              ]);
-                            } else {
-                              setPagos([{ ...createEmptyPago(metodosPago), monto: totals.total.toFixed(2) }]);
-                            }
-                          }}
-                        />
-                        Dividir pago en varios métodos
-                      </label>
-
-                      {(useMultiplePayments ? pagos : [pagos[0]]).map((pago, idx) => (
+                      {pagos.slice(0, 1).map((pago, idx) => (
                         <div key={idx} className="caja-pago-form">
                           <div className="caja-pago-form-header">
-                            <span className="caja-pago-label">Pago {idx + 1}</span>
-                            {useMultiplePayments && pagos.length > 1 && (
-                              <button type="button" className="caja-pago-remove" onClick={() => removePagoRow(idx)}>
-                                <FiTrash2 size={12} />
-                              </button>
-                            )}
+                            <span className="caja-pago-label">Pago en efectivo</span>
                           </div>
                           <select
                             className="erp-input"
@@ -724,16 +748,7 @@ const CajaSection = () => {
                         </div>
                       ))}
 
-                      {useMultiplePayments && (
-                        <>
-                          <button type="button" className="caja-btn-add-pago" onClick={addPagoRow}>
-                            <FiPlus /> Agregar otro método de pago
-                          </button>
-                          <p className="caja-pago-hint">
-                            Suma: S/ {pagosSum.toFixed(2)} / Total: S/ {totals.total.toFixed(2)}
-                          </p>
-                        </>
-                      )}
+                      <p className="caja-pago-hint">Método validado: Efectivo · Total: S/ {totals.total.toFixed(2)}</p>
                     </>
                   )}
                 </div>
@@ -744,7 +759,9 @@ const CajaSection = () => {
                   onClick={handleFinalizeSale}
                   disabled={processing || metodosPago.length === 0}
                 >
-                  {processing ? 'Registrando...' : `Confirmar venta y emitir ${tipoComprobante === 'FACTURA' ? 'factura' : 'boleta'}`}
+                  {processing ? 'Registrando...' : tipoComprobante === 'SIN_COMPROBANTE'
+                    ? 'Confirmar venta sin comprobante'
+                    : `Confirmar venta y enviar ${tipoComprobante === 'FACTURA' ? 'factura' : 'boleta'} a SUNAT`}
                 </button>
               </>
             )}

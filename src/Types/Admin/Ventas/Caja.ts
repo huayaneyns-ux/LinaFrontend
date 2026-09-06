@@ -6,6 +6,9 @@ export interface CajaClienteDto {
   id: number;
   nombreApellido: string;
   dni: string;
+  tipoDocumento?: string;
+  documento?: string;
+  direccion?: string;
   telefono: string;
   correo: string;
 }
@@ -14,6 +17,10 @@ export interface CajaClienteDto {
 export interface CajaClienteInsertDto {
   nombreApellido: string;
   dni: string;
+  tipoDocumento?: 'DNI' | 'RUC';
+  documento?: string;
+  direccion?: string;
+  ubigeo?: string;
   telefono: string;
   correo: string;
 }
@@ -55,11 +62,11 @@ export interface CajaPagoInsertDto {
 
 export interface CajaVentaInsertDto {
 
-  idCliente: number;
+  idCliente: number | null;
 
   idUsuario: number;
 
-  tipoComprobante: 'BOLETA' | 'FACTURA';
+  tipoComprobante: 'BOLETA' | 'FACTURA' | 'SIN_COMPROBANTE';
 
   clienteFiscal?: CajaComprobanteFiscalDto;
 

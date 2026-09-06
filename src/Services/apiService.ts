@@ -1,7 +1,7 @@
 export const API_BASE_URL = 'http://localhost:5081/api';
 
 class ApiService {
-    private async readErrorMessage(response: Response): Promise<string> {
+ private async readErrorMessage(response: Response): Promise<string> {
         const errorText = await response.text();
 
         if (!errorText) {
@@ -10,7 +10,13 @@ class ApiService {
 
         try {
             const parsed = JSON.parse(errorText) as Record<string, unknown>;
-            const message = parsed.mensaje ?? parsed.message ?? parsed.detail ?? parsed.error;
+
+            const message =
+                parsed.mensaje ??
+                parsed.message ??
+                parsed.detail ??
+                parsed.error;
+
             if (typeof message === 'string' && message.trim()) {
                 return message.trim();
             }
@@ -21,42 +27,65 @@ class ApiService {
         return errorText;
     }
 
-    public async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+
+    public async request<T>(
+        endpoint: string,
+        options?: RequestInit
+    ): Promise<T> {
+
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
+
             headers: {
                 'Content-Type': 'application/json',
+
+                'X-Api-Key': 'UNFV_FIIS2026',
+
                 ...options?.headers,
             },
         });
 
-        // Handle generic error responses
+
         if (!response.ok) {
             const errorMessage = await this.readErrorMessage(response);
             throw new Error(errorMessage);
         }
 
-        // Attempt to parse JSON
+
         try {
             const data = await response.json();
             return data as T;
         } catch {
-            // Handle cases where response is not JSON (e.g. 204 No Content)
             return {} as T;
         }
     }
 
-    public async requestFormData<T>(endpoint: string, formData: FormData): Promise<T> {
+
+    public async requestFormData<T>(
+        endpoint: string,
+        formData: FormData
+    ): Promise<T> {
+
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
+
+            headers: {
+                'X-Api-Key': 'UNFV_FIIS2026',
+            },
+
             body: formData,
-            // NO incluir Content-Type, el browser lo agrega automáticamente
+
+            // No colocar Content-Type aquí.
+            // El navegador agrega automáticamente multipart/form-data
+            // junto con su boundary.
         });
+
 
         if (!response.ok) {
             const errorMessage = await this.readErrorMessage(response);
             throw new Error(errorMessage);
         }
+
 
         try {
             return await response.json();

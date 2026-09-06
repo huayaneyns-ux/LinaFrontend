@@ -29,6 +29,9 @@ export const CajaService = {
 
   },
 
+  buscarClientePorDocumento: async (tipoDocumento: 'DNI' | 'RUC', numero: string): Promise<CajaClienteDto> =>
+    api.request<CajaClienteDto>(`/Caja/Cliente/${tipoDocumento}/${encodeURIComponent(numero)}`, { method: 'GET' }),
+
   buscarClientes: async (termino: string): Promise<CajaClienteDto[]> => {
     const q = termino.trim();
     if (!q) return [];
@@ -60,9 +63,9 @@ export const CajaService = {
 
   crearCliente: async (
     data: CajaClienteInsertDto
-  ): Promise<{ idCliente: number; mensaje: string }> => {
+  ): Promise<{ idCliente: number; mensaje: string; cliente?: CajaClienteDto }> => {
 
-    return api.request<{ idCliente: number; mensaje: string }>(
+    return api.request<{ idCliente: number; mensaje: string; cliente?: CajaClienteDto }>(
       '/Caja/Cliente',
       {
         method: 'POST',

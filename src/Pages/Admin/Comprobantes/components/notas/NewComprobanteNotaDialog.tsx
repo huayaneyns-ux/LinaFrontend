@@ -203,10 +203,10 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
     if (!selectedComprobante) nextErrors.comprobanteRelacionado = 'Debe seleccionar el comprobante que modifica';
 
     const docCliente = form.cliente.documento?.trim() || '';
-    if (!docCliente) {
+    if (!docCliente && !(form.tipo === 'NOTA_DEBITO' && selectedComprobante?.sunatTypeCode === '03')) {
       nextErrors.clienteDocumento = 'El documento del cliente es obligatorio para notas';
     }
-    if (!form.cliente.nombre?.trim()) {
+    if (!form.cliente.nombre?.trim() && !(form.tipo === 'NOTA_DEBITO' && selectedComprobante?.sunatTypeCode === '03')) {
       nextErrors.clienteNombre = 'El nombre del cliente es obligatorio para notas';
     }
 
@@ -321,8 +321,13 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
               type="date"
               className="erp-input"
               value={form.fechaEmision}
-              onChange={(event) => setForm((previous) => ({ ...previous, fechaEmision: event.target.value }))}
+              readOnly
+              disabled
+              aria-describedby="nota-fecha-emision-ayuda"
             />
+            <small id="nota-fecha-emision-ayuda" style={{ color: 'var(--erp-text-secondary)' }}>
+              Se emitirá con la fecha actual del servidor.
+            </small>
           </FormField>
         </section>
 
@@ -411,7 +416,12 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, loading, onClose, onGenerate 
               >
                 <div>
                   <label style={{ fontSize: '11px', color: 'var(--erp-text-secondary)', marginBottom: '2px', display: 'block' }}>Producto base</label>
-                  <select className="erp-input" value={selectedComprobante?.items.find((baseItem) => baseItem.descripcion === item.productoServicio)?.id || ''} onChange={(event) => selectProduct(index, event.target.value)}>
+                  <select
+                    className="erp-input"
+                    value={selectedComprobante?.items.find((baseItem) => baseItem.descripcion === item.productoServicio)?.id || ''}
+                    onChange={(event) => selectProduct(index, event.target.value)}
+                    disabled={form.tipo === 'NOTA_DEBITO' && form.motivo === 'Intereses por mora'}
+                  >
                     <option value="">Seleccionar ítem</option>
                     {(selectedComprobante?.items ?? []).map((prod) => (
                       <option key={prod.id} value={prod.id}>{prod.descripcion}</option>
