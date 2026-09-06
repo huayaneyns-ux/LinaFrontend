@@ -31,9 +31,11 @@ export function useComprobantes() {
     return fallback;
   };
 
-  const loadComprobantes = useCallback(async () => {
+  const loadComprobantes = useCallback(async (background = false) => {
     try {
-      setLoading(true);
+      if (!background) {
+        setLoading(true);
+      }
       setError(null);
       const [ventas, documentos, notasBase, compras] = await Promise.all([
         ComprobanteVentasService.getVentasDisponibles(),
@@ -48,7 +50,9 @@ export function useComprobantes() {
     } catch (error) {
       setError(getErrorMessage('No se pudieron cargar los comprobantes. Intenta nuevamente.', error));
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -58,8 +62,10 @@ export function useComprobantes() {
       setError(null);
       setSuccessMessage(null);
       const comprobante = await ComprobanteVentasService.emitir(formData);
-      await loadComprobantes();
       setSuccessMessage(`${comprobante.tipo} ${comprobante.serie}-${comprobante.numero} emitido correctamente.`);
+      window.setTimeout(() => {
+        void loadComprobantes(true);
+      }, 0);
       return comprobante;
     } catch (error) {
       setError(getErrorMessage('No se pudo generar el comprobante. Intenta nuevamente.', error));
