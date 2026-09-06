@@ -138,7 +138,18 @@ const CajaSection = () => {
     if (tipoComprobante === 'SIN_COMPROBANTE' && totals.total > 5) {
       setTipoComprobante('BOLETA');
     }
-  }, [tipoComprobante, totals.total]);
+    if (!selectedClient && tipoComprobante === 'FACTURA') {
+      setTipoComprobante('BOLETA');
+      setRucFactura('');
+    }
+    if (selectedClient && tipoComprobante === 'SIN_COMPROBANTE') {
+      setTipoComprobante('BOLETA');
+    }
+  }, [tipoComprobante, totals.total, selectedClient]);
+
+  const sinDocumento = !selectedClient || clientStatus !== 'valid';
+  const boletaSinDocumentoPermitida = sinDocumento && totals.total <= 700;
+  const sinComprobantePermitido = sinDocumento && totals.total <= 5;
 
   const filteredProducts = useMemo(() => {
     const q = productSearch.toLowerCase().trim();
@@ -343,8 +354,16 @@ const CajaSection = () => {
       return;
     }
     const sinComprobante = tipoComprobante === 'SIN_COMPROBANTE';
-    if ((!selectedClient || clientStatus !== 'valid') && !sinComprobante) {
-      setError('Debe buscar y validar un cliente. La opción sin comprobante solo está disponible hasta S/ 5.');
+    if (sinDocumento && tipoComprobante === 'FACTURA') {
+      setError('Sin documento solo se permite Boleta para totales de hasta S/ 700.');
+      return;
+    }
+    if (sinDocumento && tipoComprobante === 'BOLETA' && !boletaSinDocumentoPermitida) {
+      setError('Debe buscar y validar un cliente cuando el total supera S/ 700.');
+      return;
+    }
+    if (sinDocumento && sinComprobante && !sinComprobantePermitido) {
+      setError('Sin comprobante solo está disponible hasta S/ 5.');
       return;
     }
     setError(null);
@@ -371,8 +390,16 @@ const CajaSection = () => {
 
   const handleFinalizeSale = async () => {
     const sinComprobante = tipoComprobante === 'SIN_COMPROBANTE';
-    if (!selectedClient && !sinComprobante) {
-      setError('Debe buscar y validar un cliente. La opción sin comprobante solo está disponible hasta S/ 5.');
+    if (sinDocumento && tipoComprobante === 'FACTURA') {
+      setError('Sin documento solo se permite Boleta para totales de hasta S/ 700.');
+      return;
+    }
+    if (sinDocumento && tipoComprobante === 'BOLETA' && !boletaSinDocumentoPermitida) {
+      setError('Debe buscar y validar un cliente cuando el total supera S/ 700.');
+      return;
+    }
+    if (sinDocumento && sinComprobante && !sinComprobantePermitido) {
+      setError('Sin comprobante solo está disponible hasta S/ 5.');
       return;
     }
     let clienteParaVenta = selectedClient;
@@ -668,16 +695,18 @@ const CajaSection = () => {
                       />
                       Boleta
                     </label>
-                    <label className="caja-split-toggle">
-                      <input
-                        type="radio"
-                        name="tipoComprobante"
-                        checked={tipoComprobante === 'FACTURA'}
-                        onChange={() => setTipoComprobante('FACTURA')}
-                      />
-                      Factura
-                    </label>
-                    {totals.total <= 5 && (
+                    {selectedClient && clientStatus === 'valid' && (
+                      <label className="caja-split-toggle">
+                        <input
+                          type="radio"
+                          name="tipoComprobante"
+                          checked={tipoComprobante === 'FACTURA'}
+                          onChange={() => setTipoComprobante('FACTURA')}
+                        />
+                        Factura
+                      </label>
+                    )}
+                    {sinComprobantePermitido && (
                       <label className="caja-split-toggle">
                         <input
                           type="radio"

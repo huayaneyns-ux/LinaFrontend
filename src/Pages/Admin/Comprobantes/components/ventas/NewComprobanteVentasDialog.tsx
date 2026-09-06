@@ -50,6 +50,7 @@ const createInitialForm = (): ComprobanteFormData => ({
 
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
+const DIRECCION_POR_DEFECTO = 'SIN DIRECCION';
 
 const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: NewComprobanteDialogProps) => {
   const [form, setForm] = useState<ComprobanteFormData>(createInitialForm);
@@ -97,10 +98,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     
     const clienteData = {
       tipoDocumento: newTipo === 'FACTURA' ? 'RUC' : (sale.cliente.tipoDocumento || (isRuc ? 'RUC' : 'DNI')),
-      documento: newTipo === 'FACTURA' ? '' : (sale.cliente.documento || ''),
-      nombre: '',
-      direccion: '',
-      correo: '',
+      documento: newTipo === 'FACTURA' && !isRuc ? '' : (sale.cliente.documento || ''),
+      nombre: sale.cliente.nombre || '',
+      direccion: sale.cliente.direccion?.trim() || DIRECCION_POR_DEFECTO,
+      correo: sale.cliente.correo || '',
     };
     
     setForm(previous => ({
@@ -125,15 +126,24 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     setErrors(previous => ({ ...previous, persona: undefined }));
     try {
       const persona = await ComprobanteVentasService.consultarPersona(tipoDocumento, documento);
-      if (!persona.success || !persona.nombre || !persona.direccion) {
-        throw new Error(persona.mensaje || 'No se encontraron datos completos del documento.');
+      if (!persona.success || !persona.nombre) {
+        throw new Error(persona.mensaje || 'No se encontraron datos del documento.');
       }
       setForm(previous => ({
         ...previous,
-        cliente: { ...previous.cliente, tipoDocumento, documento: persona.numero || documento, nombre: persona.nombre || '', direccion: persona.direccion || '' },
+        cliente: {
+          ...previous.cliente,
+          tipoDocumento,
+          documento: persona.numero || documento,
+          nombre: persona.nombre || '',
+          direccion: persona.direccion?.trim() || DIRECCION_POR_DEFECTO,
+        },
       }));
     } catch (error) {
-      setForm(previous => ({ ...previous, cliente: { ...previous.cliente, nombre: '', direccion: '' } }));
+      setForm(previous => ({
+        ...previous,
+        cliente: { ...previous.cliente, nombre: '', direccion: DIRECCION_POR_DEFECTO },
+      }));
       setErrors(previous => ({ ...previous, persona: error instanceof Error ? error.message : 'No se pudo consultar el documento.' }));
     } finally {
       setConsultandoPersona(false);
@@ -183,6 +193,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
   const validate = (): boolean => {
     const nextErrors: FormErrors = {};
+    const boletaRequiereDatosReceptor = form.tipo === 'BOLETA' && totals.total > 700;
 
     if (form.tipo === 'FACTURA') {
       if (!form.cliente.nombre.trim()) {
@@ -197,13 +208,15 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         nextErrors.clienteDocumento = 'La factura solo permite RUC';
       }
     } else if (form.tipo === 'BOLETA') {
-      if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
+      if (boletaRequiereDatosReceptor) {
+        if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
+          nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
+        } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
+          nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
+        }
+        if (!form.cliente.nombre.trim()) nextErrors.clienteNombre = 'Consulta el DNI/RUC para obtener el nombre';
+        if (!form.cliente.direccion.trim()) nextErrors.clienteDireccion = 'Consulta el DNI/RUC para obtener la dirección';
       }
-      if (!form.cliente.nombre.trim()) nextErrors.clienteNombre = 'Consulta el DNI/RUC para obtener el nombre';
-      if (!form.cliente.direccion.trim()) nextErrors.clienteDireccion = 'Consulta el DNI/RUC para obtener la dirección';
     }
 
     if (form.moneda !== 'PEN' && form.moneda !== 'USD') {
@@ -307,7 +320,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             </FormField>
             <FormField
               label="Número de documento"
-              required
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
               error={errors.clienteDocumento}
             >
               <input
@@ -323,12 +336,16 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             </FormField>
             <FormField
               label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
-              required
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
               error={errors.clienteNombre}
             >
               <input className="erp-input" value={form.cliente.nombre} readOnly disabled />
             </FormField>
-            <FormField label="Dirección" required error={errors.clienteDireccion}>
+            <FormField
+              label="Dirección"
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
+              error={errors.clienteDireccion}
+            >
               <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
             </FormField>
           </div>
