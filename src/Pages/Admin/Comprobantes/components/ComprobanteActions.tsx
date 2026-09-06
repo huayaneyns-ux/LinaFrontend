@@ -10,7 +10,7 @@ interface ComprobanteActionsProps {
   isDeleting?: boolean;
   onViewComprobante: (comprobante: ComprobanteSelectDto) => void;
   onViewDetails: (comprobante: ComprobanteSelectDto) => void;
-  onUpdateSunat: (id: string | number) => void;
+  onUpdateSunat?: (id: string | number) => void;
   onResendSunat?: (id: string | number) => void;
   hideUpdateSunat?: boolean;
   hideDeleteDocument?: boolean;
@@ -28,7 +28,7 @@ const ComprobanteActions = ({
   onViewDetails,
   onUpdateSunat,
   onResendSunat,
-  hideUpdateSunat = false,
+  hideUpdateSunat = true,
   hideDeleteDocument = false,
   onDownloadPDF,
   onDeleteDocument,
@@ -45,7 +45,7 @@ const ComprobanteActions = ({
       tooltip="Ver detalles"
       onClick={() => onViewDetails(comprobante)}
     />
-    {!hideUpdateSunat && (
+    {!hideUpdateSunat && onUpdateSunat && (
       <IconButton
         icon={isUpdatingSunat ? <FiLoader /> : <FiRefreshCw />}
         tooltip={

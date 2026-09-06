@@ -155,6 +155,21 @@ export function useComprobantes() {
     }
   }, [loadComprobantes]);
 
+  const reenviarTodos = useCallback(async (ids: Array<string | number>) => {
+    if (ids.length === 0) return 0;
+
+    let enviados = 0;
+    setError(null);
+    setSuccessMessage(null);
+    for (const id of ids) {
+      const resultado = await reenviarSunat(id);
+      if (resultado) enviados += 1;
+    }
+    await loadComprobantes(true);
+    setSuccessMessage(`${enviados} documento(s) fueron enviados nuevamente a SUNAT.`);
+    return enviados;
+  }, [loadComprobantes, reenviarSunat]);
+
   const getById = useCallback(async (documentId: string) => {
     try {
       setError(null);
@@ -224,6 +239,7 @@ export function useComprobantes() {
     crearGuia: async (_form?: unknown) => true,
     actualizarEstadoSunat,
     reenviarSunat,
+    reenviarTodos,
     getById,
     getPDF,
     voidBill,

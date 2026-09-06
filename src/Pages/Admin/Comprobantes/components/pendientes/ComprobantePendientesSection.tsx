@@ -28,8 +28,8 @@ export const ComprobantePendientesSection = () => {
     resendingSunatId,
     error,
     successMessage,
-    actualizarEstadoSunat,
     reenviarSunat,
+    reenviarTodos,
     loadComprobantes,
     getPDF,
     clearSuccessMessage,
@@ -41,6 +41,13 @@ export const ComprobantePendientesSection = () => {
       return PENDING_SUNAT.has(comprobante.estadoSunat);
     }),
     [comprobantes],
+  );
+
+  const resendableIds = useMemo(
+    () => pendingData
+      .filter((comprobante) => comprobante.estado === 'RECHAZADO' && comprobante.estadoSunat === 'PENDIENTE')
+      .map((comprobante) => comprobante.id),
+    [pendingData],
   );
 
   const {
@@ -82,7 +89,6 @@ export const ComprobantePendientesSection = () => {
           isDownloading={downloadingId === row.id}
           onViewComprobante={setPreview}
           onViewDetails={setDetail}
-          onUpdateSunat={(id) => void actualizarEstadoSunat(id)}
           onResendSunat={(id) => void reenviarSunat(id)}
           hideUpdateSunat
           hideDeleteDocument
@@ -122,6 +128,16 @@ export const ComprobantePendientesSection = () => {
           onToggleFilters={() => undefined}
           filterCount={0}
           onResetFilters={undefined}
+          extraActions={(
+            <button
+              type="button"
+              className="erp-btn erp-btn-sm erp-btn-primary"
+              disabled={resendableIds.length === 0 || resendingSunatId !== null}
+              onClick={() => void reenviarTodos(resendableIds)}
+            >
+              Enviar rechazados pendientes ({resendableIds.length})
+            </button>
+          )}
           newLabel="Refrescar"
           onNew={() => void loadComprobantes()}
         />

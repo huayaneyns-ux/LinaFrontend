@@ -41,7 +41,12 @@ const ComprobantePreviewDialog = ({ comprobante, onClose }: ComprobantePreviewDi
       try {
         setLoadingPdf(true);
         setPdfError(null);
-        const response = await fetch(`${API_BASE_URL}/facturacion/comprobantes/${comprobante.id}/pdf?format=A4`);
+        const response = await fetch(`${API_BASE_URL}/facturacion/comprobantes/${comprobante.id}/pdf?format=A4`, {
+          headers: {
+            Accept: 'application/pdf',
+            'X-Api-Key': 'UNFV_FIIS2026',
+          },
+        });
         if (!response.ok) {
           const message = await response.text();
           throw new Error(message || `No se pudo cargar el PDF (${response.status}).`);

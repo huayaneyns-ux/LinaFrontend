@@ -369,6 +369,7 @@ async function fetchPdf(url: string): Promise<Blob> {
     method: 'GET',
     headers: {
       Accept: 'application/pdf',
+      'X-Api-Key': 'UNFV_FIIS2026',
     },
   });
 

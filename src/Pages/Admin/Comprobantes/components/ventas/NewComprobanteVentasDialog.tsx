@@ -64,6 +64,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
   }, [ventas]);
 
   const selectedSale = ventas.find(venta => venta.id === form.ventaOrigenId);
+  const facturaDesdeVentaConDni = form.tipo === 'FACTURA'
+    && Boolean(selectedSale)
+    && selectedSale?.cliente.tipoDocumento.toUpperCase() === 'DNI'
+    && /^\d{8}$/.test(selectedSale.cliente.documento);
   const filteredSales = useMemo(() => {
     const query = saleSearch.trim().toLowerCase();
     let filtered = ventas;
@@ -180,8 +184,10 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         pago: newTipo === 'FACTURA'
           ? prev.pago
           : { formaPago: 'CONTADO', cuotas: [] },
-        ventaOrigenId: '', // Limpiar venta seleccionada al cambiar tipo
-        detalle: [], // Limpiar detalle al cambiar tipo
+        // Conservamos la venta y su detalle al cambiar entre boleta/factura.
+        // Si la venta tenía DNI, la factura solicitará el RUC fiscal del receptor.
+        ventaOrigenId: prev.ventaOrigenId,
+        detalle: prev.detalle,
       };
     });
     setErrors({});
@@ -306,10 +312,17 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
           </h3>
           <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
-            Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.
+            {form.tipo === 'FACTURA'
+              ? 'Ingresa el RUC del receptor. La razón social y dirección se obtienen de ApiPeru y no se pueden editar.'
+              : 'Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.'}
           </p>
+          {facturaDesdeVentaConDni && (
+            <div style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '12px' }}>
+              La venta fue buscada con DNI. Para emitir factura, ingresa y consulta el RUC fiscal del receptor.
+            </div>
+          )}
           <div className="erp-form-grid">
-            <FormField label="Tipo de documento">
+            <FormField label={form.tipo === 'FACTURA' ? 'Documento del receptor' : 'Tipo de documento'}>
               <select
                 className="erp-input"
                 value={form.cliente.tipoDocumento}
@@ -319,7 +332,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
               </select>
             </FormField>
             <FormField
-              label="Número de documento"
+              label={form.tipo === 'FACTURA' ? 'RUC del receptor' : 'Número de documento'}
               required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
               error={errors.clienteDocumento}
             >
@@ -349,6 +362,14 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
               <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
             </FormField>
           </div>
+          {form.tipo === 'FACTURA' && form.cliente.tipoDocumento === 'RUC' && form.cliente.documento.length === 11 && form.cliente.nombre && (
+            <div style={{ marginTop: '10px', padding: '10px 12px', border: '1px solid var(--erp-border)', borderRadius: '6px', fontSize: '12px' }}>
+              <strong style={{ display: 'block', marginBottom: '4px' }}>Datos del RUC consultado</strong>
+              <div>RUC: {form.cliente.documento}</div>
+              <div>Razón social: {form.cliente.nombre}</div>
+              <div>Dirección: {form.cliente.direccion || DIRECCION_POR_DEFECTO}</div>
+            </div>
+          )}
           {errors.persona && <div className="erp-form-error">{errors.persona}</div>}
         </section>
 
