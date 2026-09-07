@@ -44,7 +44,7 @@ export const configuracionMotivosCredito: Record<TipoNotaCredito, MotivoConfig> 
   },
 };
 
-export const configuracionMotivosDebito: Record<TipoNotaDebito, MotivoConfig> = {
+export const configuracionMotivosDebito: Partial<Record<TipoNotaDebito, MotivoConfig>> = {
   'Intereses por mora': {
     trabajaConItems: true,
     itemsObligatorios: true,
@@ -54,16 +54,6 @@ export const configuracionMotivosDebito: Record<TipoNotaDebito, MotivoConfig> = 
     trabajaConItems: true,
     itemsObligatorios: true,
     descripcion: 'Aumenta el valor de uno o varios conceptos del comprobante original.',
-  },
-  'Penalidades': {
-    trabajaConItems: true,
-    itemsObligatorios: true,
-    descripcion: 'Registra penalidades aplicadas a la operación.',
-  },
-  'Otros conceptos': {
-    trabajaConItems: true,
-    itemsObligatorios: true,
-    descripcion: 'Registra conceptos adicionales relacionados con la operación.',
   },
 };
 

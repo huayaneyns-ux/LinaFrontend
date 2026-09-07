@@ -8,6 +8,7 @@ import {
   FiUser, FiAlertCircle, FiTruck, FiShoppingBag, FiImage
 } from 'react-icons/fi';
 import PedidoDetalleModal from '../Components/Shared/PedidoDetalleModal';
+import { getNumericUserId } from '../Utils/auth';
 import '../Styles/Pages/MisPedidos.css';
 
 // Mapa de estados
@@ -66,7 +67,7 @@ const MisPedidos = () => {
       try {
         setLoading(true);
         const todos = await PedidoService.getPedidos();
-        const numericUserId = usuario?.id ? (typeof usuario.id === 'number' ? usuario.id : parseInt(String(usuario.id).replace(/\D/g, ''), 10)) : 0;
+        const numericUserId = getNumericUserId(usuario) ?? 0;
         const propios = todos.filter(p => {
           if (numericUserId && p.id_cliente === numericUserId) return true;
           const clienteNombre = (p.cliente ?? '').toLowerCase();

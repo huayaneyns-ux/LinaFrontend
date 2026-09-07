@@ -14,6 +14,7 @@ import { useDataTable } from '../../../../Hooks/useDataTable';
 import { useDialog } from '../../../../Hooks/useDialog';
 import { formatDate } from '../../../../Utils/formatters';
 import { isActivoEstado } from '../../../../Utils/imageUtils';
+import { getNumericUserId } from '../../../../Utils/auth';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
@@ -279,10 +280,14 @@ const ComprasSection = () => {
       return;
     }
 
-    const idUsuario = usuario?.id ? Number(usuario.id) : 1;
+    const idUsuario = getNumericUserId(usuario);
+    if (!idUsuario) {
+      setFormError('Sesión inválida. Vuelva a iniciar sesión.');
+      return;
+    }
 
     const payload: CompraCompletaInsertDto = {
-      id_usuario: isNaN(idUsuario) ? 1 : idUsuario,
+      id_usuario: idUsuario,
       id_proveedor: idProveedor,
       fecha_compra: new Date(fechaCompra).toISOString(),
       fecha_recepcion: fechaRecepcion ? new Date(fechaRecepcion).toISOString() : null,

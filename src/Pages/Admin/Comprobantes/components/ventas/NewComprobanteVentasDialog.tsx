@@ -1,26 +1,33 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiLock } from 'react-icons/fi';
 import CrudDialog from '../../../../../Components/ERP/CrudDialog';
 import FormField from '../../../../../Components/ERP/FormField';
 import SearchInput from '../../../../../Components/ERP/SearchInput';
 import { totalEnLetras } from '../../../../../Utils/numberToWordsSoles';
+import { ComprobanteVentasService } from '../../../../../Services/Admin/Comprobantes/ComprobanteVentasService';
 import type {
   ComprobanteEmitibleTipo,
   ComprobanteFormData,
-  ProductoComprobanteMockDto,
   VentaOrigenComprobanteDto,
 } from '../../../../../Types/Admin/Comprobantes/Comprobante';
 
 interface NewComprobanteDialogProps {
   isOpen: boolean;
   ventas: VentaOrigenComprobanteDto[];
-  productos?: ProductoComprobanteMockDto[];
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: ComprobanteFormData) => Promise<boolean>;
 }
 
-type FormErrorKey = 'clienteNombre' | 'clienteDocumento' | 'fechaVencimiento' | 'detalle';
+type FormErrorKey =
+  | 'clienteNombre'
+  | 'clienteDocumento'
+  | 'fechaVencimiento'
+  | 'detalle'
+  | 'clienteDireccion'
+  | 'pago'
+  | 'moneda'
+  | 'persona';
 type FormErrors = Partial<Record<FormErrorKey, string>>;
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -33,34 +40,46 @@ const createInitialForm = (): ComprobanteFormData => ({
   detalle: [],
   fechaEmision: today(),
   fechaVencimiento: '',
+  moneda: 'PEN',
+  pago: {
+    formaPago: 'CONTADO',
+    cuotas: [],
+  },
   observaciones: '',
 });
 
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
+const DIRECCION_POR_DEFECTO = 'SIN DIRECCION';
 
 const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: NewComprobanteDialogProps) => {
   const [form, setForm] = useState<ComprobanteFormData>(createInitialForm);
   const [saleSearch, setSaleSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
+  const [consultandoPersona, setConsultandoPersona] = useState(false);
+
+  useEffect(() => {
+    const fechaServidor = ventas.find(venta => venta.fechaEmisionServidor)?.fechaEmisionServidor;
+    if (fechaServidor) setForm(previous => ({ ...previous, fechaEmision: fechaServidor }));
+  }, [ventas]);
 
   const selectedSale = ventas.find(venta => venta.id === form.ventaOrigenId);
+  const facturaDesdeVentaConDni = form.tipo === 'FACTURA'
+    && Boolean(selectedSale)
+    && selectedSale?.cliente.tipoDocumento.toUpperCase() === 'DNI'
+    && /^\d{8}$/.test(selectedSale.cliente.documento);
   const filteredSales = useMemo(() => {
     const query = saleSearch.trim().toLowerCase();
     let filtered = ventas;
     
     // Filtrar por tipo de comprobante correspondiente
     if (form.tipo === 'FACTURA') {
-      // Para factura, mostrar solo ventas con RUC (11 dígitos)
-      filtered = ventas.filter(venta => venta.cliente.documento && venta.cliente.documento.length === 11);
+      // Factura muestra todas las ventas elegibles; el RUC del receptor se consulta aparte.
+      filtered = ventas;
     } else if (form.tipo === 'BOLETA') {
-      // Para boleta, mostrar ventas con DNI o sin documento (clientes generales)
-      filtered = ventas.filter(venta => !venta.cliente.documento || venta.cliente.documento.length !== 11);
-    } else if (form.tipo === 'LIQUIDACION_COMPRA') {
-      // Para liquidación de compra, mostrar todas las ventas
       filtered = ventas;
     }
-    
+
     if (!query) return filtered;
     return filtered.filter(venta => [venta.id, venta.codigo, venta.fecha, venta.cliente.nombre, String(venta.total)]
       .some(value => value.toLowerCase().includes(query)));
@@ -77,51 +96,17 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     const sale = ventas.find(venta => venta.id === saleId);
     if (!sale) return;
     
-    const isRuc = sale.cliente.documento && sale.cliente.documento.length === 11;
+    const isRuc = sale.cliente.tipoDocumento.toUpperCase() === 'RUC' || sale.cliente.documento.length === 11;
     
-    // Solo cambiar el tipo de comprobante si aún no hay uno seleccionado o si el tipo actual no coincide con el documento
-    let shouldChangeTipo = false;
-    if (form.tipo === 'BOLETA' && isRuc) {
-      shouldChangeTipo = true;
-    } else if (form.tipo === 'FACTURA' && !isRuc) {
-      shouldChangeTipo = true;
-    }
+    const newTipo = form.tipo;
     
-    const newTipo = shouldChangeTipo 
-      ? (isRuc ? 'FACTURA' : 'BOLETA') 
-      : form.tipo;
-    
-    // Para factura, siempre llenar datos del cliente
-    // Para boleta con RUC, dejar datos vacíos (clientes generales)
-    // Para boleta con DNI, llenar datos del cliente
-    let clienteData;
-    if (newTipo === 'FACTURA') {
-      clienteData = {
-        tipoDocumento: isRuc ? 'RUC' : (sale.cliente.tipoDocumento || 'DNI'),
-        documento: sale.cliente.documento || '',
-        nombre: sale.cliente.nombre || '',
-        direccion: sale.cliente.direccion || '',
-        correo: sale.cliente.correo || '',
-      };
-    } else if (newTipo === 'BOLETA' && isRuc) {
-      // Boleta con RUC - dejar datos vacíos (cliente general)
-      clienteData = {
-        tipoDocumento: 'DNI',
-        documento: '',
-        nombre: '',
-        direccion: '',
-        correo: '',
-      };
-    } else {
-      // Boleta con DNI o sin documento - llenar datos del cliente
-      clienteData = {
-        tipoDocumento: sale.cliente.tipoDocumento || 'DNI',
-        documento: sale.cliente.documento || '',
-        nombre: sale.cliente.nombre || '',
-        direccion: sale.cliente.direccion || '',
-        correo: sale.cliente.correo || '',
-      };
-    }
+    const clienteData = {
+      tipoDocumento: newTipo === 'FACTURA' ? 'RUC' : (sale.cliente.tipoDocumento || (isRuc ? 'RUC' : 'DNI')),
+      documento: newTipo === 'FACTURA' && !isRuc ? '' : (sale.cliente.documento || ''),
+      nombre: sale.cliente.nombre || '',
+      direccion: sale.cliente.direccion?.trim() || DIRECCION_POR_DEFECTO,
+      correo: sale.cliente.correo || '',
+    };
     
     setForm(previous => ({
       ...previous,
@@ -132,6 +117,41 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
       detalle: sale.detalle.map(item => ({ ...item })),
     }));
     setErrors({});
+    if (clienteData.documento) {
+      void consultarPersona(clienteData.tipoDocumento as 'DNI' | 'RUC', clienteData.documento);
+    }
+  };
+
+  const consultarPersona = async (tipoDocumento: 'DNI' | 'RUC', numero: string) => {
+    const documento = numero.trim();
+    const valido = tipoDocumento === 'DNI' ? /^\d{8}$/.test(documento) : /^\d{11}$/.test(documento);
+    if (!valido) return;
+    setConsultandoPersona(true);
+    setErrors(previous => ({ ...previous, persona: undefined }));
+    try {
+      const persona = await ComprobanteVentasService.consultarPersona(tipoDocumento, documento);
+      if (!persona.success || !persona.nombre) {
+        throw new Error(persona.mensaje || 'No se encontraron datos del documento.');
+      }
+      setForm(previous => ({
+        ...previous,
+        cliente: {
+          ...previous.cliente,
+          tipoDocumento,
+          documento: persona.numero || documento,
+          nombre: persona.nombre || '',
+          direccion: persona.direccion?.trim() || DIRECCION_POR_DEFECTO,
+        },
+      }));
+    } catch (error) {
+      setForm(previous => ({
+        ...previous,
+        cliente: { ...previous.cliente, nombre: '', direccion: DIRECCION_POR_DEFECTO },
+      }));
+      setErrors(previous => ({ ...previous, persona: error instanceof Error ? error.message : 'No se pudo consultar el documento.' }));
+    } finally {
+      setConsultandoPersona(false);
+    }
   };
 
   const handleTipoChange = (newTipo: ComprobanteEmitibleTipo) => {
@@ -143,11 +163,11 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         nextTipoDoc = 'DNI';
       }
       
-      // Limpiar datos del cliente si cambiamos a BOLETA y el cliente actual tiene RUC
+      // Al cambiar de tipo se debe volver a consultar el documento fiscal.
       let clienteData = { ...prev.cliente, tipoDocumento: nextTipoDoc };
-      if (newTipo === 'BOLETA' && prev.cliente.tipoDocumento === 'RUC') {
+      if (newTipo === 'FACTURA' || (newTipo === 'BOLETA' && prev.cliente.tipoDocumento === 'RUC')) {
         clienteData = {
-          tipoDocumento: 'DNI',
+          tipoDocumento: newTipo === 'FACTURA' ? 'RUC' : 'DNI',
           documento: '',
           nombre: '',
           direccion: '',
@@ -160,8 +180,14 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         tipo: newTipo,
         cliente: clienteData,
         fechaVencimiento: newTipo === 'FACTURA' ? prev.fechaVencimiento : '',
-        ventaOrigenId: '', // Limpiar venta seleccionada al cambiar tipo
-        detalle: [], // Limpiar detalle al cambiar tipo
+        moneda: prev.moneda,
+        pago: newTipo === 'FACTURA'
+          ? prev.pago
+          : { formaPago: 'CONTADO', cuotas: [] },
+        // Conservamos la venta y su detalle al cambiar entre boleta/factura.
+        // Si la venta tenía DNI, la factura solicitará el RUC fiscal del receptor.
+        ventaOrigenId: prev.ventaOrigenId,
+        detalle: prev.detalle,
       };
     });
     setErrors({});
@@ -173,6 +199,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
   const validate = (): boolean => {
     const nextErrors: FormErrors = {};
+    const boletaRequiereDatosReceptor = form.tipo === 'BOLETA' && totals.total > 700;
 
     if (form.tipo === 'FACTURA') {
       if (!form.cliente.nombre.trim()) {
@@ -183,45 +210,26 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
       } else if (!/^\d{11}$/.test(form.cliente.documento.trim())) {
         nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
       }
-    } else if (form.tipo === 'LIQUIDACION_COMPRA') {
-      if (!form.cliente.nombre.trim()) {
-        nextErrors.clienteNombre = 'El nombre del vendedor / proveedor es obligatorio';
-      }
-      if (!form.cliente.documento.trim()) {
-        nextErrors.clienteDocumento = 'El documento del vendedor es obligatorio';
-      } else if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-      } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(form.cliente.documento.trim())) {
-        nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
+      if (form.cliente.tipoDocumento !== 'RUC') {
+        nextErrors.clienteDocumento = 'La factura solo permite RUC';
       }
     } else if (form.tipo === 'BOLETA') {
-      // Validaciones adicionales para boleta cuando se ingresa documento
-      if (form.cliente.documento.trim()) {
+      if (boletaRequiereDatosReceptor) {
         if (form.cliente.tipoDocumento === 'DNI' && !/^\d{8}$/.test(form.cliente.documento.trim())) {
           nextErrors.clienteDocumento = 'El DNI debe tener 8 dígitos numéricos';
         } else if (form.cliente.tipoDocumento === 'RUC' && !/^\d{11}$/.test(form.cliente.documento.trim())) {
           nextErrors.clienteDocumento = 'El RUC debe tener 11 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'CE' && !/^\d{12}$/.test(form.cliente.documento.trim())) {
-          nextErrors.clienteDocumento = 'El Carnet de Extranjería debe tener 12 dígitos numéricos';
-        } else if (form.cliente.tipoDocumento === 'PASAPORTE' && form.cliente.documento.trim().length < 6) {
-          nextErrors.clienteDocumento = 'El Pasaporte debe tener al menos 6 caracteres';
         }
-      }
-      if (totals.total >= 700) {
-        if (!form.cliente.nombre.trim()) {
-          nextErrors.clienteNombre = 'Para boletas de S/ 700 a más, el nombre es obligatorio';
-        }
-        if (!form.cliente.documento.trim()) {
-          nextErrors.clienteDocumento = 'Para boletas de S/ 700 a más, el documento es obligatorio';
-        }
+        if (!form.cliente.nombre.trim()) nextErrors.clienteNombre = 'Consulta el DNI/RUC para obtener el nombre';
+        if (!form.cliente.direccion.trim()) nextErrors.clienteDireccion = 'Consulta el DNI/RUC para obtener la dirección';
       }
     }
 
-    if (form.tipo === 'FACTURA' && form.fechaVencimiento && form.fechaVencimiento < form.fechaEmision) {
-      nextErrors.fechaVencimiento = 'La fecha de vencimiento no puede ser anterior a la emisión';
+    if (form.moneda !== 'PEN' && form.moneda !== 'USD') {
+      nextErrors.moneda = 'La moneda permitida es PEN o USD';
     }
+
+    if (form.pago.formaPago !== 'CONTADO' || form.pago.cuotas.length > 0) nextErrors.pago = 'El comprobante solo permite pago CONTADO';
 
     if (form.detalle.length === 0) {
       nextErrors.detalle = 'Agrega al menos un ítem al comprobante';
@@ -243,9 +251,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
   const typeLabel = form.tipo === 'BOLETA'
     ? 'Boleta'
-    : form.tipo === 'FACTURA'
-      ? 'Factura'
-      : 'Liquidación de Compra';
+    : 'Factura';
 
   return (
     <CrudDialog
@@ -269,17 +275,21 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
             >
               <option value="BOLETA">Boleta de Venta</option>
               <option value="FACTURA">Factura</option>
-              <option value="LIQUIDACION_COMPRA">Liquidación de Compra</option>
             </select>
           </FormField>
           <FormField label="Fecha de emisión">
-            <input type="date" className="erp-input" value={form.fechaEmision} onChange={event => setForm(previous => ({ ...previous, fechaEmision: event.target.value }))} />
+            <input type="date" className="erp-input" value={form.fechaEmision} readOnly disabled />
           </FormField>
-          {form.tipo === 'FACTURA' && (
-            <FormField label="Fecha de vencimiento" error={errors.fechaVencimiento}>
-              <input type="date" className="erp-input" value={form.fechaVencimiento} onChange={event => setForm(previous => ({ ...previous, fechaVencimiento: event.target.value }))} />
-            </FormField>
-          )}
+          <FormField label="Moneda" error={errors.moneda}>
+            <select
+              className="erp-input"
+              value={form.moneda}
+              onChange={event => setForm(previous => ({ ...previous, moneda: event.target.value as 'PEN' | 'USD' }))}
+            >
+              <option value="PEN">PEN</option>
+              <option value="USD">USD</option>
+            </select>
+          </FormField>
         </section>
 
         <section>
@@ -299,56 +309,71 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
-            {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : form.tipo === 'LIQUIDACION_COMPRA' ? 'Datos del Vendedor / Proveedor' : 'Datos del Cliente'}
+            {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
           </h3>
-          {selectedSale && form.tipo === 'BOLETA' && !selectedSale.cliente.documento && (
-            <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
-              Cliente general - Datos del cliente opcionales
-            </p>
+          <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
+            {form.tipo === 'FACTURA'
+              ? 'Ingresa el RUC del receptor. La razón social y dirección se obtienen de ApiPeru y no se pueden editar.'
+              : 'Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.'}
+          </p>
+          {facturaDesdeVentaConDni && (
+            <div style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '12px' }}>
+              La venta fue buscada con DNI. Para emitir factura, ingresa y consulta el RUC fiscal del receptor.
+            </div>
           )}
           <div className="erp-form-grid">
-            <FormField label="Tipo de documento">
+            <FormField label={form.tipo === 'FACTURA' ? 'Documento del receptor' : 'Tipo de documento'}>
               <select
                 className="erp-input"
                 value={form.cliente.tipoDocumento}
                 onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, tipoDocumento: event.target.value } }))}
               >
-                {form.tipo === 'FACTURA' ? (
-                  <option value="RUC">RUC</option>
-                ) : (
-                  <>
-                    <option value="DNI">DNI</option>
-                    <option value="RUC">RUC</option>
-                    <option value="CE">Carnet de Extranjería (CE)</option>
-                    {form.tipo === 'BOLETA' && <option value="PASAPORTE">Pasaporte</option>}
-                  </>
-                )}
+                {form.tipo === 'FACTURA' ? <option value="RUC">RUC</option> : <><option value="DNI">DNI</option><option value="RUC">RUC</option></>}
               </select>
             </FormField>
             <FormField
-              label="Número de documento"
-              required={form.tipo === 'FACTURA' || form.tipo === 'LIQUIDACION_COMPRA' || totals.total >= 700}
+              label={form.tipo === 'FACTURA' ? 'RUC del receptor' : 'Número de documento'}
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
               error={errors.clienteDocumento}
             >
               <input
                 className="erp-input"
                 maxLength={form.cliente.tipoDocumento === 'RUC' ? 11 : form.cliente.tipoDocumento === 'DNI' ? 8 : 15}
                 value={form.cliente.documento}
-                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value } }))}
+                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value, nombre: '', direccion: '' } }))}
+                onBlur={event => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', event.target.value)}
               />
+              <button type="button" className="erp-btn erp-btn-secondary" disabled={consultandoPersona} onClick={() => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', form.cliente.documento)}>
+                {consultandoPersona ? 'Consultando...' : 'Consultar documento'}
+              </button>
             </FormField>
             <FormField
-              label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : form.tipo === 'LIQUIDACION_COMPRA' ? 'Nombre del vendedor' : 'Nombre del cliente'}
-              required={form.tipo === 'FACTURA' || form.tipo === 'LIQUIDACION_COMPRA' || totals.total >= 700}
+              label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
               error={errors.clienteNombre}
             >
-              <input className="erp-input" value={form.cliente.nombre} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, nombre: event.target.value } }))} />
+              <input className="erp-input" value={form.cliente.nombre} readOnly disabled />
             </FormField>
-            <FormField label="Dirección" required={form.tipo === 'LIQUIDACION_COMPRA'}>
-              <input className="erp-input" value={form.cliente.direccion} onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, direccion: event.target.value } }))} />
+            <FormField
+              label="Dirección"
+              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
+              error={errors.clienteDireccion}
+            >
+              <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
             </FormField>
           </div>
+          {form.tipo === 'FACTURA' && form.cliente.tipoDocumento === 'RUC' && form.cliente.documento.length === 11 && form.cliente.nombre && (
+            <div style={{ marginTop: '10px', padding: '10px 12px', border: '1px solid var(--erp-border)', borderRadius: '6px', fontSize: '12px' }}>
+              <strong style={{ display: 'block', marginBottom: '4px' }}>Datos del RUC consultado</strong>
+              <div>RUC: {form.cliente.documento}</div>
+              <div>Razón social: {form.cliente.nombre}</div>
+              <div>Dirección: {form.cliente.direccion || DIRECCION_POR_DEFECTO}</div>
+            </div>
+          )}
+          {errors.persona && <div className="erp-form-error">{errors.persona}</div>}
         </section>
+
+        <p style={{ margin: 0, color: 'var(--erp-text-muted)', fontSize: '12px' }}>Forma de pago: CONTADO · efectivo</p>
 
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Detalle de la venta</h3>
@@ -387,7 +412,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 
         <section style={{ marginLeft: 'auto', minWidth: '260px', display: 'grid', gap: '6px', fontSize: '13px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>Subtotal</span><strong>{formatAmount(totals.subtotal)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV (18%)</span><strong>{formatAmount(totals.igv)}</strong></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV</span><strong>{formatAmount(totals.igv)}</strong></div>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', fontSize: '16px' }}><strong>TOTAL</strong><strong>{formatAmount(totals.total)}</strong></div>
         </section>
 
@@ -411,9 +436,9 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
         <section style={{ padding: '12px', background: 'var(--erp-bg-light)', borderRadius: '6px', fontSize: '13px' }}>
           <strong style={{ display: 'block', marginBottom: '6px' }}>RESUMEN DEL COMPROBANTE</strong>
           <div>Tipo: {typeLabel} · Venta de origen: {selectedSale ? `Venta #${selectedSale.id}` : 'No seleccionada'} · Cliente: {form.cliente.nombre || 'No especificado'}</div>
-          <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
+          <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Moneda: {form.moneda} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
           <div>Subtotal: {formatAmount(totals.subtotal)} · IGV: {formatAmount(totals.igv)} · Total: {formatAmount(totals.total)}</div>
-          {form.tipo === 'FACTURA' && <div>Fecha de vencimiento: {form.fechaVencimiento || 'No especificada'}</div>}
+          <div>Forma de pago: CONTADO · efectivo</div>
           {form.observaciones && <div>Observaciones: {form.observaciones}</div>}
         </section>
       </div>
@@ -422,4 +447,3 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
 };
 
 export default NewComprobanteDialog;
-

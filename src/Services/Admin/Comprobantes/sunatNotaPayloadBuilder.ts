@@ -80,6 +80,7 @@ export function buildSunatNotaPayload({
   formData,
   serie,
   numero,
+  tipoComprobanteRelacionado,
   issueTime,
 }: BuildSunatNotaPayloadOptions): SunatDocumentPayload {
 
@@ -187,6 +188,14 @@ export function buildSunatNotaPayload({
    */
 
   const responseCode = getResponseCode(formData.tipo, formData.motivo);
+
+  if (
+    tipoComprobanteRelacionado === 'BOLETA' &&
+    formData.tipo === 'NOTA_CREDITO' &&
+    ['Descuento global o por ítem', 'Devolución total o por ítem', 'Bonificaciones'].includes(formData.motivo)
+  ) {
+    throw new Error('Las notas de crédito 04, 05 y 08 no pueden vincularse a una boleta.');
+  }
 
   /*
    * ============================================================

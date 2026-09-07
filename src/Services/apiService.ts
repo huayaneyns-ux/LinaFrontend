@@ -1,7 +1,33 @@
-const API_BASE_URL = 'http://localhost:7146/api';
+export const API_BASE_URL = 'http://localhost:5081/api';
 const API_KEY = 'UNFV_FIIS2026';
 
 class ApiService {
+    private async readErrorMessage(response: Response): Promise<string> {
+        const errorText = await response.text();
+
+        if (!errorText) {
+            return `API Error: ${response.status}`;
+        }
+
+        try {
+            const parsed = JSON.parse(errorText) as Record<string, unknown>;
+
+            const message =
+                parsed.mensaje ??
+                parsed.message ??
+                parsed.detail ??
+                parsed.error;
+
+            if (typeof message === 'string' && message.trim()) {
+                return message.trim();
+            }
+        } catch {
+            // Keep the raw response text below.
+        }
+
+        return errorText;
+    }
+
     public async request<T>(
         endpoint: string,
         options?: RequestInit
@@ -9,6 +35,7 @@ class ApiService {
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             ...options,
+
             headers: {
                 'Content-Type': 'application/json',
                 'X-Api-Key': API_KEY,
@@ -17,8 +44,8 @@ class ApiService {
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error: ${response.status} - ${errorText}`);
+            const errorMessage = await this.readErrorMessage(response);
+            throw new Error(errorMessage);
         }
 
         try {
@@ -36,15 +63,21 @@ class ApiService {
 
         const response = await fetch(`${API_BASE_URL}${endpoint}`, {
             method: 'POST',
+
             headers: {
                 'X-Api-Key': API_KEY,
             },
+
             body: formData,
+
+            // No colocar Content-Type aquí.
+            // El navegador agrega automáticamente multipart/form-data
+            // junto con su boundary.
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`API Error: ${response.status} - ${errorText}`);
+            const errorMessage = await this.readErrorMessage(response);
+            throw new Error(errorMessage);
         }
 
         try {

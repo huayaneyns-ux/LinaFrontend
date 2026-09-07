@@ -3,8 +3,10 @@ import type { ReactElement } from 'react';
 import {
   FiClipboard,
   FiFileText,
-  FiCornerUpLeft,
-  FiTruck,
+  FiEdit3,
+  FiShoppingBag,
+  FiActivity,
+  FiClock,
 } from 'react-icons/fi';
 import type {
   ComprobanteSection,
@@ -12,9 +14,11 @@ import type {
 } from '../../../Types/Admin/Comprobantes/Comprobante';
 import '../Inventario/Inventario.css';
 import { ComprobantePagoVentas } from './components/ventas/ComprobanteVentasSection';
-import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
 import { ComprobanteTodosSection } from './components/todos/ComprobanteTodosSection';
-import { ComprobanteGuiaSection } from './components/guias/ComprobanteGuiaSection';
+import { ComprobanteNotaVentas } from './components/notas/ComprobanteNotaSection';
+import { ComprobanteLiquidacionSection } from './components/liquidaciones/ComprobanteLiquidacionSection';
+import { ComprobanteTiemposSection } from './components/tiempos/ComprobanteTiemposSection';
+import { ComprobantePendientesSection } from './components/pendientes/ComprobantePendientesSection';
 
 type ComprobanteTab = ComprobanteSectionDefinition & {
   icon: ReactElement;
@@ -23,8 +27,10 @@ type ComprobanteTab = ComprobanteSectionDefinition & {
 const TABS: readonly ComprobanteTab[] = [
   { id: 'todos', label: 'Todos', icon: <FiClipboard /> },
   { id: 'comprobantes', label: 'Comprobantes', icon: <FiFileText /> },
-  { id: 'guias', label: 'Guías de Remisión', icon: <FiTruck /> },
-  { id: 'notas', label: 'Notas', icon: <FiCornerUpLeft /> },
+  { id: 'notas', label: 'Notas', icon: <FiEdit3 /> },
+  { id: 'pendientes', label: 'Pendientes', icon: <FiClock /> },
+  { id: 'liquidaciones', label: 'Liquidaciones', icon: <FiShoppingBag /> },
+  { id: 'tiempos-sunat', label: 'Tiempos SUNAT', icon: <FiActivity /> },
 ];
 
 export function ComprobantesPage() {
@@ -59,9 +65,11 @@ export function ComprobantesPage() {
       </div>
       <div className="erp-tab-content">
         {activeTab === 'comprobantes' && < ComprobantePagoVentas />}
-        {activeTab === 'notas' && < ComprobanteNotaVentas />}
         {activeTab === 'todos' && < ComprobanteTodosSection />}
-        {activeTab === 'guias' && < ComprobanteGuiaSection />}
+        {activeTab === 'notas' && <ComprobanteNotaVentas />}
+        {activeTab === 'pendientes' && <ComprobantePendientesSection />}
+        {activeTab === 'liquidaciones' && <ComprobanteLiquidacionSection />}
+        {activeTab === 'tiempos-sunat' && <ComprobanteTiemposSection />}
       </div>
     </div>
   );

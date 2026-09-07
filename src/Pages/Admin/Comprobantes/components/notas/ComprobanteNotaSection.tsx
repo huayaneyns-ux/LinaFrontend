@@ -31,6 +31,8 @@ import NewNotaDialog from "./NewComprobanteNotaDialog";
 
 import { EMPRESA } from "../../../../../Constantes/Empresa";
 
+const PENDING_SUNAT = new Set(['PENDIENTE', 'EXCEPCION', 'NO_ENVIADO']);
+
 
 
 interface NotaComprobanteFilters {
@@ -74,14 +76,15 @@ export const ComprobanteNotaVentas = () => {
   const [detailNota, setDetailNota] =
     useState<ComprobanteSelectDto | null>(null);
 
-  const [downloadingId, setDownloadingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
+  const [deletingId, setDeletingId] = useState<string | number | null>(null);
   const [voidReasonDialog, setVoidReasonDialog] = useState<{ open: boolean; comprobante: ComprobanteSelectDto | null }>({ open: false, comprobante: null });
   const [voidReason, setVoidReason] = useState('');
 
   const {
     comprobantes,
-    productosDisponibles,
+    notasBaseDisponibles,
+    notasBaseDebitoDisponibles,
     loading,
     generating,
     updatingSunatId,
@@ -98,6 +101,12 @@ export const ComprobanteNotaVentas = () => {
   const filteredNotas = useMemo(() => {
     return comprobantes.filter(comprobante => {
       if (comprobante.tipo !== 'NOTA_CREDITO' && comprobante.tipo !== 'NOTA_DEBITO') {
+        return false;
+      }
+      if (comprobante.estado === 'ANULADO') {
+        return false;
+      }
+      if (PENDING_SUNAT.has(comprobante.estadoSunat)) {
         return false;
       }
       if (filters.tipo && comprobante.tipo !== filters.tipo) {
@@ -145,7 +154,7 @@ export const ComprobanteNotaVentas = () => {
     try {
       setDeletingId(voidReasonDialog.comprobante.id);
       const voidRequest = {
-        personaId: EMPRESA.id,
+        personaId: EMPRESA.sunatConfig.personaId,
         personaToken: EMPRESA.sunatConfig.personaToken || '',
         documentId: String(voidReasonDialog.comprobante.id),
         reason: voidReason,
@@ -855,9 +864,8 @@ export const ComprobanteNotaVentas = () => {
 
             isOpen={newNotaOpen}
 
-            comprobantes={comprobantes}
-
-            productos={productosDisponibles}
+            comprobantesBase={notasBaseDisponibles}
+            comprobantesBaseDebito={notasBaseDebitoDisponibles}
 
             loading={generating}
 
