@@ -1,7 +1,8 @@
 export const API_BASE_URL = 'http://localhost:5081/api';
+const API_KEY = 'UNFV_FIIS2026';
 
 class ApiService {
- private async readErrorMessage(response: Response): Promise<string> {
+    private async readErrorMessage(response: Response): Promise<string> {
         const errorText = await response.text();
 
         if (!errorText) {
@@ -27,7 +28,6 @@ class ApiService {
         return errorText;
     }
 
-
     public async request<T>(
         endpoint: string,
         options?: RequestInit
@@ -38,19 +38,15 @@ class ApiService {
 
             headers: {
                 'Content-Type': 'application/json',
-
-                'X-Api-Key': 'UNFV_FIIS2026',
-
+                'X-Api-Key': API_KEY,
                 ...options?.headers,
             },
         });
-
 
         if (!response.ok) {
             const errorMessage = await this.readErrorMessage(response);
             throw new Error(errorMessage);
         }
-
 
         try {
             const data = await response.json();
@@ -59,7 +55,6 @@ class ApiService {
             return {} as T;
         }
     }
-
 
     public async requestFormData<T>(
         endpoint: string,
@@ -70,7 +65,7 @@ class ApiService {
             method: 'POST',
 
             headers: {
-                'X-Api-Key': 'UNFV_FIIS2026',
+                'X-Api-Key': API_KEY,
             },
 
             body: formData,
@@ -80,12 +75,10 @@ class ApiService {
             // junto con su boundary.
         });
 
-
         if (!response.ok) {
             const errorMessage = await this.readErrorMessage(response);
             throw new Error(errorMessage);
         }
-
 
         try {
             return await response.json();
