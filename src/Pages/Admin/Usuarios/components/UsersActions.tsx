@@ -11,7 +11,7 @@ interface UsersActionsProps {
 
 const UsersActions = ({ user, onView, onEdit, onDelete }: UsersActionsProps) => {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', justifyContent: 'flex-end' }}>
+    <div className="erp-table-actions">
       <IconButton
         icon={<FiEye />}
         tooltip="Ver detalle"

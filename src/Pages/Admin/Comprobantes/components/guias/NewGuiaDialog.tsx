@@ -18,6 +18,7 @@ interface Props {
   onGenerate: (value: GuiaRemisionFormData) => void | Promise<any>;
   guias: GuiaRemisionSelectDto[];
   loading?: boolean;
+  embedded?: boolean;
 }
 
 export default function NewGuiaDialog({
@@ -26,6 +27,7 @@ export default function NewGuiaDialog({
   onGenerate,
   guias,
   loading,
+  embedded = false,
 }: Props) {
   const [type, setType] = useState<GuiaRemisionTipo | null>(null);
 
@@ -39,6 +41,48 @@ export default function NewGuiaDialog({
     close();
     return true;
   };
+
+  const formBody = !type ? (
+    <div style={{ display: 'grid', gap: '20px' }}>
+      <section>
+        <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Tipo de guía</h3>
+        <GuiaTypeSelector
+          selectedType="GUIA_REMISION_TRANSPORTISTA"
+          onTypeChange={setType}
+        />
+      </section>
+      {embedded && (
+        <div className="erp-form-actions">
+          <button type="button" className="erp-btn erp-btn-secondary" onClick={close}>
+            Cancelar
+          </button>
+        </div>
+      )}
+    </div>
+  ) : type === 'GUIA_REMISION_REMITENTE' ? (
+    <div style={{ padding: embedded ? 0 : '20px' }}>
+      <GuiaRemitenteForm
+        onCancel={() => setType(null)}
+        onSubmit={emit}
+        loading={loading}
+      />
+    </div>
+  ) : (
+    <div style={{ padding: embedded ? 0 : '20px' }}>
+      <GuiaTransportistaForm
+        guiasRemitente={guias.filter(
+          (item) => item.tipo === 'GUIA_REMISION_REMITENTE',
+        )}
+        onCancel={() => setType(null)}
+        onSubmit={emit}
+        loading={loading}
+      />
+    </div>
+  );
+
+  if (embedded) {
+    return <div className="erp-form">{formBody}</div>;
+  }
 
   return (
     <CrudDialog
@@ -56,49 +100,7 @@ export default function NewGuiaDialog({
       size="xl"
       hideFooter
     >
-      {!type ? (
-        <div
-          style={{
-            display: 'grid',
-            gap: '20px',
-          }}
-        >
-          <section>
-            <h3
-              style={{
-                margin: '0 0 10px',
-                fontSize: '14px',
-              }}
-            >
-              Tipo de guía
-            </h3>
-
-            <GuiaTypeSelector
-              selectedType="GUIA_REMISION_TRANSPORTISTA"
-              onTypeChange={setType}
-            />
-          </section>
-        </div>
-      ) : type === 'GUIA_REMISION_REMITENTE' ? (
-        <div style={{ padding: '20px' }}>
-          <GuiaRemitenteForm
-            onCancel={() => setType(null)}
-            onSubmit={emit}
-            loading={loading}
-          />
-        </div>
-      ) : (
-        <div style={{ padding: '20px' }}>
-          <GuiaTransportistaForm
-            guiasRemitente={guias.filter(
-              (item) => item.tipo === 'GUIA_REMISION_REMITENTE',
-            )}
-            onCancel={() => setType(null)}
-            onSubmit={emit}
-            loading={loading}
-          />
-        </div>
-      )}
+      {formBody}
     </CrudDialog>
   );
 }

@@ -11,22 +11,24 @@ import type {
 import type { Proveedor } from '../../../../Types/Admin/Compras/Proveedor';
 import type { ProductoSelectDto } from '../../../../Types/Admin/Inventario/Producto';
 import { useDataTable } from '../../../../Hooks/useDataTable';
-import { useDialog } from '../../../../Hooks/useDialog';
 import { formatDate } from '../../../../Utils/formatters';
 import { isActivoEstado } from '../../../../Utils/imageUtils';
 import { getNumericUserId } from '../../../../Utils/auth';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
-import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import IconButton from '../../../../Components/ERP/IconButton';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
+import ERPEmptySelection from '../../../../Components/ERP/ERPEmptySelection';
 import {
   FiShoppingCart,
   FiCheckCircle,
   FiTrash2,
   FiEye,
   FiPlus,
+  FiSave,
+  FiX,
 } from 'react-icons/fi';
 import './ComprasSection.css';
 
@@ -62,9 +64,12 @@ const proveedorLabel = (p: Proveedor) => {
   return p.ruc ? `${nombre} — ${p.ruc}` : nombre;
 };
 
-const ComprasSection = () => {
+export const ComprasSection = () => {
   const { usuario } = useAuth();
-  const { dialogState, openCreate, openView, closeDialog } = useDialog<CompraListaDto>();
+
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedCompra, setSelectedCompra] = useState<CompraListaDto | null>(null);
 
   const [compras, setCompras] = useState<CompraListaDto[]>([]);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -78,9 +83,9 @@ const ComprasSection = () => {
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   const [filters, setFilters] = useState<CompraFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
 
-  // Borrador del registro (se conserva al cerrar el diálogo)
+  // Borrador del registro
   const [filas, setFilas] = useState<DetalleRow[]>([createEmptyRow()]);
   const [idProveedor, setIdProveedor] = useState(0);
   const [fechaCompra, setFechaCompra] = useState(todayStr());
@@ -128,7 +133,9 @@ const ComprasSection = () => {
   }, [loadCompras, loadCatalogos]);
 
   const handleOpenView = async (record: CompraListaDto) => {
-    openView(record);
+    setSelectedCompra(record);
+    setFormMode('view');
+    setActiveTab('form');
     setDetalleItems([]);
     setLoadingDetalle(true);
     setError(null);
@@ -146,18 +153,16 @@ const ComprasSection = () => {
   const handleOpenCreate = async () => {
     setSuccessMsg(null);
     setFormError(null);
+    setSelectedCompra(null);
+    setFormMode('create');
+    setActiveTab('form');
     const lista = proveedores.length > 0 ? proveedores : await loadCatalogos();
-    // Solo asigna proveedor por defecto si aún no hay uno guardado en el borrador
     if (!idProveedor && lista.length > 0) {
       setIdProveedor(lista[0].id);
     }
-    openCreate();
-  };
-
-  const handleCloseCreate = () => {
-    // Conserva el borrador; solo cierra el diálogo
-    setFormError(null);
-    closeDialog();
+    setFilas([createEmptyRow()]);
+    setFechaCompra(todayStr());
+    setFechaRecepcion(todayStr());
   };
 
   const resetCreateForm = useCallback(() => {
@@ -228,7 +233,6 @@ const ComprasSection = () => {
 
   const handleChangeProveedor = (nextId: number) => {
     setIdProveedor(nextId);
-    // Limpia productos que no pertenecen al nuevo proveedor
     setFilas(prev =>
       prev.map(f => {
         if (!f.idProducto) return f;
@@ -251,7 +255,8 @@ const ComprasSection = () => {
     setFilas(prev => (prev.length <= 1 ? [createEmptyRow()] : prev.filter(f => f.key !== key)));
   };
 
-  const handleRegistrar = async () => {
+  const handleRegistrar = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!idProveedor) {
       setFormError('Seleccione un proveedor.');
       return;
@@ -307,7 +312,7 @@ const ComprasSection = () => {
       if (res.success) {
         setSuccessMsg(res.mensaje || `Compra #${res.idCompra} registrada correctamente.`);
         resetCreateForm();
-        closeDialog();
+        setActiveTab('list');
         await loadCompras();
       } else {
         setFormError(res.mensaje || 'No se pudo registrar la compra.');
@@ -333,8 +338,8 @@ const ComprasSection = () => {
       sortable: true,
       render: (row: CompraListaDto) => (
         <div>
-          <div className="compra-cell-main">{row.proveedor || '—'}</div>
-          <div className="compra-cell-sub">Por: {row.usuario || 'Sistema'}</div>
+          <div className="compra-cell-main" style={{ fontWeight: 600 }}>{row.proveedor || '—'}</div>
+          <div className="compra-cell-sub" style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>Por: {row.usuario || 'Sistema'}</div>
         </div>
       ),
     },
@@ -361,42 +366,41 @@ const ComprasSection = () => {
       sortable: true,
       align: 'right' as const,
       width: '110px',
-      render: (row: CompraListaDto) => fmt(row.total_compra),
+      render: (row: CompraListaDto) => <strong>{fmt(row.total_compra)}</strong>,
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '110px',
+      width: '56px',
+      align: 'center' as const,
+      className: 'col-status',
       render: (row: CompraListaDto) => (
-        <StatusBadge status={row.estado ? 'ACTIVO' : 'PENDIENTE'} showDot />
+        <StatusBadge status={row.estado ? 'ACTIVO' : 'PENDIENTE'} />
       ),
     },
     {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '60px',
+      width: '112px',
+      className: 'col-actions',
       render: (row: CompraListaDto) => (
-        <IconButton
-          icon={<FiEye />}
-          tooltip="Ver comprobante"
-          variant="primary"
-          onClick={() => handleOpenView(row)}
-        />
+        <div className="erp-table-actions">
+          <IconButton
+            icon={<FiEye />}
+            tooltip="Ver comprobante"
+            variant="primary"
+            onClick={() => handleOpenView(row)}
+          />
+        </div>
       ),
     },
   ];
 
-  const isCreateOpen = dialogState.isOpen && dialogState.mode === 'create';
-  const isViewOpen = dialogState.isOpen && dialogState.mode === 'view';
-
-  return (
-    <div className="compras-section">
-      {error && !isViewOpen && <div className="compras-alert compras-alert-error">{error}</div>}
-      {successMsg && <div className="compras-alert compras-alert-success">{successMsg}</div>}
-
-      <div className="erp-indicators-grid" style={{ marginBottom: '12px' }}>
+  const listContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiShoppingCart /></div>
           <div className="erp-indicator-info">
@@ -418,283 +422,334 @@ const ComprasSection = () => {
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar por ID, proveedor o registrador..."
         onNew={handleOpenCreate}
-        newLabel="Registrar Compra"
+        newLabel="Nueva Compra"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        alwaysShowFilters={true}
         filterPanel={
-          <div className="compras-filter-panel">
-            <div className="erp-form-group" style={{ margin: 0 }}>
-              <label className="erp-form-label">Proveedor</label>
-              <select
-                className="erp-input"
-                value={filters.idProveedor}
-                onChange={e => setFilters(prev => ({ ...prev, idProveedor: e.target.value }))}
-              >
-                <option value="">Todos</option>
-                {proveedores.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.razonSocial || (p as unknown as { razon_social?: string }).razon_social}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="erp-filter-group">
+            <label className="erp-filter-label">Proveedor</label>
+            <select
+              className="erp-filter-select"
+              value={filters.idProveedor}
+              onChange={e => setFilters(prev => ({ ...prev, idProveedor: e.target.value }))}
+            >
+              <option value="">Todos los proveedores</option>
+              {proveedores.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.razonSocial || (p as unknown as { razon_social?: string }).razon_social}
+                </option>
+              ))}
+            </select>
           </div>
         }
       />
 
-      <div className="erp-table-card compras-table-card">
-        {loading ? (
-          <div className="compras-loading">Cargando compras...</div>
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              data={processedData}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              rowKey={row => row.id_compra}
-              emptyMessage="No se encontraron compras registradas"
-            />
-            <Pagination
-              page={pagination.page}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pagination.pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
-          </>
-        )}
-      </div>
-
-      {/* Dialog: Registrar compra */}
-      <CrudDialog
-        isOpen={isCreateOpen}
-        mode="create"
-        onClose={handleCloseCreate}
-        onConfirm={handleRegistrar}
-        title="Registrar compra"
-        subtitle="Los datos se conservan si cierra el diálogo por accidente"
-        size="xl"
-        confirmLabel={saving ? 'Registrando...' : 'Registrar'}
-        cancelLabel="Cerrar"
-        loading={saving}
-      >
-        <div className="compra-form">
-          {formError && <div className="compras-alert compras-alert-error">{formError}</div>}
-
-          <div className="compra-form-grid">
-            <div className="compra-form-group compra-form-span-2">
-              <label>Proveedor *</label>
-              <select
-                className="erp-input"
-                value={idProveedor}
-                onChange={e => handleChangeProveedor(Number(e.target.value))}
-              >
-                <option value={0}>Seleccione proveedor...</option>
-                {proveedores.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {proveedorLabel(p)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="compra-form-group">
-              <label>Fecha compra *</label>
-              <input
-                type="date"
-                className="erp-input"
-                value={fechaCompra}
-                onChange={e => setFechaCompra(e.target.value)}
-              />
-            </div>
-            <div className="compra-form-group">
-              <label>Fecha recepción</label>
-              <input
-                type="date"
-                className="erp-input"
-                value={fechaRecepcion}
-                onChange={e => setFechaRecepcion(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="compra-detalle-head">
-            <span>Detalle de productos</span>
-            <strong>{fmt(totalCompra)}</strong>
-          </div>
-
-          <div className="compra-table-wrap">
-            <table className="compra-form-table">
-              <thead>
-                <tr>
-                  <th style={{ width: '36px' }}>#</th>
-                  <th>Producto</th>
-                  <th style={{ width: '80px' }}>Cant.</th>
-                  <th style={{ width: '110px' }}>Costo total</th>
-                  <th style={{ width: '130px' }}>Fabricación</th>
-                  <th style={{ width: '130px' }}>Vencimiento</th>
-                  <th style={{ width: '40px' }} />
-                </tr>
-              </thead>
-              <tbody>
-                {filas.map((fila, index) => {
-                  const opciones = productosDisponiblesPara(fila.idProducto);
-                  return (
-                    <tr key={fila.key}>
-                      <td className="compra-row-num">{index + 1}</td>
-                      <td>
-                        <select
-                          className="erp-input"
-                          value={fila.idProducto}
-                          disabled={!idProveedor}
-                          onChange={e => updateFila(fila.key, { idProducto: Number(e.target.value) })}
-                        >
-                          <option value={0}>
-                            {!idProveedor
-                              ? 'Seleccione proveedor primero...'
-                              : opciones.length === 0 && !fila.idProducto
-                                ? 'Sin productos de este proveedor'
-                                : 'Seleccione producto...'}
-                          </option>
-                          {opciones.map(p => (
-                            <option key={p.id} value={p.id}>
-                              {p.codigo} — {p.nombre}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="erp-input"
-                          min={1}
-                          value={fila.cantidad}
-                          onChange={e =>
-                            updateFila(fila.key, { cantidad: Math.max(1, Number(e.target.value) || 1) })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          className="erp-input"
-                          min={0}
-                          step="0.01"
-                          placeholder="0.00"
-                          value={fila.costoTotal}
-                          onChange={e => updateFila(fila.key, { costoTotal: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="date"
-                          className="erp-input"
-                          value={fila.fechaFabricacion}
-                          onChange={e => updateFila(fila.key, { fechaFabricacion: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="date"
-                          className="erp-input"
-                          value={fila.fechaVencimiento}
-                          onChange={e => updateFila(fila.key, { fechaVencimiento: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="compra-row-remove"
-                          onClick={() => handleRemoveFila(fila.key)}
-                          title="Quitar"
-                          aria-label="Quitar fila"
-                        >
-                          <FiTrash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <button type="button" className="compra-add-row" onClick={handleAddFila}>
-            <FiPlus size={14} /> Agregar otra línea
-          </button>
+      {error && (
+        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+          {error}
         </div>
-      </CrudDialog>
+      )}
+      {successMsg && (
+        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-success-light)', color: 'var(--erp-success)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-success)' }}>
+          {successMsg}
+        </div>
+      )}
 
-      {/* Dialog: Ver comprobante */}
-      <CrudDialog
-        isOpen={isViewOpen}
-        mode="view"
-        onClose={closeDialog}
-        onConfirm={closeDialog}
-        title={`Comprobante de compra #${dialogState.record?.id_compra ?? ''}`}
-        subtitle="Cabecera y detalle de artículos ingresados"
-        size="lg"
-        confirmLabel="Cerrar"
-      >
-        {dialogState.record && (
-          <div className="compra-dialog-body">
-            <div className="compra-dialog-header-card">
-              <div><span>Proveedor</span><strong>{dialogState.record.proveedor || '—'}</strong></div>
-              <div><span>Registrado por</span><strong>{dialogState.record.usuario || '—'}</strong></div>
-              <div><span>Fecha compra</span><strong>{formatDate(dialogState.record.fecha_compra)}</strong></div>
-              <div>
-                <span>Fecha recepción</span>
-                <strong>
-                  {dialogState.record.fecha_recepcion
-                    ? formatDate(dialogState.record.fecha_recepcion)
-                    : '—'}
-                </strong>
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando compras...</div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={processedData}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            rowKey={row => row.id_compra}
+            emptyMessage="No se encontraron compras registradas"
+          />
+          <Pagination
+            page={pagination.page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  const formContent = (
+    <div className="erp-form">
+      {formMode === 'create' ? (
+        <form onSubmit={handleRegistrar} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="erp-form-section">
+            <h3 className="erp-form-section-title">Nueva Orden de Compra</h3>
+
+            {formError && (
+              <div style={{ padding: '8px 12px', marginBottom: '14px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+                {formError}
               </div>
-              <div><span>Total</span><strong>{fmt(dialogState.record.total_compra)}</strong></div>
-              <div>
-                <span>Estado</span>
-                <strong>{dialogState.record.estado ? 'Activo' : 'Pendiente'}</strong>
+            )}
+
+            <div className="compra-form-grid">
+              <div className="erp-form-row">
+                <div className="erp-form-group erp-form-span-2">
+                  <label className="erp-form-label">Proveedor *</label>
+                  <select
+                    className="erp-input"
+                    value={idProveedor}
+                    onChange={e => handleChangeProveedor(Number(e.target.value))}
+                    required
+                  >
+                    <option value={0}>Seleccione proveedor...</option>
+                    {proveedores.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {proveedorLabel(p)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Fecha compra *</label>
+                  <input
+                    type="date"
+                    className="erp-input"
+                    value={fechaCompra}
+                    onChange={e => setFechaCompra(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Fecha recepción</label>
+                  <input
+                    type="date"
+                    className="erp-input"
+                    value={fechaRecepcion}
+                    onChange={e => setFechaRecepcion(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="erp-form-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 className="erp-form-section-title" style={{ margin: 0, border: 'none', padding: 0 }}>Detalle de productos</h3>
+              <div style={{ fontSize: '14px' }}>
+                Total Orden: <strong style={{ color: 'var(--erp-primary)', fontSize: '16px' }}>{fmt(totalCompra)}</strong>
               </div>
             </div>
 
-            <h4 className="compra-dialog-detail-title">Detalle de artículos</h4>
+            <div className="compra-table-wrap" style={{ border: '1px solid var(--erp-border)', overflowX: 'auto' }}>
+              <table className="compra-form-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--erp-bg-secondary)', borderBottom: '1px solid var(--erp-border)' }}>
+                    <th style={{ width: '36px', padding: '6px 8px', fontSize: '11px' }}>#</th>
+                    <th style={{ padding: '6px 8px', fontSize: '11px', textAlign: 'left' }}>Producto</th>
+                    <th style={{ width: '80px', padding: '6px 8px', fontSize: '11px', textAlign: 'right' }}>Cant.</th>
+                    <th style={{ width: '110px', padding: '6px 8px', fontSize: '11px', textAlign: 'right' }}>Costo total</th>
+                    <th style={{ width: '130px', padding: '6px 8px', fontSize: '11px' }}>Fabricación</th>
+                    <th style={{ width: '130px', padding: '6px 8px', fontSize: '11px' }}>Vencimiento</th>
+                    <th style={{ width: '40px', padding: '6px 8px' }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((fila, index) => {
+                    const opciones = productosDisponiblesPara(fila.idProducto);
+                    return (
+                      <tr key={fila.key} style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                        <td className="compra-row-num" style={{ padding: '4px 8px', textAlign: 'center', fontSize: '12px' }}>{index + 1}</td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <select
+                            className="erp-input"
+                            value={fila.idProducto}
+                            disabled={!idProveedor}
+                            onChange={e => updateFila(fila.key, { idProducto: Number(e.target.value) })}
+                          >
+                            <option value={0}>
+                              {!idProveedor
+                                ? 'Seleccione proveedor primero...'
+                                : opciones.length === 0 && !fila.idProducto
+                                  ? 'Sin productos de este proveedor'
+                                  : 'Seleccione producto...'}
+                            </option>
+                            {opciones.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.codigo} — {p.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <input
+                            type="number"
+                            className="erp-input"
+                            min={1}
+                            value={fila.cantidad}
+                            onChange={e =>
+                              updateFila(fila.key, { cantidad: Math.max(1, Number(e.target.value) || 1) })
+                            }
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <input
+                            type="number"
+                            className="erp-input"
+                            min={0}
+                            step="0.01"
+                            placeholder="0.00"
+                            value={fila.costoTotal}
+                            onChange={e => updateFila(fila.key, { costoTotal: e.target.value })}
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <input
+                            type="date"
+                            className="erp-input"
+                            value={fila.fechaFabricacion}
+                            onChange={e => updateFila(fila.key, { fechaFabricacion: e.target.value })}
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px' }}>
+                          <input
+                            type="date"
+                            className="erp-input"
+                            value={fila.fechaVencimiento}
+                            onChange={e => updateFila(fila.key, { fechaVencimiento: e.target.value })}
+                          />
+                        </td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>
+                          <button
+                            type="button"
+                            className="erp-btn erp-btn-sm erp-btn-danger"
+                            onClick={() => handleRemoveFila(fila.key)}
+                            title="Quitar"
+                            aria-label="Quitar fila"
+                            style={{ padding: '4px 6px' }}
+                          >
+                            <FiTrash2 size={13} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ marginTop: '10px' }}>
+              <button type="button" className="erp-btn erp-btn-secondary" onClick={handleAddFila}>
+                <FiPlus size={14} /> <span>Agregar otra línea</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="erp-form-actions">
+            <button
+              type="button"
+              className="erp-btn erp-btn-secondary"
+              onClick={() => setActiveTab('list')}
+            >
+              <FiX />
+              <span>Cancelar</span>
+            </button>
+
+            <button
+              type="submit"
+              className="erp-btn erp-btn-primary"
+              disabled={saving}
+            >
+              <FiSave />
+              <span>{saving ? 'Registrando...' : 'Registrar Compra'}</span>
+            </button>
+          </div>
+        </form>
+      ) : selectedCompra ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="erp-form-section">
+            <h3 className="erp-form-section-title">
+              Comprobante de Compra #{selectedCompra.id_compra}
+            </h3>
+
+            <div className="erp-form-fields">
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Proveedor</label>
+                  <input className="erp-input" readOnly value={selectedCompra.proveedor || '—'} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Registrado por</label>
+                  <input className="erp-input" readOnly value={selectedCompra.usuario || '—'} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Fecha Compra</label>
+                  <input className="erp-input" readOnly value={formatDate(selectedCompra.fecha_compra)} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Fecha Recepción</label>
+                  <input className="erp-input" readOnly value={selectedCompra.fecha_recepcion ? formatDate(selectedCompra.fecha_recepcion) : '—'} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Total Invertido</label>
+                  <input className="erp-input" readOnly value={fmt(selectedCompra.total_compra)} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Estado</label>
+                  <div className="erp-form-status-value">
+                    <StatusBadge status={selectedCompra.estado ? 'ACTIVO' : 'PENDIENTE'} showText />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="erp-form-section">
+            <h3 className="erp-form-section-title">Detalle de Artículos</h3>
 
             {loadingDetalle ? (
-              <p className="compra-empty">Cargando detalle...</p>
+              <p style={{ padding: '20px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando detalle...</p>
             ) : (
-              <div className="compra-dialog-table-wrap">
-                <table className="compra-detail-table">
+              <div style={{ border: '1px solid var(--erp-border)', overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
                   <thead>
-                    <tr>
-                      <th>Código</th>
-                      <th>Producto</th>
-                      <th className="text-center">Cant.</th>
-                      <th className="text-right">C. Unit.</th>
-                      <th className="text-right">C. Total</th>
-                      <th>Lote</th>
-                      <th>Stock</th>
-                      <th>Vencimiento</th>
+                    <tr style={{ background: 'var(--erp-bg-secondary)', borderBottom: '1px solid var(--erp-border)' }}>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Código</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Producto</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center' }}>Cant.</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right' }}>C. Unit.</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'right' }}>C. Total</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Lote</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'center' }}>Stock</th>
+                      <th style={{ padding: '6px 8px', textAlign: 'left' }}>Vencimiento</th>
                     </tr>
                   </thead>
                   <tbody>
                     {detalleItems.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="compra-empty-row">Sin artículos registrados</td>
+                        <td colSpan={8} style={{ padding: '16px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Sin artículos registrados</td>
                       </tr>
                     ) : (
                       detalleItems.map(det => (
-                        <tr key={det.id_detalle_compra}>
-                          <td className="mono">{det.codigo_producto}</td>
-                          <td>{det.producto}</td>
-                          <td className="text-center">{det.cantidad}</td>
-                          <td className="text-right">{fmt(det.costo_unitario)}</td>
-                          <td className="text-right"><strong>{fmt(det.costo_total)}</strong></td>
-                          <td className="mono">{det.codigo_lote || '—'}</td>
-                          <td className="text-center">{det.stock_actual ?? '—'}</td>
-                          <td>
+                        <tr key={det.id_detalle_compra} style={{ borderBottom: '1px solid var(--erp-border)' }}>
+                          <td style={{ padding: '6px 8px', fontFamily: 'monospace' }}>{det.codigo_producto}</td>
+                          <td style={{ padding: '6px 8px' }}>{det.producto}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'center' }}>{det.cantidad}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right' }}>{fmt(det.costo_unitario)}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'right' }}><strong>{fmt(det.costo_total)}</strong></td>
+                          <td style={{ padding: '6px 8px', fontFamily: 'monospace' }}>{det.codigo_lote || '—'}</td>
+                          <td style={{ padding: '6px 8px', textAlign: 'center' }}>{det.stock_actual ?? '—'}</td>
+                          <td style={{ padding: '6px 8px' }}>
                             {det.fecha_vencimiento
                               ? formatDate(det.fecha_vencimiento)
                               : <span style={{ color: 'var(--erp-text-muted)' }}>—</span>}
@@ -707,9 +762,31 @@ const ComprasSection = () => {
               </div>
             )}
           </div>
-        )}
-      </CrudDialog>
+        </div>
+      ) : (
+        <ERPEmptySelection
+          icon={<FiShoppingCart />}
+          title="Ninguna orden de compra seleccionada"
+          description="Seleccione una orden en la pestaña Registros para ver su detalle de lotes y costos, o cree una nueva orden."
+          onBack={() => setActiveTab('list')}
+          backLabel="Ir a Registros de Compras"
+        />
+      )}
     </div>
+  );
+
+  return (
+    <SubmoduleTwoTabsLayout
+      title="Órdenes de Compra & Abastecimiento"
+      subtitle="Registra y monitorea las compras de mercadería a proveedores externos y lotes recibidos"
+      entityName="Compra"
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      formMode={formMode}
+      onNew={handleOpenCreate}
+      listContent={listContent}
+      formContent={formContent}
+    />
   );
 };
 

@@ -51,6 +51,9 @@ const COLUMNS: ColumnDef<Usuario>[] = [
     key: 'estado',
     header: 'Estado',
     sortable: true,
+    width: '56px',
+    align: 'center',
+    className: 'col-status',
     render: (row) => <StatusBadge status={row.estado} />,
   },
   {
@@ -72,7 +75,8 @@ const COLUMNS: ColumnDef<Usuario>[] = [
     key: 'actions',
     header: '',
     align: 'right',
-    width: '100px',
+    width: '112px',
+    className: 'col-actions',
     render: (row, _, onView?: any, onEdit?: any, onDelete?: any) => (
       <UsersActions
         user={row}

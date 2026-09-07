@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { ComprobanteEstado, ComprobanteSelectDto } from '../../../../../Types/Admin/Comprobantes/Comprobante';
-import FormField from '../../../../../Components/ERP/FormField';
 import type { ColumnDef } from '../../../../../Components/ERP/DataTable';
 import DataTable from '../../../../../Components/ERP/DataTable';
 import Pagination from '../../../../../Components/ERP/Pagination';
 import Toolbar from '../../../../../Components/ERP/Toolbar';
+import SubmoduleTwoTabsLayout from '../../../../../Components/ERP/SubmoduleTwoTabsLayout';
 import { useComprobantes } from '../../../../../Hooks/useComprobantes';
 import { useDataTable } from '../../../../../Hooks/useDataTable';
 import { formatDate } from '../../../../../Utils/formatters';
@@ -21,19 +21,27 @@ interface Filters {
   fechaHasta: string;
 }
 
+const getTodayStr = () => new Date().toISOString().substring(0, 10);
+const getOneMonthAgoStr = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().substring(0, 10);
+};
+
 const DEFAULT_FILTERS: Filters = {
   estado: '',
   estadoSunat: '',
-  fechaDesde: '',
-  fechaHasta: '',
+  fechaDesde: getOneMonthAgoStr(),
+  fechaHasta: getTodayStr(),
 };
 
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
 export const ComprobanteLiquidacionSection = () => {
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'view'>('create');
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
-  const [newOpen, setNewOpen] = useState(false);
   const [preview, setPreview] = useState<ComprobanteSelectDto | null>(null);
   const [detail, setDetail] = useState<ComprobanteSelectDto | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | number | null>(null);
@@ -65,6 +73,20 @@ export const ComprobanteLiquidacionSection = () => {
     return true;
   }), [comprobantes, filters]);
 
+  const filterCount = Object.values(filters).filter((value) => value !== '').length;
+
+  const handleStartCreate = () => {
+    setDetail(null);
+    setFormMode('create');
+    setActiveTab('form');
+  };
+
+  const handleViewDetails = (comprobante: ComprobanteSelectDto) => {
+    setDetail(comprobante);
+    setFormMode('view');
+    setActiveTab('form');
+  };
+
   const {
     processedData,
     totalItems,
@@ -89,8 +111,8 @@ export const ComprobanteLiquidacionSection = () => {
     { key: 'cliente', header: 'Vendedor', sortable: true },
     { key: 'documentoCliente', header: 'Documento', sortable: true, width: '130px' },
     { key: 'total', header: 'Total', sortable: true, width: '110px', align: 'right', render: (row) => formatAmount(row.total) },
-    { key: 'estado', header: 'Estado', sortable: true, width: '110px', render: (row) => <ComprobanteStatusBadge status={row.estado} /> },
-    { key: 'estadoSunat', header: 'Estado SUNAT', sortable: true, width: '125px', render: (row) => <ComprobanteStatusBadge status={row.estadoSunat} /> },
+    { key: 'estado', header: 'Estado', sortable: true, width: '56px', align: 'center', className: 'col-status', render: (row) => <ComprobanteStatusBadge status={row.estado} /> },
+    { key: 'estadoSunat', header: 'SUNAT', sortable: true, width: '56px', align: 'center', className: 'col-status', render: (row) => <ComprobanteStatusBadge status={row.estadoSunat} /> },
     {
       key: 'actions',
       header: 'Acciones',
@@ -103,7 +125,7 @@ export const ComprobanteLiquidacionSection = () => {
           isDownloading={downloadingId === row.id}
           isDeleting={deletingId === row.id}
           onViewComprobante={setPreview}
-          onViewDetails={setDetail}
+          onViewDetails={handleViewDetails}
           onUpdateSunat={(id) => void actualizarEstadoSunat(id)}
           onDownloadPDF={async (comprobante) => {
             try {
@@ -119,110 +141,137 @@ export const ComprobanteLiquidacionSection = () => {
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      <div className="erp-tab-content">
-        {error && <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
-        {successMessage && (
-          <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-success-light)', color: 'var(--erp-success)', borderRadius: '6px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
-            <span>{successMessage}</span>
-            <button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" onClick={clearSuccessMessage}>Cerrar</button>
-          </div>
-        )}
+  const listContent = (
+    <div className="erp-tab-content">
+      {error && <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>{error}</div>}
+      {successMessage && (
+        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-success-light)', color: 'var(--erp-success)', borderRadius: '6px', fontSize: '13px', display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+          <span>{successMessage}</span>
+          <button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" onClick={clearSuccessMessage}>Cerrar</button>
+        </div>
+      )}
 
-        <Toolbar
-          searchPlaceholder="Buscar por serie, número, vendedor o documento..."
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          onNew={() => setNewOpen(true)}
-          newLabel="Nueva liquidación"
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters((value) => !value)}
-          filterCount={Object.values(filters).filter((value) => value !== '').length}
-          onResetFilters={() => setFilters(DEFAULT_FILTERS)}
-          filterPanel={(
-            <div className="erp-form-grid">
-              <FormField label="Estado">
-                <select className="erp-input" value={filters.estado} onChange={(event) => setFilters((prev) => ({ ...prev, estado: event.target.value as Filters['estado'] }))}>
-                  <option value="">Todos</option>
-                  <option value="BORRADOR">Borrador</option>
-                  <option value="EMITIDO">Emitido</option>
-                  <option value="ANULADO">Anulado</option>
-                  <option value="RECHAZADO">Rechazado</option>
-                </select>
-              </FormField>
-              <FormField label="Estado SUNAT">
-                <select className="erp-input" value={filters.estadoSunat} onChange={(event) => setFilters((prev) => ({ ...prev, estadoSunat: event.target.value as Filters['estadoSunat'] }))}>
-                  <option value="">Todos</option>
-                  <option value="PENDIENTE">Pendiente</option>
-                  <option value="EXCEPCION">Excepción</option>
-                  <option value="ACEPTADO">Aceptado</option>
-                  <option value="RECHAZADO">Rechazado</option>
-                </select>
-              </FormField>
-              <FormField label="Desde">
-                <input className="erp-input" type="date" value={filters.fechaDesde} onChange={(event) => setFilters((prev) => ({ ...prev, fechaDesde: event.target.value }))} />
-              </FormField>
-              <FormField label="Hasta">
-                <input className="erp-input" type="date" value={filters.fechaHasta} onChange={(event) => setFilters((prev) => ({ ...prev, fechaHasta: event.target.value }))} />
-              </FormField>
-            </div>
-          )}
-        />
-
-        <DataTable
-          columns={columns}
-          data={processedData}
-          loading={loading}
-          sortConfig={sortConfig}
-          onSort={handleSort}
-          emptyMessage="No hay liquidaciones registradas."
-        />
-        <Pagination page={pagination.page} totalPages={totalPages} pageSize={pagination.pageSize} totalItems={totalItems} onPageChange={setPage} onPageSizeChange={setPageSize} />
-
-        <ComprobantePreviewDialog comprobante={preview} onClose={() => setPreview(null)} />
-        <ComprobanteDetailDialog comprobante={detail} onClose={() => setDetail(null)} />
-
-        {voidReasonDialog.open && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '500px', width: '100%' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>Anular documento</h3>
-              <textarea className="erp-input" rows={3} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />
-              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
-                <button type="button" className="erp-btn erp-btn-secondary" onClick={() => { setVoidReasonDialog({ open: false, comprobante: null }); setVoidReason(''); }}>Cancelar</button>
-                <button
-                  type="button"
-                  className="erp-btn erp-btn-danger"
-                  disabled={deletingId !== null || !voidReason.trim()}
-                  onClick={async () => {
-                    if (!voidReasonDialog.comprobante) return;
-                    try {
-                      setDeletingId(voidReasonDialog.comprobante.id);
-                      await voidBill({ documentId: String(voidReasonDialog.comprobante.id), reason: voidReason });
-                      setVoidReasonDialog({ open: false, comprobante: null });
-                      setVoidReason('');
-                    } finally {
-                      setDeletingId(null);
-                    }
-                  }}
-                >
-                  Confirmar
-                </button>
-              </div>
+      {voidReasonDialog.open && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', maxWidth: '500px', width: '100%' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '600' }}>Anular documento</h3>
+            <textarea className="erp-input" rows={3} value={voidReason} onChange={(event) => setVoidReason(event.target.value)} />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '16px' }}>
+              <button type="button" className="erp-btn erp-btn-secondary" onClick={() => { setVoidReasonDialog({ open: false, comprobante: null }); setVoidReason(''); }}>Cancelar</button>
+              <button
+                type="button"
+                className="erp-btn erp-btn-danger"
+                disabled={deletingId !== null || !voidReason.trim()}
+                onClick={async () => {
+                  if (!voidReasonDialog.comprobante) return;
+                  try {
+                    setDeletingId(voidReasonDialog.comprobante.id);
+                    await voidBill({ documentId: String(voidReasonDialog.comprobante.id), reason: voidReason });
+                    setVoidReasonDialog({ open: false, comprobante: null });
+                    setVoidReason('');
+                  } finally {
+                    setDeletingId(null);
+                  }
+                }}
+              >
+                Confirmar
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {newOpen && (
-          <NewComprobanteLiquidacionDialog
-            isOpen={newOpen}
-            comprasDisponibles={comprasDisponibles}
-            loading={generating}
-            onClose={() => setNewOpen(false)}
-            onGenerate={crearLiquidacion}
-          />
+      <Toolbar
+        searchPlaceholder="Buscar por serie, número, vendedor o documento..."
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onNew={() => {
+          setFormMode('create');
+          setActiveTab('form');
+        }}
+        newLabel="Nueva Liquidación"
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters((value) => !value)}
+        filterCount={filterCount}
+        onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        filterPanel={(
+          <>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Estado</label>
+              <select className="erp-filter-select" value={filters.estado} onChange={(event) => setFilters((prev) => ({ ...prev, estado: event.target.value as Filters['estado'] }))}>
+                <option value="">Todos</option>
+                <option value="BORRADOR">Borrador</option>
+                <option value="EMITIDO">Emitido</option>
+                <option value="ANULADO">Anulado</option>
+                <option value="RECHAZADO">Rechazado</option>
+              </select>
+            </div>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Estado SUNAT</label>
+              <select className="erp-filter-select" value={filters.estadoSunat} onChange={(event) => setFilters((prev) => ({ ...prev, estadoSunat: event.target.value as Filters['estadoSunat'] }))}>
+                <option value="">Todos</option>
+                <option value="PENDIENTE">Pendiente</option>
+                <option value="EXCEPCION">Excepción</option>
+                <option value="ACEPTADO">Aceptado</option>
+                <option value="RECHAZADO">Rechazado</option>
+              </select>
+            </div>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Desde</label>
+              <input className="erp-filter-select" type="date" value={filters.fechaDesde} onChange={(event) => setFilters((prev) => ({ ...prev, fechaDesde: event.target.value }))} />
+            </div>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Hasta</label>
+              <input className="erp-filter-select" type="date" value={filters.fechaHasta} onChange={(event) => setFilters((prev) => ({ ...prev, fechaHasta: event.target.value }))} />
+            </div>
+          </>
         )}
-      </div>
+      />
+
+      <DataTable
+        columns={columns}
+        data={processedData}
+        loading={loading}
+        sortConfig={sortConfig}
+        onSort={handleSort}
+        emptyMessage="No hay liquidaciones registradas."
+      />
+      <Pagination page={pagination.page} totalPages={totalPages} pageSize={pagination.pageSize} totalItems={totalItems} onPageChange={setPage} onPageSizeChange={setPageSize} />
     </div>
+  );
+
+  const formContent =
+    formMode === 'create' ? (
+      <NewComprobanteLiquidacionDialog
+        embedded
+        isOpen
+        comprasDisponibles={comprasDisponibles}
+        loading={generating}
+        onClose={() => setActiveTab('list')}
+        onGenerate={crearLiquidacion}
+      />
+    ) : detail ? (
+      <ComprobanteDetailDialog
+        embedded
+        comprobante={detail}
+        onClose={() => setActiveTab('list')}
+      />
+    ) : null;
+
+  return (
+    <>
+      <SubmoduleTwoTabsLayout
+        title="Liquidaciones de Compra"
+        subtitle="Emisión de liquidaciones a partir de compras"
+        entityName="Liquidación"
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        formMode={formMode}
+        onNew={handleStartCreate}
+        listContent={listContent}
+        formContent={formContent}
+      />
+      <ComprobantePreviewDialog comprobante={preview} onClose={() => setPreview(null)} />
+    </>
   );
 };

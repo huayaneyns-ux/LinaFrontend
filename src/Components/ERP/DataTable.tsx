@@ -9,7 +9,10 @@ export interface ColumnDef<T> {
   header: string;
   sortable?: boolean;
   width?: string;
+  minWidth?: string;
   align?: 'left' | 'center' | 'right';
+  /** Extra class on th/td (e.g. col-status, col-actions, col-id) */
+  className?: string;
   render?: (row: T, index: number) => ReactNode;
 }
 
@@ -25,6 +28,19 @@ interface DataTableProps<T extends Record<string, any>> {
   renderExpanded?: (row: T) => ReactNode;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T) => string;
+}
+
+function resolveColClass(col: ColumnDef<any>): string {
+  const parts: string[] = [];
+  if (col.className) parts.push(col.className);
+  if (col.key === 'actions' || col.key === 'acciones') parts.push('col-actions', 'actions-cell');
+  if (col.key === 'estado' || col.key === 'estado_pedido' || col.key === 'estadoSunat') {
+    if (!col.className?.includes('col-status')) parts.push('col-status');
+  }
+  if (col.key === 'id' || col.key === 'id_pedido') {
+    if (!col.className?.includes('col-id')) parts.push('col-id');
+  }
+  return parts.filter(Boolean).join(' ');
 }
 
 function DataTable<T extends Record<string, any>>({
@@ -49,13 +65,28 @@ function DataTable<T extends Record<string, any>>({
   return (
     <div className="erp-table-wrapper">
       <table className="erp-table">
+        <colgroup>
+          {columns.map(col => (
+            <col
+              key={`col-${col.key}`}
+              style={{
+                width: col.width,
+                minWidth: col.minWidth || col.width,
+              }}
+            />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {columns.map(col => (
               <th
                 key={col.key}
-                style={{ width: col.width, textAlign: col.align ?? 'left' }}
-                className={col.sortable ? 'sortable' : ''}
+                style={{
+                  width: col.width,
+                  minWidth: col.minWidth || col.width,
+                  textAlign: col.align ?? (resolveColClass(col).includes('col-status') ? 'center' : 'left'),
+                }}
+                className={`${resolveColClass(col)}${col.sortable ? ' sortable' : ''}`}
                 onClick={col.sortable ? () => onSort(col.key as keyof T) : undefined}
               >
                 <span className="erp-th-content">
@@ -93,15 +124,22 @@ function DataTable<T extends Record<string, any>>({
                   onClick={() => onRowClick && onRowClick(row)}
                   style={{ cursor: onRowClick ? 'pointer' : undefined }}
                 >
-                  {columns.map(col => (
-                    <td
-                      key={col.key}
-                      style={{ textAlign: col.align ?? 'left' }}
-                      className={col.key === 'actions' ? 'actions-cell' : ''}
-                    >
-                      {col.render ? col.render(row, idx) : (row[col.key] ?? '—')}
-                    </td>
-                  ))}
+                  {columns.map(col => {
+                    const cls = resolveColClass(col);
+                    return (
+                      <td
+                        key={col.key}
+                        style={{
+                          width: col.width,
+                          minWidth: col.minWidth || col.width,
+                          textAlign: col.align ?? (cls.includes('col-status') ? 'center' : 'left'),
+                        }}
+                        className={cls}
+                      >
+                        {col.render ? col.render(row, idx) : (row[col.key] ?? '—')}
+                      </td>
+                    );
+                  })}
                 </tr>
                 {expandedRowKey !== undefined && rowKey && rowKey(row) === expandedRowKey && renderExpanded ? (
                   <tr>

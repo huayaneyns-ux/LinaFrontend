@@ -141,7 +141,7 @@ const ComprobantePreviewDialog = ({ comprobante, onClose }: ComprobantePreviewDi
 
         <footer style={{ borderTop: '1px dashed var(--erp-border-color)', marginTop: '18px', paddingTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '12px' }}>
           <span>Estado SUNAT</span>
-          <ComprobanteStatusBadge status={comprobante.estadoSunat} />
+          <ComprobanteStatusBadge status={comprobante.estadoSunat} showText />
         </footer>
       </article>
     ) : null}

@@ -17,6 +17,7 @@ interface NewComprobanteDialogProps {
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: ComprobanteFormData) => Promise<boolean>;
+  embedded?: boolean;
 }
 
 type FormErrorKey =
@@ -52,7 +53,7 @@ const createInitialForm = (): ComprobanteFormData => ({
 const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 const DIRECCION_POR_DEFECTO = 'SIN DIRECCION';
 
-const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: NewComprobanteDialogProps) => {
+const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate, embedded = false }: NewComprobanteDialogProps) => {
   const [form, setForm] = useState<ComprobanteFormData>(createInitialForm);
   const [saleSearch, setSaleSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
@@ -253,6 +254,202 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
     ? 'Boleta'
     : 'Factura';
 
+  const formBody = (
+    <div style={{ display: 'grid', gap: '20px' }}>
+      <section className="erp-form-grid">
+        <FormField label="Tipo de comprobante" required>
+          <select
+            className="erp-input"
+            value={form.tipo}
+            onChange={event => handleTipoChange(event.target.value as ComprobanteEmitibleTipo)}
+          >
+            <option value="BOLETA">Boleta de Venta</option>
+            <option value="FACTURA">Factura</option>
+          </select>
+        </FormField>
+        <FormField label="Fecha de emisión">
+          <input type="date" className="erp-input" value={form.fechaEmision} readOnly disabled />
+        </FormField>
+        <FormField label="Moneda" error={errors.moneda}>
+          <select
+            className="erp-input"
+            value={form.moneda}
+            onChange={event => setForm(previous => ({ ...previous, moneda: event.target.value as 'PEN' | 'USD' }))}
+          >
+            <option value="PEN">PEN</option>
+            <option value="USD">USD</option>
+          </select>
+        </FormField>
+      </section>
+
+      <section>
+        <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Venta de origen</h3>
+        <SearchInput value={saleSearch} onChange={setSaleSearch} placeholder="Buscar por ID, fecha, cliente, total o código..." />
+        <select className="erp-input" style={{ marginTop: '8px' }} value={form.ventaOrigenId} onChange={event => selectSale(event.target.value)}>
+          <option value="">Seleccionar una venta</option>
+          {filteredSales.map(sale => <option key={sale.id} value={sale.id}>{sale.id} · {sale.fecha} · {sale.cliente.nombre} · {formatAmount(sale.total)}</option>)}
+        </select>
+        {selectedSale && (
+          <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '13px' }}>
+            <strong style={{ display: 'block', marginBottom: '4px' }}>VENTA SELECCIONADA</strong>
+            {selectedSale.id} ({selectedSale.codigo}) · {selectedSale.fecha} · {selectedSale.cliente.nombre} · {formatAmount(selectedSale.total)}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
+          {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
+        </h3>
+        <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
+          {form.tipo === 'FACTURA'
+            ? 'Ingresa el RUC del receptor. La razón social y dirección se obtienen de ApiPeru y no se pueden editar.'
+            : 'Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.'}
+        </p>
+        {facturaDesdeVentaConDni && (
+          <div style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '12px' }}>
+            La venta fue buscada con DNI. Para emitir factura, ingresa y consulta el RUC fiscal del receptor.
+          </div>
+        )}
+        <div className="erp-form-grid">
+          <FormField label={form.tipo === 'FACTURA' ? 'Documento del receptor' : 'Tipo de documento'}>
+            <select
+              className="erp-input"
+              value={form.cliente.tipoDocumento}
+              onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, tipoDocumento: event.target.value } }))}
+            >
+              {form.tipo === 'FACTURA' ? <option value="RUC">RUC</option> : <><option value="DNI">DNI</option><option value="RUC">RUC</option></>}
+            </select>
+          </FormField>
+          <FormField
+            label={form.tipo === 'FACTURA' ? 'RUC del receptor' : 'Número de documento'}
+            required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
+            error={errors.clienteDocumento}
+          >
+            <input
+              className="erp-input"
+              maxLength={form.cliente.tipoDocumento === 'RUC' ? 11 : form.cliente.tipoDocumento === 'DNI' ? 8 : 15}
+              value={form.cliente.documento}
+              onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value, nombre: '', direccion: '' } }))}
+              onBlur={event => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', event.target.value)}
+            />
+            <button type="button" className="erp-btn erp-btn-secondary" disabled={consultandoPersona} onClick={() => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', form.cliente.documento)}>
+              {consultandoPersona ? 'Consultando...' : 'Consultar documento'}
+            </button>
+          </FormField>
+          <FormField
+            label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
+            required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
+            error={errors.clienteNombre}
+          >
+            <input className="erp-input" value={form.cliente.nombre} readOnly disabled />
+          </FormField>
+          <FormField
+            label="Dirección"
+            required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
+            error={errors.clienteDireccion}
+          >
+            <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
+          </FormField>
+        </div>
+        {form.tipo === 'FACTURA' && form.cliente.tipoDocumento === 'RUC' && form.cliente.documento.length === 11 && form.cliente.nombre && (
+          <div style={{ marginTop: '10px', padding: '10px 12px', border: '1px solid var(--erp-border)', borderRadius: '6px', fontSize: '12px' }}>
+            <strong style={{ display: 'block', marginBottom: '4px' }}>Datos del RUC consultado</strong>
+            <div>RUC: {form.cliente.documento}</div>
+            <div>Razón social: {form.cliente.nombre}</div>
+            <div>Dirección: {form.cliente.direccion || DIRECCION_POR_DEFECTO}</div>
+          </div>
+        )}
+        {errors.persona && <div className="erp-form-error">{errors.persona}</div>}
+      </section>
+
+      <p style={{ margin: 0, color: 'var(--erp-text-muted)', fontSize: '12px' }}>Forma de pago: CONTADO · efectivo</p>
+
+      <section>
+        <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Detalle de la venta</h3>
+        {form.detalle.length > 0 && <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px', display: 'flex', gap: '5px', alignItems: 'center' }}><FiLock /> Los productos y montos corresponden a la venta seleccionada y no pueden modificarse.</p>}
+        {errors.detalle && <div className="erp-form-error" style={{ marginTop: '8px' }}>{errors.detalle}</div>}
+        <div className="erp-table-wrapper" style={{ marginTop: '10px' }}>
+          <table className="erp-table">
+            <thead>
+                <tr><th>Código</th>
+                <th>Producto / Servicio</th>
+                <th>Cantidad</th>
+                <th>Precio unitario</th>
+                <th>IGV</th>
+                <th>Importe</th></tr>
+              </thead>
+            <tbody>
+              {form.detalle.length === 0 ? <tr><td colSpan={6} className="text-muted">Selecciona una venta para ver el detalle.</td></tr> : form.detalle.map((item, index) => (
+                <tr key={`${item.codigo}-${index}`}>
+                  <td>{item.codigo}</td>
+                  <td>{item.productoServicio}</td>
+                  <td>{item.cantidad}</td>
+                  <td>{formatAmount(item.precio)}</td>
+                  <td>{formatAmount(item.igv)}</td><td><strong>{formatAmount(item.importe)}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="erp-form-grid">
+        <FormField label={form.tipo === 'FACTURA' ? 'Observaciones / Notas' : 'Observaciones'} colSpan={2}>
+          <textarea className="erp-input" rows={3} value={form.observaciones} onChange={event => setForm(previous => ({ ...previous, observaciones: event.target.value }))} />
+        </FormField>
+      </section>
+
+      <section style={{ marginLeft: 'auto', minWidth: '260px', display: 'grid', gap: '6px', fontSize: '13px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>Subtotal</span><strong>{formatAmount(totals.subtotal)}</strong></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV</span><strong>{formatAmount(totals.igv)}</strong></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', fontSize: '16px' }}><strong>TOTAL</strong><strong>{formatAmount(totals.total)}</strong></div>
+      </section>
+
+      {totals.total > 0 && (
+        <section>
+          <FormField label="Importe en letras">
+            <div style={{
+              padding: '10px',
+              background: 'var(--erp-surface)',
+              border: '1px solid var(--erp-border)',
+              borderRadius: '4px',
+              fontSize: '13px',
+              fontStyle: 'italic',
+            }}>
+              {totalEnLetras(totals.total)}
+            </div>
+          </FormField>
+        </section>
+      )}
+
+      <section style={{ padding: '12px', background: 'var(--erp-bg-light)', borderRadius: '6px', fontSize: '13px' }}>
+        <strong style={{ display: 'block', marginBottom: '6px' }}>RESUMEN DEL COMPROBANTE</strong>
+        <div>Tipo: {typeLabel} · Venta de origen: {selectedSale ? `Venta #${selectedSale.id}` : 'No seleccionada'} · Cliente: {form.cliente.nombre || 'No especificado'}</div>
+        <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Moneda: {form.moneda} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
+        <div>Subtotal: {formatAmount(totals.subtotal)} · IGV: {formatAmount(totals.igv)} · Total: {formatAmount(totals.total)}</div>
+        <div>Forma de pago: CONTADO · efectivo</div>
+        {form.observaciones && <div>Observaciones: {form.observaciones}</div>}
+      </section>
+    </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="erp-form">
+        {formBody}
+        <div className="erp-form-actions">
+          <button type="button" className="erp-btn erp-btn-secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </button>
+          <button type="button" className="erp-btn erp-btn-primary" onClick={() => void handleGenerate()} disabled={loading}>
+            {loading ? 'Generando...' : `Generar ${typeLabel}`}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <CrudDialog
       isOpen={isOpen}
@@ -265,183 +462,7 @@ const NewComprobanteDialog = ({ isOpen, ventas, loading, onClose, onGenerate }: 
       loading={loading}
       size="xl"
     >
-      <div style={{ display: 'grid', gap: '20px' }}>
-        <section className="erp-form-grid">
-          <FormField label="Tipo de comprobante" required>
-            <select
-              className="erp-input"
-              value={form.tipo}
-              onChange={event => handleTipoChange(event.target.value as ComprobanteEmitibleTipo)}
-            >
-              <option value="BOLETA">Boleta de Venta</option>
-              <option value="FACTURA">Factura</option>
-            </select>
-          </FormField>
-          <FormField label="Fecha de emisión">
-            <input type="date" className="erp-input" value={form.fechaEmision} readOnly disabled />
-          </FormField>
-          <FormField label="Moneda" error={errors.moneda}>
-            <select
-              className="erp-input"
-              value={form.moneda}
-              onChange={event => setForm(previous => ({ ...previous, moneda: event.target.value as 'PEN' | 'USD' }))}
-            >
-              <option value="PEN">PEN</option>
-              <option value="USD">USD</option>
-            </select>
-          </FormField>
-        </section>
-
-        <section>
-          <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Venta de origen</h3>
-          <SearchInput value={saleSearch} onChange={setSaleSearch} placeholder="Buscar por ID, fecha, cliente, total o código..." />
-          <select className="erp-input" style={{ marginTop: '8px' }} value={form.ventaOrigenId} onChange={event => selectSale(event.target.value)}>
-            <option value="">Seleccionar una venta</option>
-            {filteredSales.map(sale => <option key={sale.id} value={sale.id}>{sale.id} · {sale.fecha} · {sale.cliente.nombre} · {formatAmount(sale.total)}</option>)}
-          </select>
-          {selectedSale && (
-            <div style={{ marginTop: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '13px' }}>
-              <strong style={{ display: 'block', marginBottom: '4px' }}>VENTA SELECCIONADA</strong>
-              {selectedSale.id} ({selectedSale.codigo}) · {selectedSale.fecha} · {selectedSale.cliente.nombre} · {formatAmount(selectedSale.total)}
-            </div>
-          )}
-        </section>
-
-        <section>
-          <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>
-            {form.tipo === 'FACTURA' ? 'Datos del Cliente (Receptor)' : 'Datos del Cliente'}
-          </h3>
-          <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px' }}>
-            {form.tipo === 'FACTURA'
-              ? 'Ingresa el RUC del receptor. La razón social y dirección se obtienen de ApiPeru y no se pueden editar.'
-              : 'Ingresa DNI o RUC. Nombre y dirección se obtienen de ApiPeru y no se pueden editar.'}
-          </p>
-          {facturaDesdeVentaConDni && (
-            <div style={{ marginBottom: '10px', padding: '10px 12px', borderRadius: '6px', background: 'var(--erp-accent-light)', fontSize: '12px' }}>
-              La venta fue buscada con DNI. Para emitir factura, ingresa y consulta el RUC fiscal del receptor.
-            </div>
-          )}
-          <div className="erp-form-grid">
-            <FormField label={form.tipo === 'FACTURA' ? 'Documento del receptor' : 'Tipo de documento'}>
-              <select
-                className="erp-input"
-                value={form.cliente.tipoDocumento}
-                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, tipoDocumento: event.target.value } }))}
-              >
-                {form.tipo === 'FACTURA' ? <option value="RUC">RUC</option> : <><option value="DNI">DNI</option><option value="RUC">RUC</option></>}
-              </select>
-            </FormField>
-            <FormField
-              label={form.tipo === 'FACTURA' ? 'RUC del receptor' : 'Número de documento'}
-              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
-              error={errors.clienteDocumento}
-            >
-              <input
-                className="erp-input"
-                maxLength={form.cliente.tipoDocumento === 'RUC' ? 11 : form.cliente.tipoDocumento === 'DNI' ? 8 : 15}
-                value={form.cliente.documento}
-                onChange={event => setForm(previous => ({ ...previous, cliente: { ...previous.cliente, documento: event.target.value, nombre: '', direccion: '' } }))}
-                onBlur={event => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', event.target.value)}
-              />
-              <button type="button" className="erp-btn erp-btn-secondary" disabled={consultandoPersona} onClick={() => void consultarPersona(form.cliente.tipoDocumento as 'DNI' | 'RUC', form.cliente.documento)}>
-                {consultandoPersona ? 'Consultando...' : 'Consultar documento'}
-              </button>
-            </FormField>
-            <FormField
-              label={form.tipo === 'FACTURA' ? 'Nombre / Razón social' : 'Nombre del cliente'}
-              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
-              error={errors.clienteNombre}
-            >
-              <input className="erp-input" value={form.cliente.nombre} readOnly disabled />
-            </FormField>
-            <FormField
-              label="Dirección"
-              required={form.tipo === 'FACTURA' || (form.tipo === 'BOLETA' && totals.total > 700)}
-              error={errors.clienteDireccion}
-            >
-              <input className="erp-input" value={form.cliente.direccion} readOnly disabled />
-            </FormField>
-          </div>
-          {form.tipo === 'FACTURA' && form.cliente.tipoDocumento === 'RUC' && form.cliente.documento.length === 11 && form.cliente.nombre && (
-            <div style={{ marginTop: '10px', padding: '10px 12px', border: '1px solid var(--erp-border)', borderRadius: '6px', fontSize: '12px' }}>
-              <strong style={{ display: 'block', marginBottom: '4px' }}>Datos del RUC consultado</strong>
-              <div>RUC: {form.cliente.documento}</div>
-              <div>Razón social: {form.cliente.nombre}</div>
-              <div>Dirección: {form.cliente.direccion || DIRECCION_POR_DEFECTO}</div>
-            </div>
-          )}
-          {errors.persona && <div className="erp-form-error">{errors.persona}</div>}
-        </section>
-
-        <p style={{ margin: 0, color: 'var(--erp-text-muted)', fontSize: '12px' }}>Forma de pago: CONTADO · efectivo</p>
-
-        <section>
-          <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Detalle de la venta</h3>
-          {form.detalle.length > 0 && <p style={{ margin: '0 0 10px', color: 'var(--erp-text-muted)', fontSize: '12px', display: 'flex', gap: '5px', alignItems: 'center' }}><FiLock /> Los productos y montos corresponden a la venta seleccionada y no pueden modificarse.</p>}
-          {errors.detalle && <div className="erp-form-error" style={{ marginTop: '8px' }}>{errors.detalle}</div>}
-          <div className="erp-table-wrapper" style={{ marginTop: '10px' }}>
-            <table className="erp-table">
-              <thead>
-                  <tr><th>Código</th>
-                  <th>Producto / Servicio</th>
-                  <th>Cantidad</th>
-                  <th>Precio unitario</th>
-                  <th>IGV</th>
-                  <th>Importe</th></tr>
-                </thead>
-              <tbody>
-                {form.detalle.length === 0 ? <tr><td colSpan={6} className="text-muted">Selecciona una venta para ver el detalle.</td></tr> : form.detalle.map((item, index) => (
-                  <tr key={`${item.codigo}-${index}`}>
-                    <td>{item.codigo}</td>
-                    <td>{item.productoServicio}</td>
-                    <td>{item.cantidad}</td>
-                    <td>{formatAmount(item.precio)}</td>
-                    <td>{formatAmount(item.igv)}</td><td><strong>{formatAmount(item.importe)}</strong></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className="erp-form-grid">
-          <FormField label={form.tipo === 'FACTURA' ? 'Observaciones / Notas' : 'Observaciones'} colSpan={2}>
-            <textarea className="erp-input" rows={3} value={form.observaciones} onChange={event => setForm(previous => ({ ...previous, observaciones: event.target.value }))} />
-          </FormField>
-        </section>
-
-        <section style={{ marginLeft: 'auto', minWidth: '260px', display: 'grid', gap: '6px', fontSize: '13px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>Subtotal</span><strong>{formatAmount(totals.subtotal)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px' }}><span>IGV</span><strong>{formatAmount(totals.igv)}</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '20px', fontSize: '16px' }}><strong>TOTAL</strong><strong>{formatAmount(totals.total)}</strong></div>
-        </section>
-
-        {totals.total > 0 && (
-          <section>
-            <FormField label="Importe en letras">
-              <div style={{
-                padding: '10px',
-                background: 'var(--erp-surface)',
-                border: '1px solid var(--erp-border)',
-                borderRadius: '4px',
-                fontSize: '13px',
-                fontStyle: 'italic',
-              }}>
-                {totalEnLetras(totals.total)}
-              </div>
-            </FormField>
-          </section>
-        )}
-
-        <section style={{ padding: '12px', background: 'var(--erp-bg-light)', borderRadius: '6px', fontSize: '13px' }}>
-          <strong style={{ display: 'block', marginBottom: '6px' }}>RESUMEN DEL COMPROBANTE</strong>
-          <div>Tipo: {typeLabel} · Venta de origen: {selectedSale ? `Venta #${selectedSale.id}` : 'No seleccionada'} · Cliente: {form.cliente.nombre || 'No especificado'}</div>
-          <div>Documento: {form.cliente.tipoDocumento} {form.cliente.documento || 'No especificado'} · Moneda: {form.moneda} · Detalle: {form.detalle.length} producto(s) · Fecha de emisión: {form.fechaEmision}</div>
-          <div>Subtotal: {formatAmount(totals.subtotal)} · IGV: {formatAmount(totals.igv)} · Total: {formatAmount(totals.total)}</div>
-          <div>Forma de pago: CONTADO · efectivo</div>
-          {form.observaciones && <div>Observaciones: {form.observaciones}</div>}
-        </section>
-      </div>
+      {formBody}
     </CrudDialog>
   );
 };

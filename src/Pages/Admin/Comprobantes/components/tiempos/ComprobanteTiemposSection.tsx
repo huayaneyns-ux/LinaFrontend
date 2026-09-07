@@ -4,7 +4,7 @@ import { SunatTransmissionService } from '../../../../../Services/Admin/Comproba
 import { SunatResponseTimeChart } from './SunatResponseTimeChart';
 import { SunatTransmissionDetailModal } from './SunatTransmissionDetailModal';
 import ComprobanteStatusBadge from '../ComprobanteStatusBadge';
-import Toolbar from '../../../../../Components/ERP/Toolbar';
+import SearchInput from '../../../../../Components/ERP/SearchInput';
 import Pagination from '../../../../../Components/ERP/Pagination';
 import {
   FiClock,
@@ -19,6 +19,7 @@ import {
   FiArrowUp,
   FiArrowDown,
   FiCode,
+  FiX,
 } from 'react-icons/fi';
 
 interface FiltersState {
@@ -28,9 +29,17 @@ interface FiltersState {
   transmissionStatus: string;
   rangoVelocidad: 'TODOS' | 'RAPIDO' | 'MODERADO' | 'LENTO' | 'SIN_RESPUESTA';
   tipoComprobante: string;
+  httpStatus: string;
   fechaDesde: string;
   fechaHasta: string;
 }
+
+const getTodayStr = () => new Date().toISOString().substring(0, 10);
+const getOneMonthAgoStr = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().substring(0, 10);
+};
 
 const DEFAULT_FILTERS: FiltersState = {
   search: '',
@@ -39,8 +48,9 @@ const DEFAULT_FILTERS: FiltersState = {
   transmissionStatus: '',
   rangoVelocidad: 'TODOS',
   tipoComprobante: '',
-  fechaDesde: '',
-  fechaHasta: '',
+  httpStatus: '',
+  fechaDesde: getOneMonthAgoStr(),
+  fechaHasta: getTodayStr(),
 };
 
 type SortField = 'createdAt' | 'responseTimeMs' | 'attemptNumber' | 'httpStatus' | 'series';
@@ -50,7 +60,6 @@ export const ComprobanteTiemposSection = () => {
   const [transmissions, setTransmissions] = useState<SunatTransmissionItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedTransmission, setSelectedTransmission] = useState<SunatTransmissionItemDto | null>(null);
 
   // Ordenamiento
@@ -93,13 +102,15 @@ export const ComprobanteTiemposSection = () => {
   // Conteo de filtros activos
   const activeFilterCount = useMemo(() => {
     let count = 0;
+    if (filters.search) count++;
     if (filters.operationType) count++;
     if (filters.sunatStatus) count++;
     if (filters.transmissionStatus) count++;
     if (filters.rangoVelocidad !== 'TODOS') count++;
     if (filters.tipoComprobante) count++;
-    if (filters.fechaDesde) count++;
-    if (filters.fechaHasta) count++;
+    if (filters.httpStatus) count++;
+    if (filters.fechaDesde !== getOneMonthAgoStr()) count++;
+    if (filters.fechaHasta !== getTodayStr()) count++;
     return count;
   }, [filters]);
 
@@ -138,6 +149,11 @@ export const ComprobanteTiemposSection = () => {
 
       // Filtro Tipo de Comprobante
       if (filters.tipoComprobante && item.voucherTypeCode !== filters.tipoComprobante) {
+        return false;
+      }
+
+      // Filtro Código HTTP
+      if (filters.httpStatus && String(item.httpStatus) !== filters.httpStatus) {
         return false;
       }
 
@@ -476,156 +492,215 @@ export const ComprobanteTiemposSection = () => {
       <div style={{
         backgroundColor: '#ffffff',
         border: '1px solid #e2e8f0',
-        borderRadius: '8px',
-        padding: '14px',
+        borderRadius: '0px',
+        padding: '12px 14px',
       }}>
-        {/* Header de la tabla con Toolbar */}
-        <Toolbar
-          searchValue={filters.search}
-          onSearchChange={(val) => {
-            setFilters((prev) => ({ ...prev, search: val }));
-            setPage(1);
-          }}
-          searchPlaceholder="Buscar por serie, número, cliente, ID..."
-          showFilters={showFilters}
-          onToggleFilters={() => setShowFilters((prev) => !prev)}
-          filterCount={activeFilterCount}
-          onResetFilters={handleResetFilters}
-          filterPanel={
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '12px',
-              width: '100%',
-              paddingTop: '6px',
-            }}>
-              {/* Filtro: Tipo Operación */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Tipo de Operación</label>
-                <select
-                  className="erp-input erp-input-sm"
-                  value={filters.operationType}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, operationType: e.target.value }));
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Todas las operaciones</option>
-                  <option value="SEND">SEND (Envío de Comprobante)</option>
-                  <option value="VOID">VOID (Comunicación de Baja)</option>
-                  <option value="STATUS_QUERY">STATUS_QUERY (Consulta Estado)</option>
-                </select>
-              </div>
+        {/* 8 Filtros organizados en 4 columnas x 2 filas con label a su lado */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          gap: '8px 16px',
+          width: '100%',
+        }}>
+          {/* 1. Tipo Operación */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Operación
+            </label>
+            <select
+              className="erp-input"
+              value={filters.operationType}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, operationType: e.target.value }));
+                setPage(1);
+              }}
+            >
+              <option value="">Todas</option>
+              <option value="SEND">SEND</option>
+              <option value="VOID">VOID</option>
+              <option value="STATUS_QUERY">STATUS_QUERY</option>
+            </select>
+          </div>
 
-              {/* Filtro: Estado SUNAT */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Estado SUNAT</label>
-                <select
-                  className="erp-input erp-input-sm"
-                  value={filters.sunatStatus}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, sunatStatus: e.target.value }));
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Todos los estados</option>
-                  <option value="ACEPTADO">ACEPTADO</option>
-                  <option value="RECHAZADO">RECHAZADO</option>
-                  <option value="PENDIENTE">PENDIENTE</option>
-                  <option value="EXCEPCION">EXCEPCION</option>
-                </select>
-              </div>
+          {/* 2. Estado SUNAT */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Est. SUNAT
+            </label>
+            <select
+              className="erp-input"
+              value={filters.sunatStatus}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, sunatStatus: e.target.value }));
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="ACEPTADO">ACEPTADO</option>
+              <option value="RECHAZADO">RECHAZADO</option>
+              <option value="PENDIENTE">PENDIENTE</option>
+              <option value="EXCEPCION">EXCEPCION</option>
+            </select>
+          </div>
 
-              {/* Filtro: Rango de Velocidad / Latencia */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Rango de Latencia</label>
-                <select
-                  className="erp-input erp-input-sm"
-                  value={filters.rangoVelocidad}
-                  onChange={(e) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      rangoVelocidad: e.target.value as FiltersState['rangoVelocidad'],
-                    }));
-                    setPage(1);
-                  }}
-                >
-                  <option value="TODOS">Todos los tiempos</option>
-                  <option value="RAPIDO">Rápidos (&lt; 1,000 ms)</option>
-                  <option value="MODERADO">Normales (1,000 - 2,500 ms)</option>
-                  <option value="LENTO">Lentos (&gt; 2,500 ms)</option>
-                  <option value="SIN_RESPUESTA">Sin respuesta / Error HTTP</option>
-                </select>
-              </div>
+          {/* 3. Estado Técnico */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Est. Técnico
+            </label>
+            <select
+              className="erp-input"
+              value={filters.transmissionStatus}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, transmissionStatus: e.target.value }));
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="ERROR">ERROR</option>
+              <option value="PENDING">PENDING</option>
+            </select>
+          </div>
 
-              {/* Filtro: Estado Técnico */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Estado Técnico</label>
-                <select
-                  className="erp-input erp-input-sm"
-                  value={filters.transmissionStatus}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, transmissionStatus: e.target.value }));
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Todos los estados técnicos</option>
-                  <option value="SUCCESS">SUCCESS (Exitoso)</option>
-                  <option value="ERROR">ERROR (Fallo)</option>
-                  <option value="PENDING">PENDING (En cola)</option>
-                </select>
-              </div>
+          {/* 4. Rango Latencia */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Latencia
+            </label>
+            <select
+              className="erp-input"
+              value={filters.rangoVelocidad}
+              onChange={(e) => {
+                setFilters((prev) => ({
+                  ...prev,
+                  rangoVelocidad: e.target.value as FiltersState['rangoVelocidad'],
+                }));
+                setPage(1);
+              }}
+            >
+              <option value="TODOS">Todos</option>
+              <option value="RAPIDO">&lt; 1,000 ms</option>
+              <option value="MODERADO">1,000 - 2,500 ms</option>
+              <option value="LENTO">&gt; 2,500 ms</option>
+              <option value="SIN_RESPUESTA">Sin respuesta</option>
+            </select>
+          </div>
 
-              {/* Filtro: Tipo de Comprobante */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Tipo Comprobante</label>
-                <select
-                  className="erp-input erp-input-sm"
-                  value={filters.tipoComprobante}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, tipoComprobante: e.target.value }));
-                    setPage(1);
-                  }}
-                >
-                  <option value="">Todos los tipos</option>
-                  <option value="01">Factura (01)</option>
-                  <option value="03">Boleta de Venta (03)</option>
-                  <option value="04">Liquidación de Compra (04)</option>
-                  <option value="07">Nota de Crédito (07)</option>
-                  <option value="08">Nota de Débito (08)</option>
-                </select>
-              </div>
+          {/* 5. Tipo Comprobante */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Comprobante
+            </label>
+            <select
+              className="erp-input"
+              value={filters.tipoComprobante}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, tipoComprobante: e.target.value }));
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="01">Factura (01)</option>
+              <option value="03">Boleta (03)</option>
+              <option value="04">Liquidación (04)</option>
+              <option value="07">Nota Crédito (07)</option>
+              <option value="08">Nota Débito (08)</option>
+            </select>
+          </div>
 
-              {/* Filtro: Fecha Desde */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Fecha Desde</label>
-                <input
-                  type="date"
-                  className="erp-input erp-input-sm"
-                  value={filters.fechaDesde}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, fechaDesde: e.target.value }));
-                    setPage(1);
-                  }}
-                />
-              </div>
+          {/* 6. Código HTTP */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Código HTTP
+            </label>
+            <select
+              className="erp-input"
+              value={filters.httpStatus}
+              onChange={(e) => {
+                setFilters((prev) => ({ ...prev, httpStatus: e.target.value }));
+                setPage(1);
+              }}
+            >
+              <option value="">Todos</option>
+              <option value="200">200 OK</option>
+              <option value="400">400 Bad Request</option>
+              <option value="401">401 Unauthorized</option>
+              <option value="500">500 Server Error</option>
+              <option value="502">502 Bad Gateway</option>
+            </select>
+          </div>
 
-              {/* Filtro: Fecha Hasta */}
-              <div>
-                <label className="erp-form-label" style={{ fontSize: '11px' }}>Fecha Hasta</label>
-                <input
-                  type="date"
-                  className="erp-input erp-input-sm"
-                  value={filters.fechaHasta}
-                  onChange={(e) => {
-                    setFilters((prev) => ({ ...prev, fechaHasta: e.target.value }));
-                    setPage(1);
-                  }}
-                />
-              </div>
+          {/* 7. Rango de Fechas (Desde - Hasta en una sola celda) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Fechas
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <input
+                type="date"
+                className="erp-input"
+                style={{ padding: '0 4px', fontSize: '11px' }}
+                value={filters.fechaDesde}
+                onChange={(e) => {
+                  setFilters((prev) => ({ ...prev, fechaDesde: e.target.value }));
+                  setPage(1);
+                }}
+                title="Fecha Desde"
+              />
+              <span style={{ color: '#94a3b8', fontSize: '11px' }}>-</span>
+              <input
+                type="date"
+                className="erp-input"
+                style={{ padding: '0 4px', fontSize: '11px' }}
+                value={filters.fechaHasta}
+                onChange={(e) => {
+                  setFilters((prev) => ({ ...prev, fechaHasta: e.target.value }));
+                  setPage(1);
+                }}
+                title="Fecha Hasta"
+              />
             </div>
-          }
-        />
+          </div>
+
+          {/* 8. Buscar por texto + Limpiar integrado */}
+          <div style={{ display: 'grid', gridTemplateColumns: '85px 1fr', alignItems: 'center', gap: '6px' }}>
+            <label style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--erp-text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Buscar
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ flex: 1 }}>
+                <SearchInput
+                  value={filters.search}
+                  onChange={(val) => {
+                    setFilters((prev) => ({ ...prev, search: val }));
+                    setPage(1);
+                  }}
+                  placeholder="Serie, número, ID..."
+                />
+              </div>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  className="erp-btn-clear-filters"
+                  onClick={handleResetFilters}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#dc2626',
+                    padding: '2px 4px',
+                    fontSize: '11px',
+                  }}
+                  title="Restablecer filtros"
+                >
+                  <FiX style={{ color: '#ef4444' }} />
+                  <span>Limpiar</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
 
         {/* Tabla de envíos a la SUNAT */}
         <div className="erp-table-wrapper" style={{ marginTop: '12px' }}>

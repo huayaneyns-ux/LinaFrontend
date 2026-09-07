@@ -17,6 +17,7 @@ import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
 import {
   FiUsers,
   FiCheckCircle,
@@ -25,6 +26,8 @@ import {
   FiEdit2,
   FiTrash2,
   FiEyeOff,
+  FiSave,
+  FiX,
 } from 'react-icons/fi';
 
 interface UsuarioFilters {
@@ -78,16 +81,19 @@ const usuarioCrudService = {
   delete: (id: number) => UsuarioService.deleteUsuario(id),
 };
 
-const UsersSection = () => {
+export const UsersSection = () => {
   const { items: users, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
     useAdminCrud<UsuarioSelectDto, UsuarioGuardarDto, UsuarioGuardarDto>(usuarioCrudService);
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<UsuarioSelectDto>();
+  const { dialogState, openDelete, closeDialog } = useDialog<UsuarioSelectDto>();
+
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [roles, setRoles] = useState<RolSelectDto[]>([]);
   const [filters, setFilters] = useState<UsuarioFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [showDisabled, setShowDisabled] = useState(false);
   const [formState, setFormState] = useState<UsuarioFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
@@ -140,29 +146,38 @@ const UsersSection = () => {
     return { total, activos, inactivos: total - activos };
   }, [users]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: UsuarioSelectDto) => {
+  const handleStartCreate = () => {
     setFormError(null);
-    if (record && (mode === 'view' || mode === 'edit')) {
-      const detail = await fetchById(record.id, record);
-      setFormState(toFormState(detail));
-    } else if (mode === 'delete' && record) {
-      setFormState(toFormState(record));
-    } else {
-      setFormState({
-        ...EMPTY_FORM,
-        idRol: roles[0]?.id || 0,
-      });
-    }
+    setSelectedId(null);
+    setFormState({
+      ...EMPTY_FORM,
+      idRol: roles[0]?.id || 0,
+    });
+    setFormMode('create');
+    setActiveTab('form');
+  };
 
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const handleStartEdit = async (record: UsuarioSelectDto) => {
+    setFormError(null);
+    setSelectedId(record.id);
+    setFormMode('edit');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState(toFormState(detail));
+  };
+
+  const handleStartView = async (record: UsuarioSelectDto) => {
+    setFormError(null);
+    setSelectedId(record.id);
+    setFormMode('view');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState(toFormState(detail));
   };
 
   const buildPayload = (): UsuarioGuardarDto => {
     const payload: UsuarioGuardarDto = {
-      idUsuario: dialogState.mode === 'edit' ? formState.idUsuario ?? dialogState.record?.id ?? null : null,
+      idUsuario: formMode === 'edit' ? selectedId : null,
       nombreApellido: formState.nombreApellido.trim(),
       dni: formState.dni.trim(),
       sexo: formState.sexo || undefined,
@@ -179,50 +194,57 @@ const UsersSection = () => {
     return payload;
   };
 
-  const handleConfirm = async () => {
+  const handleSaveForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formMode === 'view') return;
+
+    if (!formState.nombreApellido.trim()) {
+      setFormError('Ingrese el nombre y apellido.');
+      return;
+    }
+    if (!formState.dni.trim()) {
+      setFormError('Ingrese el DNI.');
+      return;
+    }
+    if (!formState.correo.trim()) {
+      setFormError('Ingrese el correo.');
+      return;
+    }
+    if (!formState.idRol) {
+      setFormError('Seleccione un rol.');
+      return;
+    }
+    if (formMode === 'create' && !formState.contrasena.trim()) {
+      setFormError('Ingrese la contraseña.');
+      return;
+    }
+
+    setFormError(null);
     try {
-      if (dialogState.mode === 'create' || dialogState.mode === 'edit') {
-        if (!formState.nombreApellido.trim()) {
-          setFormError('Ingrese el nombre y apellido.');
-          return;
-        }
-        if (!formState.dni.trim()) {
-          setFormError('Ingrese el DNI.');
-          return;
-        }
-        if (!formState.correo.trim()) {
-          setFormError('Ingrese el correo.');
-          return;
-        }
-        if (!formState.idRol) {
-          setFormError('Seleccione un rol.');
-          return;
-        }
-        if (dialogState.mode === 'create' && !formState.contrasena.trim()) {
-          setFormError('Ingrese la contraseña.');
-          return;
-        }
-        setFormError(null);
-        if (dialogState.mode === 'create') {
-          await createItem(buildPayload());
-        } else {
-          await updateItem(buildPayload());
-        }
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await deleteItem(dialogState.record.id);
+      if (formMode === 'create') {
+        await createItem(buildPayload());
+      } else {
+        await updateItem(buildPayload());
       }
-      closeDialog();
+      setActiveTab('list');
     } catch {
-      // error via hook
+      // error handled in hook
     }
   };
 
-  const isReadOnly = dialogState.mode === 'view';
+  const handleConfirmDelete = async () => {
+    if (dialogState.record) {
+      await deleteItem(dialogState.record.id);
+      closeDialog();
+    }
+  };
+
+  const isReadOnly = formMode === 'view';
 
   const columns = [
     {
       key: 'nombreApellido',
-      header: 'Nombre',
+      header: 'Nombre y Apellidos',
       sortable: true,
       render: (row: UsuarioSelectDto) => (
         <div>
@@ -247,11 +269,13 @@ const UsersSection = () => {
     },
     {
       key: 'rol',
-      header: 'Rol',
+      header: 'Rol de Acceso',
       sortable: true,
-      width: '140px',
+      width: '150px',
       render: (row: UsuarioSelectDto) => (
-        <span className="erp-badge erp-badge-role">{row.rol || '—'}</span>
+        <span className="erp-badge erp-badge-role" style={{ padding: '2px 8px', borderRadius: '0px', backgroundColor: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: '11.5px', border: '1px solid #bae6fd' }}>
+          {row.rol || '—'}
+        </span>
       ),
     },
     {
@@ -266,7 +290,9 @@ const UsersSection = () => {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '110px',
+      width: '56px',
+      align: 'center' as const,
+      className: 'col-status',
       render: (row: UsuarioSelectDto) => (
         <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
       ),
@@ -275,25 +301,20 @@ const UsersSection = () => {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
+      width: '112px',
+      className: 'col-actions',
       render: (row: UsuarioSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
+        <div className="erp-table-actions">
+          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleStartView(row)} />
+          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleStartEdit(row)} />
+          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => openDelete(row)} />
         </div>
       ),
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
-      )}
-
+  const listContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiUsers /></div>
@@ -318,109 +339,109 @@ const UsersSection = () => {
         </div>
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <button
+          type="button"
+          className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
+          onClick={() => setShowDisabled(prev => !prev)}
+        >
+          {showDisabled ? <FiEyeOff /> : <FiEye />}
+          <span>{showDisabled ? 'Ocultar inactivos' : 'Mostrar inactivos'}</span>
+        </button>
+      </div>
+
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar por nombre, DNI, correo o rol..."
-        onNew={() => handleOpenDialog('create')}
+        onNew={handleStartCreate}
         newLabel="Nuevo Usuario"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
-        extraActions={
-          <button
-            type="button"
-            className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
-            onClick={() => setShowDisabled(prev => !prev)}
-          >
-            {showDisabled ? <FiEyeOff /> : <FiEye />}
-            {showDisabled ? 'Ocultar deshabilitados' : 'Mostrar deshabilitados'}
-          </button>
-        }
+        alwaysShowFilters={true}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Rol</label>
+          <>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Rol</label>
               <select
-                className="erp-input"
+                className="erp-filter-select"
                 value={filters.idRol}
                 onChange={e => setFilters(prev => ({ ...prev, idRol: e.target.value }))}
               >
-                <option value="">Todos</option>
+                <option value="">Todos los roles</option>
                 {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.nombre}</option>
                 ))}
               </select>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado</label>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Estado</label>
               <select
-                className="erp-input"
+                className="erp-filter-select"
                 value={filters.estado}
                 onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}
               >
-                <option value="">Todos</option>
+                <option value="">Todos los estados</option>
                 <option value="ACTIVO">Activo</option>
                 <option value="INACTIVO">Inactivo</option>
               </select>
             </div>
-          </div>
+          </>
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando usuarios...</div>
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              data={processedData}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              rowKey={row => row.id}
-              emptyMessage="No se encontraron usuarios registrados"
-            />
-            <Pagination
-              page={pagination.page}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pagination.pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
-          </>
-        )}
-      </div>
+      {error && (
+        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+          {error}
+        </div>
+      )}
 
-      <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
-        onClose={closeDialog}
-        onConfirm={handleConfirm}
-        loading={saving}
-        title={
-          dialogState.mode === 'create' ? 'Nuevo usuario' :
-          dialogState.mode === 'edit' ? 'Editar usuario' :
-          dialogState.mode === 'view' ? 'Detalle de usuario' : 'Eliminar usuario'
-        }
-        size="lg"
-        deleteMessage={
-          dialogState.record ? (
-            <>¿Está seguro de eliminar a <strong>{dialogState.record.nombreApellido}</strong> ({dialogState.record.correo})?</>
-          ) : undefined
-        }
-      >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-form-grid">
-            {formError && (
-              <div style={{ gridColumn: '1 / -1', padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-                {formError}
-              </div>
-            )}
+      {loading ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando usuarios...</div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={processedData}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            rowKey={row => row.id}
+            emptyMessage="No se encontraron usuarios registrados"
+          />
+          <Pagination
+            page={pagination.page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  const formContent = (
+    <form onSubmit={handleSaveForm} className="erp-form erp-form-simple">
+      <div className="erp-form-section">
+        <h3 className="erp-form-section-title">
+          {formMode === 'create' && 'Nuevo Usuario'}
+          {formMode === 'edit' && `Editando Usuario #${selectedId}`}
+          {formMode === 'view' && `Detalle de Usuario #${selectedId}`}
+        </h3>
+
+        {formError && (
+          <div style={{ padding: '8px 12px', marginBottom: '14px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+            {formError}
+          </div>
+        )}
+
+        <div className="erp-form-fields">
+          <div className="erp-form-row">
             <div className="erp-form-group">
-              <label className="erp-form-label">Nombre y apellido *</label>
+              <label className="erp-form-label">Nombre y apellido <span className="required-star">*</span></label>
               <input
                 type="text"
                 className="erp-input"
@@ -428,10 +449,11 @@ const UsersSection = () => {
                 onChange={e => setFormState(prev => ({ ...prev, nombreApellido: e.target.value }))}
                 disabled={isReadOnly}
                 placeholder="Ej: Ana Pérez"
+                required
               />
             </div>
             <div className="erp-form-group">
-              <label className="erp-form-label">DNI *</label>
+              <label className="erp-form-label">DNI <span className="required-star">*</span></label>
               <input
                 type="text"
                 className="erp-input"
@@ -440,10 +462,14 @@ const UsersSection = () => {
                 onChange={e => setFormState(prev => ({ ...prev, dni: e.target.value.replace(/\D/g, '').slice(0, 8) }))}
                 disabled={isReadOnly}
                 placeholder="8 dígitos"
+                required
               />
             </div>
+          </div>
+
+          <div className="erp-form-row">
             <div className="erp-form-group">
-              <label className="erp-form-label">Correo *</label>
+              <label className="erp-form-label">Correo electrónico <span className="required-star">*</span></label>
               <input
                 type="email"
                 className="erp-input"
@@ -451,6 +477,7 @@ const UsersSection = () => {
                 onChange={e => setFormState(prev => ({ ...prev, correo: e.target.value }))}
                 disabled={isReadOnly}
                 placeholder="correo@ejemplo.com"
+                required
               />
             </div>
             <div className="erp-form-group">
@@ -464,10 +491,13 @@ const UsersSection = () => {
                 placeholder="999888777"
               />
             </div>
+          </div>
+
+          <div className="erp-form-row">
             <div className="erp-form-group">
               <label className="erp-form-label">Sexo</label>
               {isReadOnly ? (
-                <div style={{ paddingTop: '6px' }}>
+                <div className="erp-form-status-value">
                   {formState.sexo === 'M' ? 'Masculino' : formState.sexo === 'F' ? 'Femenino' : formState.sexo || '—'}
                 </div>
               ) : (
@@ -482,12 +512,13 @@ const UsersSection = () => {
               )}
             </div>
             <div className="erp-form-group">
-              <label className="erp-form-label">Rol *</label>
+              <label className="erp-form-label">Rol de Acceso <span className="required-star">*</span></label>
               <select
                 className="erp-input"
                 value={formState.idRol}
                 onChange={e => setFormState(prev => ({ ...prev, idRol: Number(e.target.value) }))}
                 disabled={isReadOnly}
+                required
               >
                 <option value={0}>Seleccione rol...</option>
                 {roles.map(r => (
@@ -495,30 +526,26 @@ const UsersSection = () => {
                 ))}
               </select>
             </div>
+          </div>
 
-            {(dialogState.mode === 'create' || dialogState.mode === 'edit') && (
+          {!isReadOnly && (
+            <div className="erp-form-row">
               <div className="erp-form-group">
                 <label className="erp-form-label">
-                  Contraseña {dialogState.mode === 'create' ? '*' : '(opcional)'}
+                  Contraseña {formMode === 'create' ? <span className="required-star">*</span> : '(opcional)'}
                 </label>
                 <input
                   type="password"
                   className="erp-input"
                   value={formState.contrasena}
                   onChange={e => setFormState(prev => ({ ...prev, contrasena: e.target.value }))}
-                  placeholder={dialogState.mode === 'create' ? 'Contraseña inicial' : 'Dejar vacío para no cambiar'}
+                  placeholder={formMode === 'create' ? 'Contraseña inicial' : 'Dejar vacío para no cambiar'}
+                  required={formMode === 'create'}
                 />
               </div>
-            )}
-
-            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
-              <div className="erp-form-group">
-                <label className="erp-form-label">Estado</label>
-                {isReadOnly ? (
-                  <div style={{ paddingTop: '6px' }}>
-                    <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} />
-                  </div>
-                ) : (
+              {(formMode === 'edit') && (
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Estado</label>
                   <select
                     className="erp-input"
                     value={formState.estado ? 'ACTIVO' : 'INACTIVO'}
@@ -527,13 +554,74 @@ const UsersSection = () => {
                     <option value="ACTIVO">Activo</option>
                     <option value="INACTIVO">Inactivo</option>
                   </select>
-                )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {formMode === 'view' && (
+            <div className="erp-form-group">
+              <label className="erp-form-label">Estado</label>
+              <div className="erp-form-status-value">
+                <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} showText />
               </div>
-            )}
-          </div>
-        )}
-      </CrudDialog>
-    </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {!isReadOnly && (
+        <div className="erp-form-actions">
+          <button
+            type="button"
+            className="erp-btn erp-btn-secondary"
+            onClick={() => setActiveTab('list')}
+          >
+            <FiX />
+            <span>Cancelar</span>
+          </button>
+          <button
+            type="submit"
+            className="erp-btn erp-btn-primary"
+            disabled={saving}
+          >
+            <FiSave />
+            <span>{saving ? 'Guardando...' : formMode === 'create' ? 'Crear Usuario' : 'Guardar Cambios'}</span>
+          </button>
+        </div>
+      )}
+    </form>
+  );
+
+  return (
+    <>
+      <SubmoduleTwoTabsLayout
+        title="Usuarios y Empleados del Sistema"
+        subtitle="Administra cuentas de usuario, credenciales de inicio de sesión y asignación de roles"
+        entityName="Usuario"
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        formMode={formMode}
+        onNew={handleStartCreate}
+        listContent={listContent}
+        formContent={formContent}
+      />
+
+      <CrudDialog
+        isOpen={dialogState.isOpen && dialogState.mode === 'delete'}
+        mode="delete"
+        onClose={closeDialog}
+        onConfirm={handleConfirmDelete}
+        loading={saving}
+        title="Eliminar Usuario"
+        size="sm"
+        deleteMessage={
+          dialogState.record ? (
+            <>¿Está seguro de eliminar a <strong>{dialogState.record.nombreApellido}</strong> ({dialogState.record.correo})?</>
+          ) : undefined
+        }
+      />
+    </>
   );
 };
 

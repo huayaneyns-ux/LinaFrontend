@@ -149,7 +149,7 @@ export const SunatTransmissionDetailModal = ({
               </span>
               <div style={{ marginTop: '4px' }}>
                 {transmission.sunatStatus ? (
-                  <ComprobanteStatusBadge status={transmission.sunatStatus} />
+                  <ComprobanteStatusBadge status={transmission.sunatStatus} showText />
                 ) : (
                   <span style={{ fontSize: '13px', color: '#94a3b8' }}>Pendiente</span>
                 )}

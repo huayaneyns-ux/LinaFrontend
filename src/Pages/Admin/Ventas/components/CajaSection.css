@@ -12,7 +12,7 @@
 
 .caja-alert {
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 0px;
   font-size: 13px;
   font-weight: 500;
 }
@@ -45,8 +45,8 @@
 .caja-panel {
   background: #fff;
   border: 1px solid var(--erp-card-border);
-  border-radius: var(--erp-card-radius);
-  box-shadow: var(--erp-card-shadow);
+  border-radius: 0px;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -83,7 +83,7 @@
   margin-left: auto;
   background: var(--erp-bg-secondary);
   border: 1px solid var(--erp-border);
-  border-radius: 6px;
+  border-radius: 0px;
   width: 32px;
   height: 32px;
   display: flex;
@@ -135,9 +135,9 @@
   gap: 2px;
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--erp-border);
-  border-radius: 8px;
+  border-radius: 0px;
   background: #f8fafc;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
@@ -173,7 +173,7 @@
 /* Cliente */
 .caja-client-block {
   border: 1px solid var(--erp-border);
-  border-radius: 10px;
+  border-radius: 0px;
   padding: 12px;
   background: #fafbfc;
 }
@@ -193,6 +193,7 @@
   justify-content: center;
   min-width: 40px;
   padding: 8px 12px;
+  border-radius: 0px;
 }
 
 .caja-client-status {
@@ -200,7 +201,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 0px;
   font-size: 12px;
   font-weight: 600;
   margin-bottom: 8px;
@@ -246,7 +247,7 @@
 /* Carrito */
 .caja-cart-block {
   border: 1px solid var(--erp-border);
-  border-radius: 10px;
+  border-radius: 0px;
   padding: 12px;
   flex: 1;
   display: flex;

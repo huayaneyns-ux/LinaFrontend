@@ -24,6 +24,7 @@ interface NewNotaDialogProps {
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: NotaFormData) => Promise<boolean | null>;
+  embedded?: boolean;
 }
 
 type FormErrorKey =
@@ -89,7 +90,7 @@ const MOTIVOS_CREDITO_NO_PERMITIDOS_BOLETA = new Set<TipoNotaCredito>([
   'Bonificaciones',
 ]);
 
-const NewNotaDialog = ({ isOpen, comprobantesBase, comprobantesBaseDebito, loading, onClose, onGenerate }: NewNotaDialogProps) => {
+const NewNotaDialog = ({ isOpen, comprobantesBase, comprobantesBaseDebito, loading, onClose, onGenerate, embedded = false }: NewNotaDialogProps) => {
   const [form, setForm] = useState<NotaFormData>(createInitialForm);
   const [comprobanteSearch, setComprobanteSearch] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
@@ -281,17 +282,8 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, comprobantesBaseDebito, loadi
   }, [form.motivo, form.tipo, selectedComprobante?.sunatTypeCode]);
 
   return (
-    <CrudDialog
-      isOpen={isOpen}
-      mode="create"
-      onClose={handleClose}
-      onConfirm={() => void handleGenerate()}
-      title={form.tipo === 'NOTA_CREDITO' ? 'Nueva Nota de Crédito' : 'Nueva Nota de Débito'}
-      subtitle="Documento tributario que modifica un comprobante existente"
-      confirmLabel={form.tipo === 'NOTA_CREDITO' ? 'Emitir Nota de Crédito' : 'Emitir Nota de Débito'}
-      loading={loading}
-      size="xl"
-    >
+    (() => {
+      const formBody = (
       <div style={{ display: 'grid', gap: '20px' }}>
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Tipo de nota</h3>
@@ -488,7 +480,42 @@ const NewNotaDialog = ({ isOpen, comprobantesBase, comprobantesBaseDebito, loadi
 
         {errors.importe && <div style={{ fontSize: '12px', color: 'var(--erp-danger)' }}>{errors.importe}</div>}
       </div>
-    </CrudDialog>
+      );
+
+      const confirmLabel = form.tipo === 'NOTA_CREDITO' ? 'Emitir Nota de Crédito' : 'Emitir Nota de Débito';
+
+      if (embedded) {
+        return (
+          <div className="erp-form">
+            {formBody}
+            <div className="erp-form-actions">
+              <button type="button" className="erp-btn erp-btn-secondary" onClick={handleClose} disabled={loading}>
+                Cancelar
+              </button>
+              <button type="button" className="erp-btn erp-btn-primary" onClick={() => void handleGenerate()} disabled={loading}>
+                {loading ? 'Emitiendo...' : confirmLabel}
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <CrudDialog
+          isOpen={isOpen}
+          mode="create"
+          onClose={handleClose}
+          onConfirm={() => void handleGenerate()}
+          title={form.tipo === 'NOTA_CREDITO' ? 'Nueva Nota de Crédito' : 'Nueva Nota de Débito'}
+          subtitle="Documento tributario que modifica un comprobante existente"
+          confirmLabel={confirmLabel}
+          loading={loading}
+          size="xl"
+        >
+          {formBody}
+        </CrudDialog>
+      );
+    })()
   );
 };
 

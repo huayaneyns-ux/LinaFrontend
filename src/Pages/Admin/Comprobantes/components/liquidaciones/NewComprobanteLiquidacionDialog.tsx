@@ -19,6 +19,7 @@ interface Props {
   loading: boolean;
   onClose: () => void;
   onGenerate: (data: LiquidacionCompraFormData) => Promise<boolean | null>;
+  embedded?: boolean;
 }
 
 type LocationForm = {
@@ -48,7 +49,7 @@ const emptySeller = {
   nombre: '',
 };
 
-const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, onClose, onGenerate }: Props) => {
+const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, onClose, onGenerate, embedded = false }: Props) => {
   const [search, setSearch] = useState('');
   const [selectedCompraId, setSelectedCompraId] = useState<number>(0);
   const [fechaEmision, setFechaEmision] = useState(today());
@@ -179,21 +180,12 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
     }
   };
 
-  return (
-    <CrudDialog
-      isOpen={isOpen}
-      mode="create"
-      onClose={() => {
-        reset();
-        onClose();
-      }}
-      onConfirm={() => void handleGenerate()}
-      title="Nueva Liquidación de Compra"
-      subtitle="Emite una liquidación a partir de una compra registrada"
-      confirmLabel="Emitir liquidación"
-      loading={loading}
-      size="xl"
-    >
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const formBody = (
       <div style={{ display: 'grid', gap: '20px' }}>
         <section>
           <h3 style={{ margin: '0 0 10px', fontSize: '14px' }}>Compra origen</h3>
@@ -350,6 +342,37 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
 
         {error && <div style={{ color: 'var(--erp-danger)', fontSize: '12px' }}>{error}</div>}
       </div>
+  );
+
+  if (embedded) {
+    return (
+      <div className="erp-form">
+        {formBody}
+        <div className="erp-form-actions">
+          <button type="button" className="erp-btn erp-btn-secondary" onClick={handleClose} disabled={loading}>
+            Cancelar
+          </button>
+          <button type="button" className="erp-btn erp-btn-primary" onClick={() => void handleGenerate()} disabled={loading}>
+            {loading ? 'Emitiendo...' : 'Emitir liquidación'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <CrudDialog
+      isOpen={isOpen}
+      mode="create"
+      onClose={handleClose}
+      onConfirm={() => void handleGenerate()}
+      title="Nueva Liquidación de Compra"
+      subtitle="Emite una liquidación a partir de una compra registrada"
+      confirmLabel="Emitir liquidación"
+      loading={loading}
+      size="xl"
+    >
+      {formBody}
     </CrudDialog>
   );
 };
