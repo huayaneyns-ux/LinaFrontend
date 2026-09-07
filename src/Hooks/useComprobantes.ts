@@ -1,53 +1,61 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ComprobanteMockService } from '../Services/Admin/Comprobantes/ComprobanteMockService';
+import { ComprobanteVentasService } from '../Services/Admin/Comprobantes/ComprobanteVentasService';
 import type {
   ComprobanteFormData,
   ComprobanteSelectDto,
-  ProductoComprobanteMockDto,
-  VentaOrigenComprobanteDto,
+  LiquidacionCompraDisponibleDto,
+  LiquidacionCompraFormData,
+  NotaComprobanteBaseDto,
   NotaFormData,
-  GuiaRemisionFormData,
-  GetAllQueryParams,
   PDFFormat,
+  VentaOrigenComprobanteDto,
   VoidBillRequest,
 } from '../Types/Admin/Comprobantes/Comprobante';
 
 export function useComprobantes() {
   const [comprobantes, setComprobantes] = useState<ComprobanteSelectDto[]>([]);
   const [ventasDisponibles, setVentasDisponibles] = useState<VentaOrigenComprobanteDto[]>([]);
-  const [productosDisponibles, setProductosDisponibles] = useState<ProductoComprobanteMockDto[]>([]);
+  const [notasBaseDisponibles, setNotasBaseDisponibles] = useState<NotaComprobanteBaseDto[]>([]);
+  const [notasBaseDebitoDisponibles, setNotasBaseDebitoDisponibles] = useState<NotaComprobanteBaseDto[]>([]);
+  const [comprasDisponibles, setComprasDisponibles] = useState<LiquidacionCompraDisponibleDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [updatingSunatId, setUpdatingSunatId] = useState<number | null>(null);
+  const [updatingSunatId, setUpdatingSunatId] = useState<string | number | null>(null);
+  const [resendingSunatId, setResendingSunatId] = useState<string | number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const loadComprobantes = useCallback(async () => {
+  const getErrorMessage = (fallback: string, error: unknown) => {
+    if (error instanceof Error && error.message.trim()) {
+      return error.message;
+    }
+    return fallback;
+  };
+
+  const loadComprobantes = useCallback(async (background = false) => {
     try {
-      setLoading(true);
+      if (!background) {
+        setLoading(true);
+      }
       setError(null);
-      const [ventas, productos] = await Promise.all([
-        ComprobanteMockService.getVentasDisponibles(),
-        ComprobanteMockService.getProductosDisponibles(),
+      const [ventas, documentos, notasBase, notasBaseDebito, compras] = await Promise.all([
+        ComprobanteVentasService.getVentasDisponibles(),
+        ComprobanteVentasService.getComprobantes(),
+        ComprobanteVentasService.getBasesNotas(),
+        ComprobanteVentasService.getBasesNotasDebito(),
+        ComprobanteVentasService.getComprasDisponiblesLiquidacion(),
       ]);
-      
-      // Cargar documentos desde la API de SUNAT
-      const { EMPRESA } = await import('../Constantes/Empresa');
-      const apiParams: GetAllQueryParams = {
-        personaId: EMPRESA.sunatConfig.personaId,
-        personaToken: EMPRESA.sunatConfig.personaToken || '',
-        limit: 100,
-      };
-      
-      const data = await ComprobanteMockService.getAll(apiParams);
-      
-      setComprobantes(data);
       setVentasDisponibles(ventas);
-      setProductosDisponibles(productos);
-    } catch {
-      setError('No se pudieron cargar los comprobantes. Intenta nuevamente.');
+      setComprobantes(documentos);
+      setNotasBaseDisponibles(notasBase);
+      setNotasBaseDebitoDisponibles(notasBaseDebito);
+      setComprasDisponibles(compras);
+    } catch (error) {
+      setError(getErrorMessage('No se pudieron cargar los comprobantes. Intenta nuevamente.', error));
     } finally {
-      setLoading(false);
+      if (!background) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -56,210 +64,130 @@ export function useComprobantes() {
       setGenerating(true);
       setError(null);
       setSuccessMessage(null);
-      const comprobante = await ComprobanteMockService.crearComprobante(formData);
-      setComprobantes((previous) => [comprobante, ...previous]);
-
-      // Solo mostrar mensaje de éxito si el comprobante fue enviado correctamente a SUNAT
-      if (
-        comprobante.estado === 'EMITIDO' &&
-        (comprobante.estadoSunat === 'ACEPTADO' ||
-          comprobante.estadoSunat === 'PENDIENTE')
-      ) {
-        const labels: Record<string, string> = {
-          BOLETA: 'Boleta',
-          FACTURA: 'Factura',
-          LIQUIDACION_COMPRA: 'Liquidación de Compra',
-        };
-        const tipoLabel = labels[comprobante.tipo] || 'Comprobante';
-        const estadoLabel =
-          comprobante.estadoSunat === 'PENDIENTE'
-            ? 'enviada a SUNAT (pendiente de confirmación)'
-            : 'generada correctamente';
-        setSuccessMessage(
-          `${tipoLabel} ${comprobante.serie}-${comprobante.numero} ${estadoLabel}.`,
-        );
-      } else {
-        // Si hubo error con SUNAT, mostrar mensaje de error
-        setError(
-          `Error al generar comprobante: ${comprobante.mensajeSunat || 'Error en comunicación con SUNAT'}`,
-        );
-      }
-
+      const comprobante = await ComprobanteVentasService.emitir(formData);
+      setSuccessMessage(`${comprobante.tipo} ${comprobante.serie}-${comprobante.numero} emitido correctamente.`);
+      window.setTimeout(() => {
+        void loadComprobantes(true);
+      }, 0);
       return comprobante;
-    } catch {
-      setError('No se pudo generar el comprobante. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo generar el comprobante. Intenta nuevamente.', error));
       return null;
     } finally {
       setGenerating(false);
     }
-  }, []);
-
-  const crearGuia = useCallback(async (formData: GuiaRemisionFormData) => {
-    try {
-      setGenerating(true);
-      setError(null);
-      setSuccessMessage(null);
-      const guia = await ComprobanteMockService.crearGuia(formData);
-      setComprobantes((previous) => [guia, ...previous]);
-
-      if (
-        guia.estado === 'EMITIDO' &&
-        (guia.estadoSunat === 'ACEPTADO' || guia.estadoSunat === 'PENDIENTE')
-      ) {
-        const tipoLabel =
-          guia.tipo === 'GUIA_REMISION_TRANSPORTISTA'
-            ? 'Guía de Remisión Transportista'
-            : 'Guía de Remisión Remitente';
-        const estadoLabel =
-          guia.estadoSunat === 'PENDIENTE'
-            ? 'enviada a SUNAT (pendiente de confirmación)'
-            : 'generada correctamente';
-        setSuccessMessage(
-          `${tipoLabel} ${guia.serie}-${guia.numero} ${estadoLabel}.`,
-        );
-      } else {
-        setError(
-          `Error al generar guía: ${guia.mensajeSunat || 'Error en comunicación con SUNAT'}`,
-        );
-      }
-
-      return guia;
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'No se pudo generar la guía de remisión. Intenta nuevamente.';
-      setError(message);
-      return null;
-    } finally {
-      setGenerating(false);
-    }
-  }, []);
+  }, [loadComprobantes]);
 
   const crearNota = useCallback(async (formData: NotaFormData) => {
     try {
       setGenerating(true);
       setError(null);
       setSuccessMessage(null);
-      const nota = await ComprobanteMockService.crearNota(formData);
-      const comprobante: ComprobanteSelectDto = {
-        id: nota.id,
-        tipo: nota.tipo,
-        serie: nota.serie,
-        numero: nota.numero,
-        fechaEmision: nota.issueTime,
-        cliente: nota.nombreCliente,
-        documentoCliente: nota.documentoCliente,
-        tipoDocumentoCliente: nota.tipoDocumentoCliente,
-        direccionCliente: nota.direccionCliente,
-        correoCliente: nota.correoCliente,
-        subtotal: nota.subtotal,
-        igv: nota.igv,
-        total: nota.total,
-        estado: nota.estado,
-        estadoSunat: nota.estadoSunat,
-        codigoRespuestaSunat: nota.status === 'ACEPTADO' ? '0' : '98',
-        mensajeSunat: nota.mensajeSunat,
-        fechaConsultaSunat: nota.responseTime,
-        fechaEnvioSunat: nota.responseTime,
-        detalle: nota.detalle,
-        observaciones: nota.observaciones,
-        pdfUrl: undefined,
-        fechaTraslado: undefined,
-        puntoPartida: undefined,
-        puntoLlegada: undefined,
-        pesoTotal: undefined,
-        unidadMedidaPeso: undefined,
-        bienesTransportados: undefined,
-        transportista: undefined,
-        rucTransportista: undefined,
-        vehiculo: undefined,
-        conductor: undefined,
-        ventaOrigenId: undefined,
-        fechaVencimiento: undefined,
-        remitente: undefined,
-        destinatario: undefined,
-        motivoTraslado: undefined,
-      };
-      setComprobantes((previous) => [comprobante, ...previous]);
-
-      // Solo mostrar mensaje de éxito si la nota fue enviada correctamente a SUNAT
-      if (nota.status === 'ACEPTADO' || nota.status === 'PENDIENTE') {
-        const tipoLabel =
-          nota.tipo === 'NOTA_CREDITO'
-            ? 'Nota de Crédito'
-            : 'Nota de Débito';
-        const estadoLabel =
-          nota.status === 'PENDIENTE'
-            ? 'enviada a SUNAT (pendiente de confirmación)'
-            : 'generada correctamente';
-        setSuccessMessage(
-          `${tipoLabel} ${nota.serie}-${nota.numero} ${estadoLabel}.`,
-        );
-      } else {
-        // Si hubo error con SUNAT, mostrar mensaje de error
-        setError(
-          `Error al generar nota: ${nota.mensajeSunat || 'Error en comunicación con SUNAT'}`,
-        );
+      const bases = formData.tipo === 'NOTA_DEBITO' ? notasBaseDebitoDisponibles : notasBaseDisponibles;
+      const base = bases.find((item) => item.id === String(formData.comprobanteRelacionado.id));
+      if (!base) {
+        setError('El comprobante base de la nota ya no está disponible.');
+        return null;
       }
 
-      return nota;
-    } catch {
-      setError('No se pudo generar la nota. Intenta nuevamente.');
+      await ComprobanteVentasService.emitirNota(formData, base);
+      await loadComprobantes();
+      setSuccessMessage(
+        formData.tipo === 'NOTA_CREDITO'
+          ? 'Nota de crédito emitida correctamente.'
+          : 'Nota de débito emitida correctamente.',
+      );
+      return true;
+    } catch (error) {
+      setError(getErrorMessage('No se pudo emitir la nota. Intenta nuevamente.', error));
       return null;
     } finally {
       setGenerating(false);
     }
-  }, []);
+  }, [loadComprobantes, notasBaseDisponibles, notasBaseDebitoDisponibles]);
 
-  const actualizarEstadoSunat = useCallback(async (id: number) => {
+  const crearLiquidacion = useCallback(async (formData: LiquidacionCompraFormData) => {
+    try {
+      setGenerating(true);
+      setError(null);
+      setSuccessMessage(null);
+      await ComprobanteVentasService.emitirLiquidacion(formData);
+      await loadComprobantes();
+      setSuccessMessage('Liquidación de compra emitida correctamente.');
+      return true;
+    } catch (error) {
+      setError(getErrorMessage('No se pudo emitir la liquidación de compra. Intenta nuevamente.', error));
+      return null;
+    } finally {
+      setGenerating(false);
+    }
+  }, [loadComprobantes]);
+
+  const actualizarEstadoSunat = useCallback(async (id: string | number) => {
     try {
       setUpdatingSunatId(id);
       setError(null);
       setSuccessMessage(null);
-      const actualizado = await ComprobanteMockService.actualizarEstadoSunat(id);
-      setComprobantes((previous) =>
-        previous.map((item) => (item.id === id ? actualizado : item)),
-      );
+      const actualizado = await ComprobanteVentasService.sincronizarEstadoSunat(String(id));
+      await loadComprobantes();
       setSuccessMessage(
         `El estado SUNAT de ${actualizado.serie}-${actualizado.numero} se actualizó correctamente.`,
       );
-    } catch {
-      setError('No se pudo actualizar el estado SUNAT. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo actualizar el estado SUNAT. Intenta nuevamente.', error));
     } finally {
       setUpdatingSunatId(null);
     }
-  }, []);
+  }, [loadComprobantes]);
+
+  const reenviarSunat = useCallback(async (id: string | number) => {
+    try {
+      setResendingSunatId(id);
+      setError(null);
+      setSuccessMessage(null);
+      const actualizado = await ComprobanteVentasService.reenviarSunat(String(id));
+      await loadComprobantes();
+      setSuccessMessage(
+        `El documento ${actualizado.serie}-${actualizado.numero} fue reenviado a SUNAT.`,
+      );
+      return actualizado;
+    } catch (error) {
+      setError(getErrorMessage('No se pudo reenviar el documento a SUNAT. Intenta nuevamente.', error));
+      return null;
+    } finally {
+      setResendingSunatId(null);
+    }
+  }, [loadComprobantes]);
+
+  const reenviarTodos = useCallback(async (ids: Array<string | number>) => {
+    if (ids.length === 0) return 0;
+
+    let enviados = 0;
+    setError(null);
+    setSuccessMessage(null);
+    for (const id of ids) {
+      const resultado = await reenviarSunat(id);
+      if (resultado) enviados += 1;
+    }
+    await loadComprobantes(true);
+    setSuccessMessage(`${enviados} documento(s) fueron enviados nuevamente a SUNAT.`);
+    return enviados;
+  }, [loadComprobantes, reenviarSunat]);
 
   const getById = useCallback(async (documentId: string) => {
     try {
       setError(null);
-      const comprobante = await ComprobanteMockService.getById(documentId);
-      return comprobante;
-    } catch {
-      setError('No se pudo obtener el documento. Intenta nuevamente.');
+      return await ComprobanteVentasService.getById(documentId);
+    } catch (error) {
+      setError(getErrorMessage('No se pudo obtener el documento. Intenta nuevamente.', error));
       return null;
-    }
-  }, []);
-
-  const getAll = useCallback(async (params: GetAllQueryParams) => {
-    try {
-      setError(null);
-      const documents = await ComprobanteMockService.getAll(params);
-      setComprobantes(documents);
-      return documents;
-    } catch {
-      setError('No se pudieron cargar los documentos. Intenta nuevamente.');
-      return [];
     }
   }, []);
 
   const getPDF = useCallback(async (documentId: string, format: PDFFormat, fileName: string) => {
     try {
       setError(null);
-      const pdfBlob = await ComprobanteMockService.getPDF(documentId, format, fileName);
-      
-      // Create download link
+      const pdfBlob = await ComprobanteVentasService.getPDF(documentId, format);
       const url = window.URL.createObjectURL(pdfBlob);
       const a = document.createElement('a');
       a.href = url;
@@ -268,11 +196,10 @@ export function useComprobantes() {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      
       setSuccessMessage('PDF descargado correctamente.');
       return true;
-    } catch {
-      setError('No se pudo generar el PDF. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo generar el PDF. Intenta nuevamente.', error));
       return false;
     }
   }, []);
@@ -281,24 +208,15 @@ export function useComprobantes() {
     try {
       setError(null);
       setSuccessMessage(null);
-      const response = await ComprobanteMockService.voidBill(request);
-      
-      // Update local state
-      setComprobantes((previous) =>
-        previous.map((item) =>
-          item.id === parseInt(request.documentId, 10)
-            ? { ...item, estado: 'ANULADO', estadoSunat: 'PENDIENTE' }
-            : item,
-        ),
-      );
-      
-      setSuccessMessage('Documento anulado correctamente.');
+      const response = await ComprobanteVentasService.anular(String(request.documentId), request.reason);
+      await loadComprobantes();
+      setSuccessMessage(`Documento ${response.serie}-${response.numero} anulado correctamente.`);
       return response;
-    } catch {
-      setError('No se pudo anular el documento. Intenta nuevamente.');
+    } catch (error) {
+      setError(getErrorMessage('No se pudo anular el documento. Intenta nuevamente.', error));
       return null;
     }
-  }, []);
+  }, [loadComprobantes]);
 
   useEffect(() => {
     const loadTimer = window.setTimeout(() => {
@@ -310,19 +228,24 @@ export function useComprobantes() {
   return {
     comprobantes,
     ventasDisponibles,
-    productosDisponibles,
+    notasBaseDisponibles,
+    notasBaseDebitoDisponibles,
+    comprasDisponibles,
     loading,
     generating,
     updatingSunatId,
+    resendingSunatId,
     error,
     successMessage,
     loadComprobantes,
     crearComprobante,
-    crearGuia,
     crearNota,
+    crearLiquidacion,
+    crearGuia: async (_form?: unknown) => true,
     actualizarEstadoSunat,
+    reenviarSunat,
+    reenviarTodos,
     getById,
-    getAll,
     getPDF,
     voidBill,
     clearSuccessMessage: () => setSuccessMessage(null),

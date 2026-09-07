@@ -1,0 +1,206 @@
+/* ========================================================
+   SUBMODULE TWO TABS LAYOUT — Estilo ERP Empresarial Compacto
+   ======================================================== */
+
+.submodule-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  animation: fadeIn 120ms ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0.85; }
+  to { opacity: 1; }
+}
+
+/* Encabezado del submódulo */
+.submodule-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0px;
+}
+
+.submodule-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.submodule-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+}
+
+.submodule-subtitle {
+  margin: 0;
+  font-size: 11.5px;
+  color: #64748b;
+}
+
+/* Barra de pestañas (2 Tabs) — Alineadas a la izquierda */
+.submodule-tabs-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  padding: 6px 8px 0 8px;
+}
+
+.submodule-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 20px;
+  min-height: 34px;
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: inherit;
+  color: #475569;
+  background-color: #e2e8f0;
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 0px;
+  cursor: pointer;
+  outline: none;
+  transition: all 120ms ease;
+  user-select: none;
+}
+
+.submodule-tab-btn svg {
+  font-size: 14px;
+}
+
+.submodule-tab-btn:hover {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+.submodule-tab-btn.active {
+  background-color: #ffffff;
+  color: #1e3a8a;
+  border-color: #94a3b8;
+  border-top: 3px solid #2563eb;
+  padding-top: 5px;
+  position: relative;
+  z-index: 2;
+  margin-bottom: -1px;
+}
+
+.submodule-tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Contenedor del contenido del Tab activo — Centrado del contenido */
+.submodule-tab-body {
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 400px;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.submodule-tab-body > * {
+  width: 100%;
+}
+
+/* Panel de Formulario en Tab 2 */
+.submodule-form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #ffffff;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.submodule-form-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 3px solid #2563eb;
+}
+
+.submodule-form-header-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.submodule-form-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  margin-top: 8px;
+}
+
+/* Empty selection state for Tab 2 — Sin bordes ni fondo */
+.erp-empty-selection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background: transparent;
+  border: none;
+  text-align: center;
+  margin: 20px auto;
+  max-width: 500px;
+  width: 100%;
+}
+
+.erp-empty-selection-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-color: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  margin-bottom: 12px;
+  border: 1px solid #bfdbfe;
+}
+
+.erp-empty-selection-title {
+  margin: 0 0 6px 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.erp-empty-selection-desc {
+  margin: 0 0 16px 0;
+  font-size: 12.5px;
+  color: #64748b;
+  max-width: 420px;
+  line-height: 1.5;
+}

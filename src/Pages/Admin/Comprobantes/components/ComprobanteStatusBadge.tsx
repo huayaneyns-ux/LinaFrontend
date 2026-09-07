@@ -2,30 +2,40 @@ import type {
   ComprobanteEstado,
   ComprobanteEstadoSunat,
 } from '../../../../Types/Admin/Comprobantes/Comprobante';
+import { StatusBadge, type StatusTone } from '../../../../Components/ERP/StatusBadge';
 import '../../../../Styles/ERP/erp-badges.css';
 
 interface ComprobanteStatusBadgeProps {
   status: ComprobanteEstado | ComprobanteEstadoSunat;
+  /** Detail/dialogs: show label. Tables: leave false (dot + tooltip). */
+  showText?: boolean;
 }
 
-const STATUS_CONFIG: Record<ComprobanteEstado | ComprobanteEstadoSunat, { label: string; className: string; dotClass: string }> = {
-  BORRADOR: { label: 'Borrador', className: 'erp-badge-pendiente', dotClass: 'erp-status-dot-pendiente' },
-  EMITIDO: { label: 'Emitido', className: 'erp-badge-activo', dotClass: 'erp-status-dot-activo' },
-  ANULADO: { label: 'Anulado', className: 'erp-badge-inactivo', dotClass: 'erp-status-dot-inactivo' },
-  RECHAZADO: { label: 'Rechazado', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
-  PENDIENTE: { label: 'Pendiente', className: 'erp-badge-pendiente', dotClass: 'erp-status-dot-pendiente' },
-  EXCEPCION: { label: 'Excepción', className: 'erp-badge-suspendido', dotClass: 'erp-status-dot-suspendido' },
-  ACEPTADO: { label: 'Aceptado', className: 'erp-badge-activo', dotClass: 'erp-status-dot-activo' },
+const STATUS_CONFIG: Record<
+  ComprobanteEstado | ComprobanteEstadoSunat,
+  { label: string; tone: StatusTone }
+> = {
+  BORRADOR: { label: 'Borrador', tone: 'warning' },
+  EMITIDO: { label: 'Emitido', tone: 'success' },
+  ANULADO: { label: 'Anulado', tone: 'danger' },
+  RECHAZADO: { label: 'Rechazado', tone: 'danger' },
+  PENDIENTE: { label: 'Pendiente', tone: 'warning' },
+  ENVIADO: { label: 'Enviado', tone: 'info' },
+  OBSERVADO: { label: 'Observado', tone: 'warning' },
+  EXCEPCION: { label: 'Excepción', tone: 'danger' },
+  ACEPTADO: { label: 'Aceptado', tone: 'success' },
 };
 
-const ComprobanteStatusBadge = ({ status }: ComprobanteStatusBadgeProps) => {
-  const config = STATUS_CONFIG[status];
+const ComprobanteStatusBadge = ({ status, showText = false }: ComprobanteStatusBadgeProps) => {
+  const config = STATUS_CONFIG[status] ?? { label: String(status), tone: 'muted' as StatusTone };
 
   return (
-    <span className={`erp-badge ${config.className}`}>
-      <span className={`erp-status-dot ${config.dotClass}`} />
-      {config.label}
-    </span>
+    <StatusBadge
+      status={status}
+      label={config.label}
+      tone={config.tone}
+      showText={showText}
+    />
   );
 };
 

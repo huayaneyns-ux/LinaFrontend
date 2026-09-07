@@ -140,12 +140,14 @@ const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
             flexDirection: compact ? 'column' : 'row',
             alignItems: compact ? 'stretch' : 'center',
             gap: compact ? '10px' : '16px',
-            padding: compact ? '10px' : '12px',
-            border: `2px dashed ${hasImage ? 'var(--erp-primary, #6366f1)' : 'var(--erp-border, #cbd5e1)'}`,
-            borderRadius: '10px',
+            padding: compact ? '8px' : '12px',
+            border: compact
+              ? `1px dashed ${hasImage ? 'var(--erp-accent)' : 'var(--erp-border)'}`
+              : `2px dashed ${hasImage ? 'var(--erp-accent)' : 'var(--erp-border)'}`,
+            borderRadius: '0px',
             cursor: disabled ? 'default' : 'pointer',
             opacity: disabled ? 0.6 : 1,
-            backgroundColor: 'var(--erp-bg-secondary, #f8fafc)',
+            backgroundColor: compact ? 'transparent' : 'var(--erp-bg-secondary, #f8fafc)',
             transition: 'border-color 0.2s, background 0.2s',
           }}
         >
@@ -159,9 +161,9 @@ const ImageUpload = forwardRef<ImageUploadHandle, ImageUploadProps>(
                   style={{
                     width: '100%',
                     height: compact ? '100px' : '80px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    border: '1px solid var(--erp-border, #cbd5e1)',
+                    objectFit: compact ? 'contain' : 'cover',
+                    borderRadius: '0px',
+                    border: 'none',
                   }}
                   onError={e => {
                     (e.currentTarget as HTMLImageElement).src =

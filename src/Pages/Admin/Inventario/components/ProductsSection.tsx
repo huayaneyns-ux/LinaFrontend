@@ -1,10 +1,9 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { ProductoService } from '../../../../Services/Admin/Inventario/Producto';
 import { CategoriaService } from '../../../../Services/Admin/Inventario/Categoria';
 import { MarcaService } from '../../../../Services/Admin/Inventario/Marca';
-import { UnidadMedidaService } from '../../../../Services/Admin/Inventario/UnidadMedida';
 import { ProveedorService } from '../../../../Services/Admin/Compras/Proveedor';
+import { UnidadMedidaService } from '../../../../Services/Admin/Inventario/UnidadMedida';
 import type {
   ProductoSelectDto,
   ProductoInsertDto,
@@ -12,9 +11,8 @@ import type {
 } from '../../../../Types/Admin/Inventario/Producto';
 import type { CategoriaSelectDto } from '../../../../Types/Admin/Inventario/Categoria';
 import type { MarcaSelectDto } from '../../../../Types/Admin/Inventario/Marca';
-import type { UnidadMedidaSelectDto } from '../../../../Types/Admin/Inventario/UnidadMedida';
 import type { Proveedor } from '../../../../Types/Admin/Compras/Proveedor';
-import ImageUpload, { type ImageUploadHandle } from '../../../../Components/ERP/ImageUpload';
+import type { UnidadMedidaSelectDto } from '../../../../Types/Admin/Inventario/UnidadMedida';
 
 import { useDataTable } from '../../../../Hooks/useDataTable';
 import { useDialog } from '../../../../Hooks/useDialog';
@@ -24,6 +22,9 @@ import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
+import ImageUpload, { type ImageUploadHandle } from '../../../../Components/ERP/ImageUpload';
+import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
 import {
   FiBox,
   FiCheckCircle,
@@ -32,8 +33,11 @@ import {
   FiEdit2,
   FiTrash2,
   FiEyeOff,
-  FiImage,
-  FiHash,
+  FiSave,
+  FiX,
+  FiDollarSign,
+  FiInfo,
+  FiTag,
 } from 'react-icons/fi';
 
 interface ProductFilters {
@@ -49,6 +53,19 @@ const DEFAULT_FILTERS: ProductFilters = {
   proveedor: '',
   estado: '',
 };
+
+function generarCodigoProducto(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const dd = pad(now.getDate());
+  const mm = pad(now.getMonth() + 1);
+  const yy = String(now.getFullYear()).slice(-2);
+  const HH = pad(now.getHours());
+  const MM = pad(now.getMinutes());
+  const SS = pad(now.getSeconds());
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  return `PROD-${dd}${mm}${yy}${HH}${MM}${SS}${ms}`;
+}
 
 const EMPTY_FORM: Partial<ProductoSelectDto> = {
   codigo: '',
@@ -66,23 +83,7 @@ const EMPTY_FORM: Partial<ProductoSelectDto> = {
   idUnidadMedida: 0,
 };
 
-// ─── Generar código automático PROD-DDMMYYHHMMSSMM ────────────────────────────
-function generarCodigoProducto(): string {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const dd = pad(now.getDate());
-  const mm = pad(now.getMonth() + 1);
-  const yy = String(now.getFullYear()).slice(-2);
-  const HH = pad(now.getHours());
-  const MM = pad(now.getMinutes());
-  const SS = pad(now.getSeconds());
-  const ms = String(now.getMilliseconds()).padStart(3, '0');
-  return `PROD-${dd}${mm}${yy}${HH}${MM}${SS}${ms}`;
-}
-
-import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
-
-const ProductsSection = () => {
+export const ProductsSection = () => {
   const [products, setProducts] = useState<ProductoSelectDto[]>([]);
   const [categorias, setCategorias] = useState<CategoriaSelectDto[]>([]);
   const [marcas, setMarcas] = useState<MarcaSelectDto[]>([]);
@@ -92,23 +93,20 @@ const ProductsSection = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Código generado al abrir el modal de creación
-  const [codigoGenerado, setCodigoGenerado] = useState('');
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedProduct, setSelectedProduct] = useState<ProductoSelectDto | null>(null);
+  const [formState, setFormState] = useState<Partial<ProductoSelectDto>>(EMPTY_FORM);
 
-  // Ref para acceder al archivo pendiente del ImageUpload al momento de guardar
   const imageUploadRef = useRef<ImageUploadHandle>(null);
-  // publicIdImagen original al abrir edición (para eliminar en Cloudinary si quita la foto)
   const originalPublicIdRef = useRef<string>('');
   const originalRutaRef = useRef<string>('');
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<ProductoSelectDto>();
+  const { dialogState, openDelete, closeDialog } = useDialog<ProductoSelectDto>();
 
   const [filters, setFilters] = useState<ProductFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [showDisabled, setShowDisabled] = useState(false);
-
-  const [formState, setFormState] = useState<Partial<ProductoSelectDto>>(EMPTY_FORM);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -142,7 +140,7 @@ const ProductsSection = () => {
         setProveedores(provs.filter(p => p.estado));
         setUnidades(unis.filter(u => u.estado));
       } catch {
-        // Los catálogos se pueden derivar de los productos si falla la carga
+        // Ignored
       }
     };
     loadCatalogs();
@@ -190,17 +188,6 @@ const ProductsSection = () => {
       .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial));
   }, [proveedores, products]);
 
-  const unidadOptions = useMemo(() => {
-    const map = new Map<number, { nombre: string; abreviatura: string }>();
-    unidades.forEach(u => map.set(u.id, { nombre: u.nombre, abreviatura: u.abreviatura }));
-    products.forEach(p =>
-      map.set(p.idUnidadMedida, { nombre: p.unidadMedida, abreviatura: p.abreviatura })
-    );
-    return Array.from(map.entries())
-      .map(([id, data]) => ({ id, ...data }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }, [unidades, products]);
-
   const externalFilter = useCallback(
     (prod: ProductoSelectDto) => {
       if (!showDisabled && !prod.estado) return false;
@@ -242,46 +229,56 @@ const ProductsSection = () => {
     return { total, activos, inactivos };
   }, [products]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: ProductoSelectDto) => {
-    if (record && (mode === 'view' || mode === 'edit')) {
-      try {
-        const detail = await ProductoService.getProductoById(record.id);
-        setFormState({ ...detail });
-        originalPublicIdRef.current = detail.publicIdImagen || '';
-        originalRutaRef.current = detail.rutaImagen || '';
-      } catch {
-        setFormState({ ...record });
-        originalPublicIdRef.current = record.publicIdImagen || '';
-        originalRutaRef.current = record.rutaImagen || '';
-      }
-    } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
-    } else {
-      originalPublicIdRef.current = '';
-      originalRutaRef.current = '';
-      // Crear: generar código automático
-      const codigo = generarCodigoProducto();
-      setCodigoGenerado(codigo);
-      setFormState({
-        ...EMPTY_FORM,
-        codigo,
-        idCategoria: categoriaOptions[0]?.id ?? 0,
-        idMarca: marcaOptions[0]?.id ?? 0,
-        idProveedor: proveedorOptions[0]?.id ?? 0,
-        idUnidadMedida: unidadOptions[0]?.id ?? 0,
-      });
-    }
-
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const handleStartCreate = () => {
+    const codigo = generarCodigoProducto();
+    setFormState({
+      ...EMPTY_FORM,
+      codigo,
+      idCategoria: categorias[0]?.id ?? 0,
+      idMarca: marcas[0]?.id ?? 0,
+      idProveedor: proveedores[0]?.id ?? 0,
+      idUnidadMedida: unidades[0]?.id ?? 0,
+    });
+    originalPublicIdRef.current = '';
+    originalRutaRef.current = '';
+    setSelectedProduct(null);
+    setFormMode('create');
+    setActiveTab('form');
   };
 
-  const handleConfirm = async () => {
+  const handleStartEdit = async (record: ProductoSelectDto) => {
+    setSelectedProduct(record);
+    setFormMode('edit');
+    setActiveTab('form');
+    try {
+      const detail = await ProductoService.getProductoById(record.id);
+      setFormState(detail);
+      originalPublicIdRef.current = detail.publicIdImagen || '';
+      originalRutaRef.current = detail.rutaImagen || '';
+    } catch {
+      setFormState(record);
+    }
+  };
+
+  const handleStartView = async (record: ProductoSelectDto) => {
+    setSelectedProduct(record);
+    setFormMode('view');
+    setActiveTab('form');
+    try {
+      const detail = await ProductoService.getProductoById(record.id);
+      setFormState(detail);
+      originalPublicIdRef.current = detail.publicIdImagen || '';
+      originalRutaRef.current = detail.rutaImagen || '';
+    } catch {
+      setFormState(record);
+    }
+  };
+
+  const handleSaveForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formMode === 'view') return;
     setSaving(true);
     setError(null);
-
     try {
       const pending = imageUploadRef.current?.getPendingFile();
       const { ruta: rutaImagen, publicId: publicIdImagen } = await gestionarImagenAlGuardar({
@@ -290,12 +287,12 @@ const ProductsSection = () => {
         publicIdFormulario: formState.publicIdImagen,
         rutaOriginal: originalRutaRef.current,
         publicIdOriginal: originalPublicIdRef.current,
-        esEdicion: dialogState.mode === 'edit',
+        esEdicion: formMode === 'edit',
       });
 
-      if (dialogState.mode === 'create') {
+      if (formMode === 'create') {
         const payload: ProductoInsertDto = {
-          codigo: formState.codigo || codigoGenerado,
+          codigo: formState.codigo || generarCodigoProducto(),
           sku: formState.sku || '',
           nombre: formState.nombre || '',
           descripcion: formState.descripcion,
@@ -310,9 +307,9 @@ const ProductsSection = () => {
           idUnidadMedida: Number(formState.idUnidadMedida),
         };
         await ProductoService.createProducto(payload);
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
+      } else if (formMode === 'edit' && selectedProduct) {
         const payload: ProductoUpdateDto = {
-          id: dialogState.record.id,
+          id: selectedProduct.id,
           codigo: formState.codigo || '',
           sku: formState.sku || '',
           nombre: formState.nombre || '',
@@ -328,23 +325,33 @@ const ProductsSection = () => {
           idUnidadMedida: Number(formState.idUnidadMedida),
         };
         await ProductoService.updateProducto(payload);
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await ProductoService.deleteProducto(dialogState.record.id);
       }
 
-      // ── 4. Limpiar y recargar ────────────────────────────────────────────────
       imageUploadRef.current?.clearPending();
       await loadProducts();
-      closeDialog();
+      setActiveTab('list');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al guardar los cambios';
-      setError(message);
+      setError(err instanceof Error ? err.message : 'Error al guardar el producto');
     } finally {
       setSaving(false);
     }
   };
 
-  // ─── Columnas de la tabla ───────────────────────────────────────────────────
+  const handleDeleteConfirm = async () => {
+    if (!dialogState.record) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await ProductoService.deleteProducto(dialogState.record.id);
+      await loadProducts();
+      closeDialog();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar el producto');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const columns = [
     {
       key: 'codigo',
@@ -358,7 +365,7 @@ const ProductsSection = () => {
     {
       key: 'rutaImagen',
       header: 'Img',
-      width: '48px',
+      width: '44px',
       render: (row: ProductoSelectDto) => {
         const src = resolveImageUrl(row.rutaImagen);
         return src ? (
@@ -366,19 +373,19 @@ const ProductsSection = () => {
             src={src}
             alt={row.nombre}
             style={{
-              width: '28px',
-              height: '28px',
+              width: '26px',
+              height: '26px',
               objectFit: 'cover',
-              borderRadius: '4px',
+              borderRadius: '0px',
               border: '1px solid var(--erp-border)',
             }}
           />
         ) : (
           <div
             style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '4px',
+              width: '26px',
+              height: '26px',
+              borderRadius: '0px',
               border: '1px solid var(--erp-border)',
               backgroundColor: 'var(--erp-bg-secondary)',
               display: 'flex',
@@ -387,7 +394,7 @@ const ProductsSection = () => {
               color: 'var(--erp-text-muted)',
             }}
           >
-            <FiBox size={13} />
+            <FiBox size={12} />
           </div>
         );
       },
@@ -398,7 +405,7 @@ const ProductsSection = () => {
       sortable: true,
       render: (row: ProductoSelectDto) => (
         <div>
-          <div style={{ fontWeight: 600, fontSize: '13px' }}>{row.nombre}</div>
+          <div style={{ fontWeight: 600, fontSize: '12.5px' }}>{row.nombre}</div>
           <div
             style={{
               fontSize: '11px',
@@ -406,7 +413,7 @@ const ProductsSection = () => {
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
-              maxWidth: '280px',
+              maxWidth: '260px',
             }}
           >
             {row.descripcion}
@@ -418,34 +425,34 @@ const ProductsSection = () => {
       key: 'categoria',
       header: 'Categoría',
       sortable: true,
-      width: '130px',
+      width: '120px',
     },
     {
       key: 'marca',
       header: 'Marca',
       sortable: true,
-      width: '120px',
+      width: '110px',
     },
     {
       key: 'razonSocial',
       header: 'Proveedor',
       sortable: true,
-      width: '140px',
+      width: '130px',
     },
     {
       key: 'precioVenta',
       header: 'Precio',
       sortable: true,
       align: 'right' as const,
-      width: '90px',
+      width: '85px',
       render: (row: ProductoSelectDto) => `S/ ${(row.precioVenta || 0).toFixed(2)}`,
     },
     {
       key: 'stockMinimo',
-      header: 'Stock mín.',
+      header: 'Mín.',
       sortable: true,
       align: 'center' as const,
-      width: '80px',
+      width: '65px',
       render: (row: ProductoSelectDto) => (
         <span style={{ fontWeight: 600 }}>{row.stockMinimo}</span>
       ),
@@ -454,7 +461,9 @@ const ProductsSection = () => {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '100px',
+      width: '56px',
+      align: 'center' as const,
+      className: 'col-status',
       render: (row: ProductoSelectDto) => (
         <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
       ),
@@ -463,472 +472,453 @@ const ProductsSection = () => {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
+      width: '112px',
+      className: 'col-actions',
       render: (row: ProductoSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
+        <div className="erp-table-actions">
           <IconButton
             icon={<FiEye />}
             tooltip="Ver detalle"
             variant="primary"
-            onClick={() => handleOpenDialog('view', row)}
+            onClick={() => handleStartView(row)}
           />
           <IconButton
             icon={<FiEdit2 />}
             tooltip="Editar"
             variant="warning"
-            onClick={() => handleOpenDialog('edit', row)}
+            onClick={() => handleStartEdit(row)}
           />
           <IconButton
             icon={<FiTrash2 />}
             tooltip="Eliminar"
             variant="danger"
-            onClick={() => handleOpenDialog('delete', row)}
+            onClick={() => openDelete(row)}
           />
         </div>
       ),
     },
   ];
 
-  // Código a mostrar en el dialog (generado o existente)
-  const codigoEnForm =
-    dialogState.mode === 'create'
-      ? codigoGenerado
-      : formState.codigo || '';
+  const imgSrc = resolveImageUrl(formState.rutaImagen);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div
-          style={{
-            padding: '8px 12px',
-            marginBottom: '8px',
-            backgroundColor: 'var(--erp-danger-light)',
-            color: 'var(--erp-danger)',
-            borderRadius: '6px',
-            fontSize: '13px',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      <div className="erp-indicators-grid">
-        <div className="erp-indicator-card">
-          <div className="erp-indicator-icon">
-            <FiBox />
-          </div>
-          <div className="erp-indicator-info">
-            <span className="erp-indicator-value">{indicators.total}</span>
-            <span className="erp-indicator-label">Total Productos</span>
-          </div>
-        </div>
-        <div className="erp-indicator-card">
-          <div className="erp-indicator-icon success">
-            <FiCheckCircle />
-          </div>
-          <div className="erp-indicator-info">
-            <span className="erp-indicator-value">{indicators.activos}</span>
-            <span className="erp-indicator-label">Productos Activos</span>
-          </div>
-        </div>
-        <div className="erp-indicator-card">
-          <div className="erp-indicator-icon danger">
-            <FiMinusCircle />
-          </div>
-          <div className="erp-indicator-info">
-            <span className="erp-indicator-value">{indicators.inactivos}</span>
-            <span className="erp-indicator-label">Productos Inactivos</span>
-          </div>
-        </div>
-      </div>
-
-      <Toolbar
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por código, nombre, marca o proveedor..."
-        onNew={() => handleOpenDialog('create')}
-        newLabel="Nuevo Producto"
-        showFilters={showFilters}
-        onToggleFilters={() => setShowFilters(prev => !prev)}
-        filterCount={filterCount}
-        onResetFilters={hasActiveFilters ? resetFilters : undefined}
-        extraActions={
+    <SubmoduleTwoTabsLayout
+      title="Catálogo de Productos"
+      subtitle="Visualiza, filtra y administra los artículos registrados en el inventario"
+      entityName="Producto"
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      formMode={formMode}
+      onNew={handleStartCreate}
+      extraHeaderActions={
+        activeTab === 'list' && (
           <button
             type="button"
             className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
             onClick={() => setShowDisabled(prev => !prev)}
-            title={
-              showDisabled
-                ? 'Ocultar productos deshabilitados'
-                : 'Incluir productos deshabilitados en la lista'
-            }
           >
             {showDisabled ? <FiEyeOff /> : <FiEye />}
-            {showDisabled ? 'Ocultar deshabilitados' : 'Mostrar deshabilitados'}
+            <span>{showDisabled ? 'Ocultar inactivos' : 'Mostrar inactivos'}</span>
           </button>
-        }
-        filterPanel={
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-              gap: '10px',
-              width: '100%',
-            }}
-          >
-            <div className="erp-form-group">
-              <label className="erp-form-label">Categoría</label>
-              <select
-                className="erp-input"
-                value={filters.categoria}
-                onChange={e => setFilter('categoria', e.target.value)}
-              >
-                <option value="">Todas las categorías</option>
-                {categoriaOptions.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </select>
+        )
+      }
+      listContent={
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {error && (
+            <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', border: '1px solid var(--erp-danger)', fontSize: '13px' }}>
+              {error}
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Marca</label>
-              <select
-                className="erp-input"
-                value={filters.marca}
-                onChange={e => setFilter('marca', e.target.value)}
-              >
-                <option value="">Todas las marcas</option>
-                {marcaOptions.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.nombre}
-                  </option>
-                ))}
-              </select>
+          )}
+
+          {/* Indicadores Compactos */}
+          <div className="erp-indicators-grid" style={{ marginBottom: 0 }}>
+            <div className="erp-indicator-card">
+              <div className="erp-indicator-icon"><FiBox /></div>
+              <div className="erp-indicator-info">
+                <span className="erp-indicator-value">{indicators.total}</span>
+                <span className="erp-indicator-label">Total Productos</span>
+              </div>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Proveedor</label>
-              <select
-                className="erp-input"
-                value={filters.proveedor}
-                onChange={e => setFilter('proveedor', e.target.value)}
-              >
-                <option value="">Todos los proveedores</option>
-                {proveedorOptions.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.razonSocial}
-                  </option>
-                ))}
-              </select>
+            <div className="erp-indicator-card">
+              <div className="erp-indicator-icon success"><FiCheckCircle /></div>
+              <div className="erp-indicator-info">
+                <span className="erp-indicator-value">{indicators.activos}</span>
+                <span className="erp-indicator-label">Productos Activos</span>
+              </div>
             </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado</label>
-              <select
-                className="erp-input"
-                value={filters.estado}
-                onChange={e => setFilter('estado', e.target.value)}
-              >
-                <option value="">Todos los estados</option>
-                <option value="ACTIVO">Activo</option>
-                <option value="INACTIVO">Inactivo</option>
-              </select>
+            <div className="erp-indicator-card">
+              <div className="erp-indicator-icon danger"><FiMinusCircle /></div>
+              <div className="erp-indicator-info">
+                <span className="erp-indicator-value">{indicators.inactivos}</span>
+                <span className="erp-indicator-label">Productos Inactivos</span>
+              </div>
             </div>
           </div>
-        }
-      />
 
-      <div
-        className="erp-table-card"
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      >
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>
-            Cargando productos...
+          {/* Filtros Toolbar */}
+          <Toolbar
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Buscar por código, nombre, marca o proveedor..."
+            onNew={handleStartCreate}
+            newLabel="Nuevo Producto"
+            showFilters={showFilters}
+            onToggleFilters={() => setShowFilters(prev => !prev)}
+            filterCount={filterCount}
+            onResetFilters={hasActiveFilters ? resetFilters : undefined}
+            alwaysShowFilters={true}
+            filterPanel={
+              <>
+                <div className="erp-filter-group">
+                  <label className="erp-filter-label">Categoría</label>
+                  <select
+                    className="erp-filter-select"
+                    value={filters.categoria}
+                    onChange={e => setFilter('categoria', e.target.value)}
+                  >
+                    <option value="">Todas las categorías</option>
+                    {categoriaOptions.map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="erp-filter-group">
+                  <label className="erp-filter-label">Marca</label>
+                  <select
+                    className="erp-filter-select"
+                    value={filters.marca}
+                    onChange={e => setFilter('marca', e.target.value)}
+                  >
+                    <option value="">Todas las marcas</option>
+                    {marcaOptions.map(m => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="erp-filter-group">
+                  <label className="erp-filter-label">Proveedor</label>
+                  <select
+                    className="erp-filter-select"
+                    value={filters.proveedor}
+                    onChange={e => setFilter('proveedor', e.target.value)}
+                  >
+                    <option value="">Todos los proveedores</option>
+                    {proveedorOptions.map(p => (
+                      <option key={p.id} value={p.id}>{p.razonSocial}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="erp-filter-group">
+                  <label className="erp-filter-label">Estado</label>
+                  <select
+                    className="erp-filter-select"
+                    value={filters.estado}
+                    onChange={e => setFilter('estado', e.target.value)}
+                  >
+                    <option value="">Todos los estados</option>
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
+                </div>
+              </>
+            }
+          />
+
+          {/* Data Table */}
+          <div className="erp-table-card">
+            {loading ? (
+              <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>
+                Cargando productos...
+              </div>
+            ) : (
+              <>
+                <DataTable
+                  columns={columns}
+                  data={processedData}
+                  sortConfig={sortConfig}
+                  onSort={handleSort}
+                  rowKey={row => row.id}
+                  emptyMessage="No se encontraron productos en el almacén"
+                />
+                <Pagination
+                  page={pagination.page}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  pageSize={pagination.pageSize}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </>
+            )}
           </div>
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              data={processedData}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              rowKey={row => row.id}
-              emptyMessage="No se encontraron productos en el almacén"
-            />
-            <Pagination
-              page={pagination.page}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pagination.pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
-          </>
-        )}
-      </div>
 
-      {/* ── Dialog ── */}
-      <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
-        onClose={closeDialog}
-        onConfirm={handleConfirm}
-        loading={saving}
-        title={
-          dialogState.mode === 'create'
-            ? 'Agregar Producto'
-            : dialogState.mode === 'edit'
-              ? 'Editar Producto'
-              : dialogState.mode === 'view'
-                ? 'Detalle de Producto'
-                : 'Eliminar Producto'
-        }
-        size="xl"
-        deleteMessage={
-          dialogState.record ? (
-            <>
-              ¿Está seguro de eliminar el producto <strong>{dialogState.record.nombre}</strong> (
-              {dialogState.record.codigo})?
-            </>
-          ) : undefined
-        }
-      >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-dialog-split">
-            {/* Columna izquierda: datos (3/5) */}
-            <div className="erp-dialog-split-fields">
-              <div className="erp-form-group span-2" style={{ gridColumn: 'span 2' }}>
-                <label className="erp-form-label">Nombre del Producto</label>
+          {/* Delete Confirmation Modal */}
+          <CrudDialog
+            isOpen={dialogState.isOpen && dialogState.mode === 'delete'}
+            mode="delete"
+            onClose={closeDialog}
+            onConfirm={handleDeleteConfirm}
+            loading={saving}
+            title="Eliminar Producto"
+            size="sm"
+            deleteMessage={
+              dialogState.record ? (
+                <>
+                  ¿Está seguro de eliminar el producto <strong>{dialogState.record.nombre}</strong> (
+                  {dialogState.record.codigo})?
+                </>
+              ) : undefined
+            }
+          />
+        </div>
+      }
+      formContent={
+        <form onSubmit={handleSaveForm} className="erp-form">
+          <div className="erp-form-section">
+            <h3 className="erp-form-section-title">
+              {formMode === 'create'
+                ? 'Registro de Nuevo Producto'
+                : formMode === 'edit'
+                ? `Modificación de Producto: ${formState.codigo || ''}`
+                : `Ficha Técnica de Producto: ${formState.codigo || ''}`}
+            </h3>
+
+          {error && (
+            <div style={{ padding: '8px 12px', marginBottom: '14px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', border: '1px solid var(--erp-danger)', fontSize: '13px' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Section 1: Información General + foto */}
+          <div className="erp-form-section-title" style={{ marginBottom: '8px' }}>
+            <FiInfo /> Datos Principales
+          </div>
+          <div className="erp-form-with-photo">
+            <div className="erp-form-fields">
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Código (Generado)</label>
+                  <input
+                    type="text"
+                    className="erp-input"
+                    value={formState.codigo || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))}
+                    placeholder="PROD-..."
+                    disabled={formMode !== 'create'}
+                  />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Código SKU</label>
+                  <input
+                    type="text"
+                    className="erp-input"
+                    value={formState.sku || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, sku: e.target.value }))}
+                    disabled={formMode === 'view'}
+                    placeholder="Ej: SKU-001"
+                  />
+                </div>
+              </div>
+              <div className="erp-form-group">
+                <label className="erp-form-label">Nombre del Producto <span className="required-star">*</span></label>
                 <input
                   type="text"
                   className="erp-input"
                   value={formState.nombre || ''}
                   onChange={e => setFormState(prev => ({ ...prev, nombre: e.target.value }))}
-                  disabled={dialogState.mode === 'view'}
-                  placeholder="Ej: Lapicero de tinta gel"
+                  disabled={formMode === 'view'}
+                  placeholder="Ej: Lapicero Azul Faber Castell"
+                  required
                 />
               </div>
-
               <div className="erp-form-group">
-                <label className="erp-form-label">SKU</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  value={formState.sku || ''}
-                  onChange={e => setFormState(prev => ({ ...prev, sku: e.target.value }))}
-                  disabled={dialogState.mode === 'view'}
-                  placeholder="Ej: SKU-001"
-                />
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Precio de venta (S/)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="erp-input"
-                  value={formState.precioVenta ?? 0}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, precioVenta: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                />
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Categoría</label>
-                <select
-                  className="erp-input"
-                  value={formState.idCategoria || ''}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, idCategoria: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                >
-                  {categoriaOptions.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Marca</label>
-                <select
-                  className="erp-input"
-                  value={formState.idMarca || ''}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, idMarca: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                >
-                  {marcaOptions.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Proveedor</label>
-                <select
-                  className="erp-input"
-                  value={formState.idProveedor || ''}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, idProveedor: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                >
-                  {proveedorOptions.map(p => (
-                    <option key={p.id} value={p.id}>
-                      {p.razonSocial}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Unidad de medida</label>
-                <select
-                  className="erp-input"
-                  value={formState.idUnidadMedida || ''}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, idUnidadMedida: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                >
-                  {unidadOptions.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.nombre} ({u.abreviatura})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Stock mínimo</label>
-                <input
-                  type="number"
-                  className="erp-input"
-                  value={formState.stockMinimo ?? 0}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                />
-              </div>
-
-              <div className="erp-form-group">
-                <label className="erp-form-label">Factor de conversión</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="erp-input"
-                  value={formState.factorConversion ?? 1}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, factorConversion: Number(e.target.value) }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                />
-              </div>
-
-              {dialogState.mode === 'view' && (
-                <div className="erp-form-group">
-                  <label className="erp-form-label">Estado</label>
-                  <div style={{ paddingTop: '4px' }}>
-                    <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} />
-                  </div>
-                </div>
-              )}
-
-              <div className="erp-form-group" style={{ gridColumn: 'span 2' }}>
-                <label className="erp-form-label">Descripción</label>
+                <label className="erp-form-label">Descripción Detallada</label>
                 <textarea
                   className="erp-input"
                   rows={2}
                   value={formState.descripcion || ''}
-                  onChange={e =>
-                    setFormState(prev => ({ ...prev, descripcion: e.target.value }))
-                  }
-                  disabled={dialogState.mode === 'view'}
-                  placeholder="Detalles adicionales..."
+                  onChange={e => setFormState(prev => ({ ...prev, descripcion: e.target.value }))}
+                  disabled={formMode === 'view'}
+                  placeholder="Descripción, características o especificaciones..."
                 />
               </div>
+              {formMode === 'view' && formState.estado !== undefined && (
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Estado</label>
+                  <div className="erp-form-status-value">
+                    <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} showText />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Columna derecha: código + imagen (2/5) */}
-            <div className="erp-dialog-split-side">
-              <div>
-                <label className="erp-form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
-                  <FiHash size={11} />
-                  Código de Producto
-                </label>
-                <div className="erp-code-badge">{codigoEnForm || '—'}</div>
-                <p className="erp-code-hint">
-                  {dialogState.mode === 'create'
-                    ? 'Generado automáticamente'
-                    : 'Código del producto'}
-                </p>
+            <div className="erp-form-photo-col">
+              <label className="erp-form-label">Imagen</label>
+              {formMode === 'view' ? (
+                imgSrc ? (
+                  <div className="erp-form-photo-preview">
+                    <img src={imgSrc} alt={formState.nombre} />
+                  </div>
+                ) : (
+                  <div className="erp-form-photo-empty">
+                    <span>Sin imagen registrada</span>
+                  </div>
+                )
+              ) : (
+                <ImageUpload
+                  ref={imageUploadRef}
+                  value={formState.rutaImagen}
+                  onChange={ruta => setFormState(prev => ({ ...prev, rutaImagen: ruta }))}
+                  folder="productos"
+                  label="Fotografía del producto"
+                  compact
+                />
+              )}
+            </div>
+          </div>
+          </div>
+
+          {/* Section 2: Clasificación y Relaciones */}
+          <div className="erp-form-section">
+            <div className="erp-form-section-title" style={{ marginBottom: '8px' }}>
+              <FiTag /> Clasificación & Proveedor
+            </div>
+            <div className="erp-form-fields">
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Categoría <span className="required-star">*</span></label>
+                  <select
+                    className="erp-input"
+                    value={formState.idCategoria || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, idCategoria: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                    required
+                  >
+                    <option value="">Seleccione categoría</option>
+                    {categorias.map(c => (
+                      <option key={c.id} value={c.id}>{c.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Marca <span className="required-star">*</span></label>
+                  <select
+                    className="erp-input"
+                    value={formState.idMarca || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, idMarca: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                    required
+                  >
+                    <option value="">Seleccione marca</option>
+                    {marcas.map(m => (
+                      <option key={m.id} value={m.id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="erp-form-label" style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
-                  <FiImage size={11} />
-                  Imagen
-                </label>
-                {dialogState.mode === 'view' ? (
-                  (() => {
-                    const imgSrc = resolveImageUrl(formState.rutaImagen);
-                    return imgSrc ? (
-                      <img
-                        src={imgSrc}
-                        alt={formState.nombre}
-                        style={{
-                          width: '100%',
-                          maxHeight: '160px',
-                          objectFit: 'cover',
-                          borderRadius: '8px',
-                          border: '1px solid var(--erp-border)',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '100%',
-                          height: '100px',
-                          borderRadius: '8px',
-                          border: '1px dashed var(--erp-border)',
-                          backgroundColor: 'var(--erp-bg-secondary)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          color: 'var(--erp-text-muted)',
-                        }}
-                      >
-                        <FiBox size={24} />
-                        <span style={{ fontSize: '11px' }}>Sin imagen</span>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <ImageUpload
-                    ref={imageUploadRef}
-                    value={formState.rutaImagen}
-                    onChange={ruta => setFormState(prev => ({ ...prev, rutaImagen: ruta }))}
-                    folder="productos"
-                    compact
-                  />
-                )}
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Proveedor <span className="required-star">*</span></label>
+                  <select
+                    className="erp-input"
+                    value={formState.idProveedor || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, idProveedor: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                    required
+                  >
+                    <option value="">Seleccione proveedor</option>
+                    {proveedores.map(p => (
+                      <option key={p.id} value={p.id}>{p.razonSocial}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Unidad de Medida <span className="required-star">*</span></label>
+                  <select
+                    className="erp-input"
+                    value={formState.idUnidadMedida || ''}
+                    onChange={e => setFormState(prev => ({ ...prev, idUnidadMedida: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                    required
+                  >
+                    <option value="">Seleccione unidad</option>
+                    {unidades.map(u => (
+                      <option key={u.id} value={u.id}>{u.nombre} ({u.abreviatura})</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
-        )}
-      </CrudDialog>
-    </div>
+
+          {/* Section 3: Precios y Stock */}
+          <div className="erp-form-section">
+            <div className="erp-form-section-title" style={{ marginBottom: '8px' }}>
+              <FiDollarSign /> Precios & Control de Stock
+            </div>
+            <div className="erp-form-fields">
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Precio de Venta (S/) <span className="required-star">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="erp-input"
+                    value={formState.precioVenta ?? 0}
+                    onChange={e => setFormState(prev => ({ ...prev, precioVenta: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                    required
+                  />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Factor de Conversión</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="erp-input"
+                    value={formState.factorConversion ?? 1}
+                    onChange={e => setFormState(prev => ({ ...prev, factorConversion: Number(e.target.value) }))}
+                    disabled={formMode === 'view'}
+                  />
+                </div>
+              </div>
+              <div className="erp-form-group">
+                <label className="erp-form-label">Stock Mínimo</label>
+                <input
+                  type="number"
+                  className="erp-input"
+                  value={formState.stockMinimo ?? 0}
+                  onChange={e => setFormState(prev => ({ ...prev, stockMinimo: Number(e.target.value) }))}
+                  disabled={formMode === 'view'}
+                />
+              </div>
+            </div>
+          </div>
+
+          {formMode !== 'view' && (
+            <div className="erp-form-actions">
+              <button
+                type="button"
+                className="erp-btn erp-btn-secondary"
+                onClick={() => setActiveTab('list')}
+              >
+                <FiX />
+                <span>Cancelar</span>
+              </button>
+              <button
+                type="submit"
+                className="erp-btn erp-btn-primary"
+                disabled={saving}
+              >
+                <FiSave />
+                <span>{saving ? 'Guardando...' : formMode === 'create' ? 'Registrar Producto' : 'Guardar Cambios'}</span>
+              </button>
+            </div>
+          )}
+        </form>
+      }
+    />
   );
 };
 

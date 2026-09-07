@@ -1,8 +1,10 @@
 export type ComprobanteSection =
   | 'todos'
   | 'comprobantes'
-  | 'guias'
-  | 'notas';
+  | 'notas'
+  | 'pendientes'
+  | 'liquidaciones'
+  | 'tiempos-sunat';
 
 export interface ComprobanteSectionDefinition {
   id: ComprobanteSection;
@@ -24,9 +26,13 @@ export type ComprobanteEstadoSunat =
   | 'PENDIENTE'
   | 'EXCEPCION'
   | 'ACEPTADO'
-  | 'RECHAZADO';
+  | 'ANULADO'
+  | 'RECHAZADO'
+  | 'ENVIADO'
+  | 'OBSERVADO';
 
 export interface ComprobanteDetalleItem {
+  itemId?: string;
   productoServicio: string;
   codigo: string;
   cantidad: number;
@@ -35,7 +41,7 @@ export interface ComprobanteDetalleItem {
   importe: number;
 }
 
-export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA' | 'LIQUIDACION_COMPRA';
+export type ComprobanteEmitibleTipo = 'BOLETA' | 'FACTURA';
 export type ComprobanteOrigen = 'VENTA' | 'MANUAL';
 
 export interface ComprobanteClienteData {
@@ -64,6 +70,14 @@ export interface ComprobanteFormData {
   detalle: ComprobanteFormItem[];
   fechaEmision: string;
   fechaVencimiento: string;
+  moneda: 'PEN' | 'USD';
+  pago: {
+    formaPago: 'CONTADO' | 'CREDITO';
+    cuotas: Array<{
+      monto: number;
+      fechaVencimiento: string;
+    }>;
+  };
   observaciones: string;
 }
 
@@ -71,6 +85,7 @@ export interface VentaOrigenComprobanteDto {
   id: string;
   codigo: string;
   fecha: string;
+  fechaEmisionServidor?: string;
   cliente: ComprobanteClienteData;
   detalle: ComprobanteFormItem[];
   subtotal: number;
@@ -85,8 +100,99 @@ export interface ProductoComprobanteMockDto {
   precio: number;
 }
 
+export interface NotaComprobanteBaseItemDto {
+  id: string;
+  productoId: number | null;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  valorVenta: number;
+  igv: number;
+  importe: number;
+  unidadMedida: string;
+}
+
+export interface NotaComprobanteBaseDto {
+  id: string;
+  tipo: 'BOLETA' | 'FACTURA';
+  sunatTypeCode: string;
+  serie: string;
+  numero: string;
+  fechaEmision: string;
+  moneda: 'PEN' | 'USD';
+  clienteNombre: string;
+  clienteTipoDocumento: string;
+  clienteDocumento: string;
+  clienteDireccion: string;
+  subtotal: number;
+  igv: number;
+  total: number;
+  items: NotaComprobanteBaseItemDto[];
+}
+
+export interface LiquidacionCompraUbicacionDisponibleDto {
+  distritoId: number;
+  departamento: string;
+  provincia: string;
+  distrito: string;
+  direccion: string;
+}
+
+export interface LiquidacionCompraDetalleDto {
+  productoId: number;
+  codigo: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  valorVenta: number;
+  igv: number;
+  importe: number;
+  unidadMedida: string;
+}
+
+export interface LiquidacionCompraDisponibleDto {
+  compraId: number;
+  codigo: string;
+  fechaCompra: string;
+  vendedor: {
+    tipoDocumento: string;
+    numeroDocumento: string;
+    nombre: string;
+    nombreContacto?: string;
+  };
+  ubicacionVendedor: LiquidacionCompraUbicacionDisponibleDto | null;
+  detalle: LiquidacionCompraDetalleDto[];
+  subtotal: number;
+  igv: number;
+  total: number;
+}
+
+export interface LiquidacionCompraFormData {
+  compraOrigenId: number;
+  fechaEmision: string;
+  moneda: 'PEN' | 'USD';
+  observaciones: string;
+  vendedor: {
+    tipoDocumento: string;
+    numeroDocumento: string;
+    nombre: string;
+  };
+  ubicacionVendedor: {
+    distritoId: number;
+    direccion: string;
+    codigoUbigeo?: string;
+  };
+  puntoVenta: {
+    distritoId: number;
+    direccion: string;
+    codigoUbigeo?: string;
+    codigoEstablecimiento?: string;
+  };
+}
+
 export interface ComprobanteSelectDto {
-  id: number;
+  id: string | number;
   tipo: ComprobanteTipo;
   serie: string;
   numero: string;
@@ -109,7 +215,11 @@ export interface ComprobanteSelectDto {
   fechaConsultaSunat: string;
   fechaEnvioSunat: string;
   detalle: ComprobanteDetalleItem[];
+  documentId?: string;
+  fileName?: string;
   pdfUrl?: string;
+  xmlUrl?: string;
+  cdrUrl?: string;
   fechaTraslado?: string;
   puntoPartida?: string;
   puntoLlegada?: string;
@@ -123,6 +233,14 @@ export interface ComprobanteSelectDto {
   ventaOrigenId?: string;
   fechaVencimiento?: string;
   observaciones?: string;
+  pago?: {
+    formaPago: string;
+    cuotas: Array<{
+      numero?: number;
+      monto: number;
+      fechaVencimiento: string;
+    }>;
+  };
 }
 
 export type TipoNota =
@@ -149,7 +267,7 @@ export type TipoNotaDebito =
 
 export interface NotaComprobanteSelectDto {
 
-  id: number;
+  id: string;
 
   serie: string,
 
@@ -187,7 +305,7 @@ export interface NotaComprobanteSelectDto {
 
   comprobanteRelacionado: {
 
-    id: number;
+    id: string;
 
     tipo: ComprobanteTipo;
 
@@ -240,7 +358,7 @@ export interface NotaComprobanteBaseCreateDto {
 
   comprobanteRelacionado: {
 
-    id: number;
+    id: string;
 
     tipo: ComprobanteTipo;
 
@@ -295,14 +413,11 @@ export const motivosNotaDebito: TipoNotaDebito[] = [
 
   'Aumento en el valor',
 
-  'Penalidades',
-
-  'Otros conceptos',
-
 ];
 
 // Tipos para el formulario de notas
 export interface NotaFormItem {
+  voucherItemReferenciaId?: string;
   productoId: number | null;
   codigo: string;
   productoServicio: string;
@@ -317,7 +432,7 @@ export interface NotaFormData {
   motivo: TipoNotaCredito | TipoNotaDebito;
   motivoDescripcion?: string;
   comprobanteRelacionado: {
-    id: number;
+    id: string;
     tipo: ComprobanteTipo;
     serie: string;
     numero: string;
@@ -813,8 +928,6 @@ export interface GetAllQueryParams {
 export type PDFFormat = 'A4' | 'A5' | 'ticket58mm' | 'ticket80mm';
 
 export interface VoidBillRequest {
-  personaId: string;
-  personaToken: string;
   documentId: string;
   reason: string; // 3 - 100 caracteres
 }
@@ -822,4 +935,45 @@ export interface VoidBillRequest {
 export interface VoidBillResponse {
   status: 'PENDIENTE';
   documentId: string;
+}
+
+// ==========================================
+// SUNAT TRANSMISSION - dbo.SunatTransmission
+// ==========================================
+
+export type SunatTransmissionOperationType = 'SEND' | 'VOID' | 'STATUS_QUERY';
+
+export type SunatTransmissionStatus = 'PENDING' | 'SUCCESS' | 'ERROR';
+
+export interface SunatTransmissionItemDto {
+  id: string;
+  voucherId: string;
+  attemptNumber: number;
+  operationType: SunatTransmissionOperationType | string;
+  transmissionStatus: SunatTransmissionStatus | string;
+  httpStatus: number | null;
+  sunatStatus: ComprobanteEstadoSunat | null;
+  sunatDocumentId: string | null;
+  errorMessage: string | null;
+  respondedAt: string | null;
+  createdAt: string;
+  responseTimeMs: number | null;
+
+  // Campos adicionales del Voucher vinculado (dbo.Voucher)
+  voucherTypeCode?: string;
+  series?: string;
+  number?: string;
+  total?: number;
+  customerName?: string;
+}
+
+export interface SunatTransmissionFilters {
+  busqueda: string;
+  operationType: string;
+  sunatStatus: string;
+  transmissionStatus: string;
+  tipoComprobante: string;
+  rangoVelocidad: 'TODOS' | 'RAPIDO' | 'MODERADO' | 'LENTO' | 'SIN_RESPUESTA';
+  fechaDesde: string;
+  fechaHasta: string;
 }

@@ -129,7 +129,7 @@ const UsersForm = ({ mode, record, onDataChange, onErrorsChange }: UsersFormProp
         </div>
         <div className="erp-view-field">
           <label className="erp-form-label">Estado</label>
-          <div className="erp-view-value"><StatusBadge status={record.estado} /></div>
+          <div className="erp-view-value"><StatusBadge status={record.estado} showText /></div>
         </div>
 
         <p className="erp-form-section-title">Auditoría</p>

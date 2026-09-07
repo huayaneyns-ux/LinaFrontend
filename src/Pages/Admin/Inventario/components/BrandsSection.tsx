@@ -1,5 +1,4 @@
 import { useState, useCallback, useMemo, useRef } from 'react';
-
 import { MarcaService } from '../../../../Services/Admin/Inventario/Marca';
 import type {
   MarcaSelectDto,
@@ -17,6 +16,8 @@ import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
+import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
 import {
   FiBookmark,
   FiCheckCircle,
@@ -25,6 +26,8 @@ import {
   FiEdit2,
   FiTrash2,
   FiEyeOff,
+  FiSave,
+  FiX,
 } from 'react-icons/fi';
 
 interface MarcaFilters {
@@ -40,8 +43,6 @@ const EMPTY_FORM: Partial<MarcaSelectDto> = {
   estado: true,
 };
 
-import { resolveImageUrl, gestionarImagenAlGuardar } from '../../../../Utils/imageUtils';
-
 const marcaCrudService = {
   getAll: () => MarcaService.getMarcas(),
   getById: (id: number) => MarcaService.getMarcaById(id),
@@ -50,15 +51,18 @@ const marcaCrudService = {
   delete: (id: number) => MarcaService.deleteMarca(id),
 };
 
-const BrandsSection = () => {
+export const BrandsSection = () => {
   const { items: brands, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
     useAdminCrud<MarcaSelectDto, MarcaInsertDto, MarcaUpdateDto>(marcaCrudService);
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<MarcaSelectDto>();
+  const { dialogState, openDelete, closeDialog } = useDialog<MarcaSelectDto>();
+
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [filters, setFilters] = useState<MarcaFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [showDisabled, setShowDisabled] = useState(false);
   const [formState, setFormState] = useState<Partial<MarcaSelectDto>>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
@@ -108,27 +112,38 @@ const BrandsSection = () => {
     return { total, activos, inactivos: total - activos };
   }, [brands]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: MarcaSelectDto) => {
-    if (record && (mode === 'view' || mode === 'edit')) {
-      const detail = await fetchById(record.id, record);
-      setFormState({ ...detail });
-      originalRutaRef.current = detail.urlImagen || '';
-      originalPublicIdRef.current = detail.publicIdImagen || '';
-    } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
-    } else {
-      originalRutaRef.current = '';
-      originalPublicIdRef.current = '';
-      setFormState({ ...EMPTY_FORM });
-    }
-
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const handleStartCreate = () => {
+    setFormState({ ...EMPTY_FORM });
+    setSelectedId(null);
+    originalRutaRef.current = '';
+    originalPublicIdRef.current = '';
+    setFormMode('create');
+    setActiveTab('form');
   };
 
-  const handleConfirm = async () => {
+  const handleStartEdit = async (record: MarcaSelectDto) => {
+    setSelectedId(record.id);
+    setFormMode('edit');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState({ ...detail });
+    originalRutaRef.current = detail.urlImagen || '';
+    originalPublicIdRef.current = detail.publicIdImagen || '';
+  };
+
+  const handleStartView = async (record: MarcaSelectDto) => {
+    setSelectedId(record.id);
+    setFormMode('view');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState({ ...detail });
+    originalRutaRef.current = detail.urlImagen || '';
+    originalPublicIdRef.current = detail.publicIdImagen || '';
+  };
+
+  const handleSaveForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formMode === 'view') return;
     setSubmitting(true);
     try {
       const pending = imageUploadRef.current?.getPendingFile();
@@ -138,31 +153,36 @@ const BrandsSection = () => {
         publicIdFormulario: formState.publicIdImagen,
         rutaOriginal: originalRutaRef.current,
         publicIdOriginal: originalPublicIdRef.current,
-        esEdicion: dialogState.mode === 'edit',
+        esEdicion: formMode === 'edit',
       });
 
-      if (dialogState.mode === 'create') {
+      if (formMode === 'create') {
         await createItem({
           nombre: formState.nombre || '',
           urlImagen: ruta,
         });
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
+      } else if (formMode === 'edit' && selectedId) {
         await updateItem({
-          id: dialogState.record.id,
+          id: selectedId,
           nombre: formState.nombre || '',
           urlImagen: ruta,
           estado: formState.estado !== false,
         });
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await deleteItem(dialogState.record.id);
       }
 
       imageUploadRef.current?.clearPending();
-      closeDialog();
+      setActiveTab('list');
     } catch {
-      // error via hook
+      // error handled in hook
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (dialogState.record) {
+      await deleteItem(dialogState.record.id);
+      closeDialog();
     }
   };
 
@@ -181,11 +201,11 @@ const BrandsSection = () => {
       render: (row: MarcaSelectDto) => {
         const src = resolveImageUrl(row.urlImagen);
         return src ? (
-          <div style={{ width: '42px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '2px' }}>
+          <div style={{ width: '42px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '0px', padding: '2px' }}>
             <img src={src} alt={row.nombre} style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} />
           </div>
         ) : (
-          <div style={{ width: '42px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--erp-bg-secondary)', border: '1px solid var(--erp-border)', borderRadius: '4px', color: 'var(--erp-text-muted)' }}>
+          <div style={{ width: '42px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--erp-bg-secondary)', border: '1px solid var(--erp-border)', borderRadius: '0px', color: 'var(--erp-text-muted)' }}>
             <FiBookmark size={12} />
           </div>
         );
@@ -203,7 +223,9 @@ const BrandsSection = () => {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '150px',
+      width: '56px',
+      align: 'center' as const,
+      className: 'col-status',
       render: (row: MarcaSelectDto) => (
         <StatusBadge status={row.estado ? 'ACTIVO' : 'INACTIVO'} />
       ),
@@ -212,25 +234,20 @@ const BrandsSection = () => {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
+      width: '112px',
+      className: 'col-actions',
       render: (row: MarcaSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
+        <div className="erp-table-actions">
+          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleStartView(row)} />
+          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleStartEdit(row)} />
+          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => openDelete(row)} />
         </div>
       ),
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
-      )}
-
+  const listContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiBookmark /></div>
@@ -255,130 +272,181 @@ const BrandsSection = () => {
         </div>
       </div>
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+        <button
+          type="button"
+          className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
+          onClick={() => setShowDisabled(prev => !prev)}
+        >
+          {showDisabled ? <FiEyeOff /> : <FiEye />}
+          <span>{showDisabled ? 'Ocultar inactivos' : 'Mostrar inactivos'}</span>
+        </button>
+      </div>
+
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por nombre..."
-        onNew={() => handleOpenDialog('create')}
+        searchPlaceholder="Buscar por nombre de marca..."
+        onNew={handleStartCreate}
         newLabel="Nueva Marca"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
-        extraActions={
-          <button
-            type="button"
-            className={`erp-btn erp-btn-sm erp-btn-secondary${showDisabled ? ' active' : ''}`}
-            onClick={() => setShowDisabled(prev => !prev)}
-          >
-            {showDisabled ? <FiEyeOff /> : <FiEye />}
-            {showDisabled ? 'Ocultar deshabilitados' : 'Mostrar deshabilitados'}
-          </button>
-        }
+        alwaysShowFilters={true}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado</label>
-              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
-                <option value="">Todos los estados</option>
-                <option value="ACTIVO">Activos</option>
-                <option value="INACTIVO">Inactivos</option>
-              </select>
-            </div>
+          <div className="erp-filter-group">
+            <label className="erp-filter-label">Estado</label>
+            <select className="erp-filter-select" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
+              <option value="">Todos los estados</option>
+              <option value="ACTIVO">Activos</option>
+              <option value="INACTIVO">Inactivos</option>
+            </select>
           </div>
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando marcas...</div>
-        ) : (
-          <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron marcas" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-          </>
-        )}
+      {error && (
+        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando marcas...</div>
+      ) : (
+        <>
+          <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron marcas" />
+          <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
+        </>
+      )}
+    </div>
+  );
+
+  const formContent = (
+    <form onSubmit={handleSaveForm} className="erp-form erp-form-simple">
+      <div className="erp-form-section">
+        <h3 className="erp-form-section-title">
+          {formMode === 'create' && 'Nueva Marca'}
+          {formMode === 'edit' && `Editando Marca #${selectedId}`}
+          {formMode === 'view' && `Detalle de Marca #${selectedId}`}
+        </h3>
+
+        <div className="erp-form-with-photo">
+          <div className="erp-form-fields">
+            <div className="erp-form-group">
+              <label className="erp-form-label">Nombre <span className="required-star">*</span></label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.nombre || ''}
+                onChange={e => setFormState(prev => ({ ...prev, nombre: e.target.value }))}
+                disabled={formMode === 'view'}
+                placeholder="Ej: Faber-Castell"
+                required
+              />
+            </div>
+
+            {(formMode === 'edit' || formMode === 'view') && (
+              <div className="erp-form-group">
+                <label className="erp-form-label">Estado</label>
+                {formMode === 'view' ? (
+                  <div className="erp-form-status-value">
+                    <StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} showText />
+                  </div>
+                ) : (
+                  <select
+                    className="erp-input"
+                    value={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'}
+                    onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}
+                  >
+                    <option value="ACTIVO">Activo</option>
+                    <option value="INACTIVO">Inactivo</option>
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="erp-form-photo-col">
+            <label className="erp-form-label">Logo / Imagen</label>
+            {formMode === 'view' ? (
+              resolveImageUrl(formState.urlImagen) ? (
+                <div className="erp-form-photo-preview">
+                  <img src={resolveImageUrl(formState.urlImagen)!} alt={formState.nombre} />
+                </div>
+              ) : (
+                <div className="erp-form-photo-empty">
+                  <FiBookmark size={24} />
+                  <span>Sin logo</span>
+                </div>
+              )
+            ) : (
+              <ImageUpload
+                ref={imageUploadRef}
+                value={formState.urlImagen}
+                onChange={urlImagen => setFormState(prev => ({ ...prev, urlImagen }))}
+                folder="marcas"
+                label="Logo de la marca"
+                compact
+              />
+            )}
+          </div>
+        </div>
       </div>
 
+      {formMode !== 'view' && (
+        <div className="erp-form-actions">
+          <button
+            type="button"
+            className="erp-btn erp-btn-secondary"
+            onClick={() => setActiveTab('list')}
+          >
+            <FiX />
+            <span>Cancelar</span>
+          </button>
+          <button
+            type="submit"
+            className="erp-btn erp-btn-primary"
+            disabled={saving || submitting}
+          >
+            <FiSave />
+            <span>{saving || submitting ? 'Guardando...' : formMode === 'create' ? 'Crear Marca' : 'Guardar Cambios'}</span>
+          </button>
+        </div>
+      )}
+    </form>
+  );
+
+  return (
+    <>
+      <SubmoduleTwoTabsLayout
+        title="Marcas Comerciales"
+        subtitle="Administra y clasifica las marcas de los productos comercializados"
+        entityName="Marca"
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        formMode={formMode}
+        onNew={handleStartCreate}
+        listContent={listContent}
+        formContent={formContent}
+      />
+
       <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
+        isOpen={dialogState.isOpen && dialogState.mode === 'delete'}
+        mode="delete"
         onClose={closeDialog}
-        onConfirm={handleConfirm}
-        loading={saving || submitting}
-        title={
-          dialogState.mode === 'create' ? 'Agregar Marca' :
-          dialogState.mode === 'edit' ? 'Editar Marca' :
-          dialogState.mode === 'view' ? 'Detalle de Marca' : 'Eliminar Marca'
-        }
-        size="md"
+        onConfirm={handleConfirmDelete}
+        loading={saving}
+        title="Eliminar Marca"
+        size="sm"
         deleteMessage={
           dialogState.record ? (
             <>¿Está seguro de eliminar la marca <strong>{dialogState.record.nombre}</strong>?</>
           ) : undefined
         }
-      >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-dialog-split">
-            <div className="erp-dialog-split-fields" style={{ gridTemplateColumns: '1fr' }}>
-              <div className="erp-form-group">
-                <label className="erp-form-label">Nombre de Marca</label>
-                <input
-                  type="text"
-                  className="erp-input"
-                  value={formState.nombre || ''}
-                  onChange={e => setFormState(prev => ({ ...prev, nombre: e.target.value }))}
-                  disabled={dialogState.mode === 'view'}
-                  placeholder="Ej: Faber-Castell"
-                />
-              </div>
-              {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
-                <div className="erp-form-group">
-                  <label className="erp-form-label">Estado</label>
-                  {dialogState.mode === 'view' ? (
-                    <div style={{ paddingTop: '4px' }}><StatusBadge status={formState.estado ? 'ACTIVO' : 'INACTIVO'} /></div>
-                  ) : (
-                    <select className="erp-input" value={formState.estado !== false ? 'ACTIVO' : 'INACTIVO'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value === 'ACTIVO' }))}>
-                      <option value="ACTIVO">Activo</option>
-                      <option value="INACTIVO">Inactivo</option>
-                    </select>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="erp-dialog-split-side">
-              {dialogState.mode === 'view' ? (
-                <div>
-                  <label className="erp-form-label">Logotipo</label>
-                  {resolveImageUrl(formState.urlImagen) ? (
-                    <img
-                      src={resolveImageUrl(formState.urlImagen)!}
-                      alt={formState.nombre}
-                      style={{ width: '100%', maxHeight: '80px', objectFit: 'contain', border: '1px solid var(--erp-border)', padding: '8px', borderRadius: '8px', background: '#f8fafc' }}
-                    />
-                  ) : (
-                    <div style={{ width: '100%', height: '80px', borderRadius: '8px', border: '1px dashed var(--erp-border)', backgroundColor: 'var(--erp-bg-secondary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--erp-text-muted)' }}>
-                      <FiBookmark size={20} />
-                      <span style={{ fontSize: '11px' }}>Sin logo</span>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <ImageUpload
-                  ref={imageUploadRef}
-                  value={formState.urlImagen}
-                  onChange={urlImagen => setFormState(prev => ({ ...prev, urlImagen }))}
-                  folder="marcas"
-                  label="Logotipo de la marca"
-                  compact
-                />
-              )}
-            </div>
-          </div>
-        )}
-      </CrudDialog>
-    </div>
+      />
+    </>
   );
 };
 

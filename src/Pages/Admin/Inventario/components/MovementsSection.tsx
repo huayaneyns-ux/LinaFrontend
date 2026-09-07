@@ -6,9 +6,15 @@ import { formatDate, formatDateTime } from '../../../../Utils/formatters';
 import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
+import ERPEmptySelection from '../../../../Components/ERP/ERPEmptySelection';
+import IconButton from '../../../../Components/ERP/IconButton';
 import {
   FiArrowUpRight,
   FiArrowDownLeft,
+  FiActivity,
+  FiEye,
+  FiRepeat,
 } from 'react-icons/fi';
 
 /** 10 tipos de movimiento de inventario */
@@ -25,12 +31,15 @@ const TIPOS_MOVIMIENTO: Record<number, { label: string; color: string; bg: strin
   10: { label: 'Liberación Reserva', color: '#06b6d4', bg: 'rgba(6, 182, 212, 0.1)', isInput: true },
 };
 
-const MovementsSection = () => {
+export const MovementsSection = () => {
   const [movements, setMovements] = useState<MovimientoSelectDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tipoFiltro, setTipoFiltro] = useState('');
   const [showFilters, setShowFilters] = useState(true);
+
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [selectedMovement, setSelectedMovement] = useState<MovimientoSelectDto | null>(null);
 
   const loadMovements = useCallback(async () => {
     try {
@@ -76,6 +85,11 @@ const MovementsSection = () => {
     return { total, ingresos, salidas };
   }, [movements]);
 
+  const handleSelectRow = (record: MovimientoSelectDto) => {
+    setSelectedMovement(record);
+    setActiveTab('form');
+  };
+
   const renderTipoBadge = (tipoId: number, tipoNombre?: string) => {
     const config = TIPOS_MOVIMIENTO[tipoId] || {
       label: tipoNombre || `Tipo ${tipoId}`,
@@ -93,10 +107,11 @@ const MovementsSection = () => {
           gap: '4px',
           color: config.color,
           backgroundColor: config.bg,
-          padding: '3px 10px',
-          borderRadius: '12px',
+          padding: '3px 8px',
+          borderRadius: '0px',
           fontSize: '11px',
           fontWeight: 'bold',
+          border: `1px solid ${config.color}`,
         }}
       >
         <Icon size={12} />
@@ -188,32 +203,37 @@ const MovementsSection = () => {
           <span style={{ color: 'var(--erp-text-muted)' }}>—</span>
         ),
     },
+    {
+      key: 'actions',
+      header: '',
+      align: 'right' as const,
+      width: '112px',
+      className: 'col-actions',
+      render: (row: MovimientoSelectDto) => (
+        <div className="erp-table-actions">
+          <IconButton
+            icon={<FiEye />}
+            tooltip="Ver Detalle"
+            variant="primary"
+            onClick={() => handleSelectRow(row)}
+          />
+        </div>
+      ),
+    },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '12px' }}>
-      {error && (
-        <div
-          style={{
-            padding: '8px 12px',
-            backgroundColor: 'var(--erp-danger-light)',
-            color: 'var(--erp-danger)',
-            borderRadius: '6px',
-            fontSize: '13px',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
+  const listContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
+          <div className="erp-indicator-icon"><FiActivity /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">{indicators.total}</span>
-            <span className="erp-indicator-label">Total movimientos</span>
+            <span className="erp-indicator-label">Total Movimientos</span>
           </div>
         </div>
         <div className="erp-indicator-card">
+          <div className="erp-indicator-icon success"><FiArrowDownLeft /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value" style={{ color: '#10b981' }}>
               {indicators.ingresos}
@@ -222,6 +242,7 @@ const MovementsSection = () => {
           </div>
         </div>
         <div className="erp-indicator-card">
+          <div className="erp-indicator-icon danger"><FiArrowUpRight /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value" style={{ color: '#ef4444' }}>
               {indicators.salidas}
@@ -239,64 +260,157 @@ const MovementsSection = () => {
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={tipoFiltro ? 1 : 0}
         onResetFilters={tipoFiltro ? () => setTipoFiltro('') : undefined}
+        alwaysShowFilters={true}
         filterPanel={
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-              gap: '10px',
-              width: '100%',
-            }}
-          >
-            <div className="erp-form-group" style={{ margin: 0 }}>
-              <label className="erp-form-label">Tipo de movimiento</label>
-              <select
-                className="erp-input"
-                value={tipoFiltro}
-                onChange={e => setTipoFiltro(e.target.value)}
-              >
-                <option value="">Todos los tipos</option>
-                {Object.entries(TIPOS_MOVIMIENTO).map(([id, info]) => (
-                  <option key={id} value={id}>
-                    {id}. {info.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="erp-filter-group">
+            <label className="erp-filter-label">Tipo de Movimiento</label>
+            <select
+              className="erp-filter-select"
+              value={tipoFiltro}
+              onChange={e => setTipoFiltro(e.target.value)}
+            >
+              <option value="">Todos los tipos</option>
+              {Object.entries(TIPOS_MOVIMIENTO).map(([id, info]) => (
+                <option key={id} value={id}>
+                  {id}. {info.label}
+                </option>
+              ))}
+            </select>
           </div>
         }
       />
 
-      <div
-        className="erp-table-card"
-        style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
-      >
-        {loading ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>
-            Cargando movimientos...
-          </div>
-        ) : (
-          <>
-            <DataTable
-              columns={columns}
-              data={processedData}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              rowKey={row => row.idMovimiento}
-              emptyMessage="No se encontraron movimientos"
-            />
-            <Pagination
-              page={pagination.page}
-              totalPages={totalPages}
-              totalItems={totalItems}
-              pageSize={pagination.pageSize}
-              onPageChange={setPage}
-              onPageSizeChange={setPageSize}
-            />
-          </>
-        )}
-      </div>
+      {error && (
+        <div
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'var(--erp-danger-light)',
+            color: 'var(--erp-danger)',
+            borderRadius: '0px',
+            fontSize: '13px',
+            border: '1px solid var(--erp-danger)',
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>
+          Cargando movimientos...
+        </div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={processedData}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            rowKey={row => row.idMovimiento}
+            emptyMessage="No se encontraron movimientos"
+            onRowClick={handleSelectRow}
+          />
+          <Pagination
+            page={pagination.page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
+      )}
     </div>
+  );
+
+  const formContent = (
+    <div className="erp-form">
+      {selectedMovement ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div className="erp-form-section">
+            <h3 className="erp-form-section-title">
+              Detalle de Movimiento #{selectedMovement.idMovimiento}
+            </h3>
+
+            <div className="erp-form-fields">
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">ID Movimiento</label>
+                  <input className="erp-input" readOnly value={`#${selectedMovement.idMovimiento}`} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Fecha</label>
+                  <input className="erp-input" readOnly value={selectedMovement.fecha ? formatDateTime(selectedMovement.fecha) : '—'} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Tipo</label>
+                  <div className="erp-form-status-value">
+                    {renderTipoBadge(selectedMovement.idTipoMovimiento, selectedMovement.tipoMovimiento)}
+                  </div>
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Usuario</label>
+                  <input className="erp-input" readOnly value={selectedMovement.usuario || '—'} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Producto</label>
+                  <input className="erp-input" readOnly value={selectedMovement.producto || '—'} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Cód. Producto</label>
+                  <input className="erp-input" readOnly value={selectedMovement.codigoProducto || '—'} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Lote</label>
+                  <input className="erp-input" readOnly value={selectedMovement.codigoLote || 'N/A'} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Cantidad</label>
+                  <input className="erp-input" readOnly value={`${selectedMovement.cantidad} und`} />
+                </div>
+              </div>
+              <div className="erp-form-row">
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Stock Posterior</label>
+                  <input className="erp-input" readOnly value={`${selectedMovement.stockActual ?? 0} und`} />
+                </div>
+                <div className="erp-form-group">
+                  <label className="erp-form-label">Motivo / Observación</label>
+                  <input className="erp-input" readOnly value={selectedMovement.motivo || 'Sin observaciones'} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <ERPEmptySelection
+          icon={<FiRepeat />}
+          title="Ningún movimiento seleccionado"
+          description="Seleccione un registro en la pestaña Registros para auditar los detalles y motivos del movimiento."
+          onBack={() => setActiveTab('list')}
+          backLabel="Ir a Registros de Movimientos"
+        />
+      )}
+    </div>
+  );
+
+  return (
+    <SubmoduleTwoTabsLayout
+      title="Kardex & Movimientos de Inventario"
+      subtitle="Historial detallado de entradas, salidas, mermas y ajustes de inventario"
+      entityName="Movimiento"
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      formMode="view"
+      listContent={listContent}
+      formContent={formContent}
+    />
   );
 };
 

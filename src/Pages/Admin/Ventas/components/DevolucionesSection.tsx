@@ -17,6 +17,7 @@ import Pagination from '../../../../Components/ERP/Pagination';
 import CrudDialog from '../../../../Components/ERP/CrudDialog';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
 import IconButton from '../../../../Components/ERP/IconButton';
+import SubmoduleTwoTabsLayout from '../../../../Components/ERP/SubmoduleTwoTabsLayout';
 import {
   FiCornerUpLeft,
   FiCheckCircle,
@@ -25,6 +26,8 @@ import {
   FiEye,
   FiEdit2,
   FiTrash2,
+  FiSave,
+  FiX,
 } from 'react-icons/fi';
 
 interface DevolucionFilters {
@@ -50,15 +53,18 @@ const devolucionCrudService = {
   delete: (id: number) => DevolucionService.deleteDevolucion(id),
 };
 
-const DevolucionesSection = () => {
+export const DevolucionesSection = () => {
   const { items: returns, loading, saving, error, fetchById, createItem, updateItem, deleteItem } =
     useAdminCrud<DevolucionSelectDto, DevolucionInsertDto, DevolucionUpdateDto>(devolucionCrudService);
 
-  const { dialogState, openCreate, openEdit, openView, openDelete, closeDialog } =
-    useDialog<DevolucionSelectDto>();
+  const { dialogState, openDelete, closeDialog } = useDialog<DevolucionSelectDto>();
+
+  const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
+  const [formMode, setFormMode] = useState<'create' | 'edit' | 'view'>('create');
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const [filters, setFilters] = useState<DevolucionFilters>(DEFAULT_FILTERS);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [formState, setFormState] = useState<Partial<DevolucionSelectDto>>(EMPTY_FORM);
 
   const filterCount = useMemo(
@@ -100,25 +106,35 @@ const DevolucionesSection = () => {
     return { total, procesados, pendientes, montoReembolsado };
   }, [returns]);
 
-  const handleOpenDialog = async (mode: typeof dialogState.mode, record?: DevolucionSelectDto) => {
-    if (record && (mode === 'view' || mode === 'edit')) {
-      const detail = await fetchById(record.id, record);
-      setFormState({ ...detail });
-    } else if (mode === 'delete' && record) {
-      setFormState({ ...record });
-    } else {
-      setFormState({ ...EMPTY_FORM });
-    }
-
-    if (mode === 'create') openCreate();
-    else if (mode === 'edit') openEdit(record!);
-    else if (mode === 'view') openView(record!);
-    else if (mode === 'delete') openDelete(record!);
+  const handleStartCreate = () => {
+    setFormState({ ...EMPTY_FORM });
+    setSelectedId(null);
+    setFormMode('create');
+    setActiveTab('form');
   };
 
-  const handleConfirm = async () => {
+  const handleStartEdit = async (record: DevolucionSelectDto) => {
+    setSelectedId(record.id);
+    setFormMode('edit');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState({ ...detail });
+  };
+
+  const handleStartView = async (record: DevolucionSelectDto) => {
+    setSelectedId(record.id);
+    setFormMode('view');
+    setActiveTab('form');
+    const detail = await fetchById(record.id, record);
+    setFormState({ ...detail });
+  };
+
+  const handleSaveForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formMode === 'view') return;
+
     try {
-      if (dialogState.mode === 'create') {
+      if (formMode === 'create') {
         const payload: DevolucionInsertDto = {
           codigo: formState.codigo || '',
           ventaCodigo: formState.ventaCodigo || '',
@@ -127,9 +143,9 @@ const DevolucionesSection = () => {
           total: Number(formState.total) || 0,
         };
         await createItem(payload);
-      } else if (dialogState.mode === 'edit' && dialogState.record) {
+      } else if (formMode === 'edit' && selectedId) {
         const payload: DevolucionUpdateDto = {
-          id: dialogState.record.id,
+          id: selectedId,
           codigo: formState.codigo || '',
           ventaCodigo: formState.ventaCodigo || '',
           cliente: formState.cliente || '',
@@ -138,14 +154,21 @@ const DevolucionesSection = () => {
           estado: formState.estado || 'PENDIENTE',
         };
         await updateItem(payload);
-      } else if (dialogState.mode === 'delete' && dialogState.record) {
-        await deleteItem(dialogState.record.id);
       }
-      closeDialog();
+      setActiveTab('list');
     } catch {
       // error shown via hook
     }
   };
+
+  const handleConfirmDelete = async () => {
+    if (dialogState.record) {
+      await deleteItem(dialogState.record.id);
+      closeDialog();
+    }
+  };
+
+  const isReadOnly = formMode === 'view';
 
   const columns = [
     {
@@ -192,13 +215,15 @@ const DevolucionesSection = () => {
       sortable: true,
       align: 'right' as const,
       width: '110px',
-      render: (row: DevolucionSelectDto) => `S/ ${(row.total || 0).toFixed(2)}`,
+      render: (row: DevolucionSelectDto) => <strong>S/ {(row.total || 0).toFixed(2)}</strong>,
     },
     {
       key: 'estado',
       header: 'Estado',
       sortable: true,
-      width: '120px',
+      width: '56px',
+      align: 'center' as const,
+      className: 'col-status',
       render: (row: DevolucionSelectDto) => (
         <StatusBadge status={row.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
       ),
@@ -207,25 +232,20 @@ const DevolucionesSection = () => {
       key: 'actions',
       header: '',
       align: 'right' as const,
-      width: '100px',
+      width: '112px',
+      className: 'col-actions',
       render: (row: DevolucionSelectDto) => (
-        <div style={{ display: 'flex', gap: '2px', justifyContent: 'flex-end' }}>
-          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleOpenDialog('view', row)} />
-          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleOpenDialog('edit', row)} />
-          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => handleOpenDialog('delete', row)} />
+        <div className="erp-table-actions">
+          <IconButton icon={<FiEye />} tooltip="Ver detalle" variant="primary" onClick={() => handleStartView(row)} />
+          <IconButton icon={<FiEdit2 />} tooltip="Editar" variant="warning" onClick={() => handleStartEdit(row)} />
+          <IconButton icon={<FiTrash2 />} tooltip="Eliminar" variant="danger" onClick={() => openDelete(row)} />
         </div>
       ),
     },
   ];
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '0' }}>
-      {error && (
-        <div style={{ padding: '8px 12px', marginBottom: '8px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '6px', fontSize: '13px' }}>
-          {error}
-        </div>
-      )}
-
+  const listContent = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div className="erp-indicators-grid">
         <div className="erp-indicator-card">
           <div className="erp-indicator-icon"><FiCornerUpLeft /></div>
@@ -249,10 +269,10 @@ const DevolucionesSection = () => {
           </div>
         </div>
         <div className="erp-indicator-card">
-          <div className="erp-indicator-icon danger"><FiActivity /></div>
+          <div className="erp-indicator-icon"><FiActivity /></div>
           <div className="erp-indicator-info">
             <span className="erp-indicator-value">S/ {indicators.montoReembolsado.toFixed(2)}</span>
-            <span className="erp-indicator-label">Monto Extornado</span>
+            <span className="erp-indicator-label">Total Reembolsado</span>
           </div>
         </div>
       </div>
@@ -260,97 +280,213 @@ const DevolucionesSection = () => {
       <Toolbar
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar por código de nota, documento venta o cliente..."
-        onNew={() => handleOpenDialog('create')}
+        searchPlaceholder="Buscar por código, comprobante o cliente..."
+        onNew={handleStartCreate}
         newLabel="Nueva Devolución"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(prev => !prev)}
         filterCount={filterCount}
         onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
+        alwaysShowFilters={true}
         filterPanel={
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', width: '100%' }}>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Estado de Devolución</label>
-              <select className="erp-input" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
-                <option value="">Todos</option>
-                <option value="ACTIVO">Aprobada</option>
-                <option value="PENDIENTE">Pendiente</option>
-              </select>
-            </div>
+          <div className="erp-filter-group">
+            <label className="erp-filter-label">Estado</label>
+            <select
+              className="erp-filter-select"
+              value={filters.estado}
+              onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}
+            >
+              <option value="">Todos los estados</option>
+              <option value="ACTIVO">Aprobada / Procesada</option>
+              <option value="PENDIENTE">Pendiente</option>
+            </select>
           </div>
         }
       />
 
-      <div className="erp-table-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando devoluciones...</div>
-        ) : (
-          <>
-            <DataTable columns={columns} data={processedData} sortConfig={sortConfig} onSort={handleSort} rowKey={row => row.id} emptyMessage="No se encontraron devoluciones registradas" />
-            <Pagination page={pagination.page} totalPages={totalPages} totalItems={totalItems} pageSize={pagination.pageSize} onPageChange={setPage} onPageSizeChange={setPageSize} />
-          </>
-        )}
+      {error && (
+        <div style={{ padding: '8px 12px', backgroundColor: 'var(--erp-danger-light)', color: 'var(--erp-danger)', borderRadius: '0px', fontSize: '13px', border: '1px solid var(--erp-danger)' }}>
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: 'var(--erp-text-muted)' }}>Cargando devoluciones...</div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={processedData}
+            sortConfig={sortConfig}
+            onSort={handleSort}
+            rowKey={row => row.id}
+            emptyMessage="No se encontraron devoluciones registradas"
+          />
+          <Pagination
+            page={pagination.page}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            pageSize={pagination.pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+        </>
+      )}
+    </div>
+  );
+
+  const formContent = (
+    <form onSubmit={handleSaveForm} className="erp-form erp-form-simple">
+      <div className="erp-form-section">
+        <h3 className="erp-form-section-title">
+          {formMode === 'create' && 'Nueva Solicitud de Devolución'}
+          {formMode === 'edit' && `Editando Devolución #${selectedId}`}
+          {formMode === 'view' && `Detalle de Devolución #${selectedId}`}
+        </h3>
+
+        <div className="erp-form-fields">
+          <div className="erp-form-row">
+            <div className="erp-form-group">
+              <label className="erp-form-label">Código Devolución / Nota <span className="required-star">*</span></label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.codigo || ''}
+                onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="Ej: DEV-2026-001"
+                required
+              />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Comprobante de Venta Ref. <span className="required-star">*</span></label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.ventaCodigo || ''}
+                onChange={e => setFormState(prev => ({ ...prev, ventaCodigo: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="Ej: B001-00045"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="erp-form-row">
+            <div className="erp-form-group">
+              <label className="erp-form-label">Cliente <span className="required-star">*</span></label>
+              <input
+                type="text"
+                className="erp-input"
+                value={formState.cliente || ''}
+                onChange={e => setFormState(prev => ({ ...prev, cliente: e.target.value }))}
+                disabled={isReadOnly}
+                placeholder="Nombre del cliente o razón social"
+                required
+              />
+            </div>
+            <div className="erp-form-group">
+              <label className="erp-form-label">Monto de Devolución (S/) <span className="required-star">*</span></label>
+              <input
+                type="number"
+                step="0.01"
+                className="erp-input"
+                value={formState.total || ''}
+                onChange={e => setFormState(prev => ({ ...prev, total: parseFloat(e.target.value) || 0 }))}
+                disabled={isReadOnly}
+                placeholder="0.00"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="erp-form-group">
+            <label className="erp-form-label">Motivo de la Devolución <span className="required-star">*</span></label>
+            <textarea
+              className="erp-input"
+              style={{ minHeight: '60px', height: 'auto' }}
+              value={formState.motivo || ''}
+              onChange={e => setFormState(prev => ({ ...prev, motivo: e.target.value }))}
+              disabled={isReadOnly}
+              placeholder="Describa el motivo de devolución del producto..."
+              required
+            />
+          </div>
+
+          {(formMode === 'edit' || formMode === 'view') && (
+            <div className="erp-form-group">
+              <label className="erp-form-label">Estado</label>
+              {isReadOnly ? (
+                <div className="erp-form-status-value">
+                  <StatusBadge status={formState.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} showText />
+                </div>
+              ) : (
+                <select
+                  className="erp-input"
+                  value={formState.estado || 'PENDIENTE'}
+                  onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}
+                >
+                  <option value="ACTIVO">Aprobada / Procesada</option>
+                  <option value="PENDIENTE">Pendiente</option>
+                </select>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
+      {!isReadOnly && (
+        <div className="erp-form-actions">
+          <button
+            type="button"
+            className="erp-btn erp-btn-secondary"
+            onClick={() => setActiveTab('list')}
+          >
+            <FiX />
+            <span>Cancelar</span>
+          </button>
+          <button
+            type="submit"
+            className="erp-btn erp-btn-primary"
+            disabled={saving}
+          >
+            <FiSave />
+            <span>{saving ? 'Guardando...' : formMode === 'create' ? 'Registrar Devolución' : 'Guardar Cambios'}</span>
+          </button>
+        </div>
+      )}
+    </form>
+  );
+
+  return (
+    <>
+      <SubmoduleTwoTabsLayout
+        title="Devoluciones y Notas de Crédito"
+        subtitle="Gestiona solicitudes de devolución, reembolsos y cancelaciones de ventas"
+        entityName="Devolución"
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        formMode={formMode}
+        onNew={handleStartCreate}
+        listContent={listContent}
+        formContent={formContent}
+      />
+
       <CrudDialog
-        isOpen={dialogState.isOpen}
-        mode={dialogState.mode}
+        isOpen={dialogState.isOpen && dialogState.mode === 'delete'}
+        mode="delete"
         onClose={closeDialog}
-        onConfirm={handleConfirm}
+        onConfirm={handleConfirmDelete}
         loading={saving}
-        title={
-          dialogState.mode === 'create' ? 'Registrar Devolución' :
-          dialogState.mode === 'edit' ? 'Editar Devolución' :
-          dialogState.mode === 'view' ? 'Ver Detalles Devolución' : 'Eliminar Registro'
-        }
-        size="lg"
+        title="Eliminar Devolución"
+        size="sm"
         deleteMessage={
           dialogState.record ? (
-            <>¿Está seguro de eliminar la devolución <strong>{dialogState.record.codigo}</strong>?</>
+            <>¿Está seguro de eliminar el registro de devolución <strong>{dialogState.record.codigo}</strong>?</>
           ) : undefined
         }
-      >
-        {dialogState.mode !== 'delete' && (
-          <div className="erp-form-grid">
-            <div className="erp-form-group">
-              <label className="erp-form-label">Código Nota Devolución</label>
-              <input type="text" className="erp-input" value={formState.codigo || ''} onChange={e => setFormState(prev => ({ ...prev, codigo: e.target.value }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Código Boleta/Factura Ref.</label>
-              <input type="text" className="erp-input" value={formState.ventaCodigo || ''} onChange={e => setFormState(prev => ({ ...prev, ventaCodigo: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: VT-001" />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Cliente</label>
-              <input type="text" className="erp-input" value={formState.cliente || ''} onChange={e => setFormState(prev => ({ ...prev, cliente: e.target.value }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group">
-              <label className="erp-form-label">Monto a Extornar (S/)</label>
-              <input type="number" step="0.01" className="erp-input" value={formState.total || 0} onChange={e => setFormState(prev => ({ ...prev, total: Number(e.target.value) }))} disabled={dialogState.mode === 'view'} />
-            </div>
-            <div className="erp-form-group col-span-2">
-              <label className="erp-form-label">Motivo de Devolución</label>
-              <input type="text" className="erp-input" value={formState.motivo || ''} onChange={e => setFormState(prev => ({ ...prev, motivo: e.target.value }))} disabled={dialogState.mode === 'view'} placeholder="Ej: Defecto de fábrica en repuestos" />
-            </div>
-            {(dialogState.mode === 'edit' || dialogState.mode === 'view') && (
-              <div className="erp-form-group col-span-2">
-                <label className="erp-form-label">Estado</label>
-                {dialogState.mode === 'view' ? (
-                  <div style={{ paddingTop: '6px' }}>
-                    <StatusBadge status={formState.estado === 'ACTIVO' ? 'ACTIVO' : 'PENDIENTE'} />
-                  </div>
-                ) : (
-                  <select className="erp-input" value={formState.estado || 'PENDIENTE'} onChange={e => setFormState(prev => ({ ...prev, estado: e.target.value }))}>
-                    <option value="PENDIENTE">Pendiente (En revisión)</option>
-                    <option value="ACTIVO">Aprobada (Extorno de caja)</option>
-                  </select>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </CrudDialog>
-    </div>
+      />
+    </>
   );
 };
 

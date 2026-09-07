@@ -16,6 +16,7 @@ import type {
   DistritoDto,
 } from '../Types/Admin/Ventas/Lugares';
 import { resolveImageUrl } from '../Utils/imageUtils';
+import { getNumericUserId } from '../Utils/auth';
 import '../Styles/Pages/Checkout.css';
 
 const CHECKOUT_KEY = 'checkoutLina';
@@ -88,10 +89,7 @@ const Checkout = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const idUsuario = useMemo(() => {
-    if (!usuario?.id) return 1;
-    if (typeof usuario.id === 'number') return usuario.id;
-    const parsed = parseInt(String(usuario.id).replace(/\D/g, ''), 10);
-    return isNaN(parsed) || parsed === 0 ? 1 : parsed;
+    return getNumericUserId(usuario);
   }, [usuario]);
 
   // Persistir progreso (sobre todo paso de comprobante)

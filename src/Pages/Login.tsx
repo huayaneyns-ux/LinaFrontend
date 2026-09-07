@@ -132,7 +132,7 @@ const Login = () => {
                   type="text"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="Ingresa tu usuario"
+                  placeholder="Ingresa tu correo o DNI"
                   autoComplete="username"
                   required
                 />
