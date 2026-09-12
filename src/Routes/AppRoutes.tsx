@@ -49,6 +49,9 @@ import ProveedoresSection from '../Pages/Admin/Compras/components/ProveedoresSec
 import SeguridadPage from '../Pages/Admin/Seguridad/index';
 import UsersSection from '../Pages/Admin/Seguridad/components/UsersSection';
 import RolesSection from '../Pages/Admin/Seguridad/components/RolesSection';
+import ScrapingPage from '../Pages/Admin/Scraping';
+import ScrapingAutoMatchSection from '../Pages/Admin/Scraping/components/ScrapingAutoMatchSection';
+import ScrapingReviewSection from '../Pages/Admin/Scraping/components/ScrapingReviewSection';
 
 const AppRoutes = () => {
   return (
@@ -114,6 +117,13 @@ const AppRoutes = () => {
 
         {/* MÓDULO CAJA Y PAGOS */}
         <Route path="caja" element={<CajaSection />} />
+
+        {/* MÓDULO SCRAPING */}
+        <Route path="scraping" element={<ScrapingPage />}>
+          <Route index element={<Navigate to="auto-match" replace />} />
+          <Route path="auto-match" element={<ScrapingAutoMatchSection />} />
+          <Route path="revision" element={<ScrapingReviewSection />} />
+        </Route>
 
         {/* MÓDULO SEGURIDAD */}
         <Route path="seguridad" element={

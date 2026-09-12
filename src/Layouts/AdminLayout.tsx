@@ -7,7 +7,7 @@ import {
   FiChevronRight, FiChevronDown, FiChevronLeft, FiMenu, FiX,
   FiFolder, FiBookmark, FiLayers, FiActivity, FiTag,
   FiDollarSign, FiCreditCard, FiCornerUpLeft,
-  FiClipboard, FiEdit3, FiClock, FiShoppingBag, FiLock
+  FiClipboard, FiEdit3, FiClock, FiShoppingBag, FiLock, FiGlobe, FiCheckCircle
 } from 'react-icons/fi';
 import '../Styles/ERP/erp-variables.css';
 import '../Styles/ERP/erp-layout.css';
@@ -91,6 +91,16 @@ const NAV_STRUCTURE: NavItem[] = [
     label: 'Caja y Pagos',
   },
   {
+    to: '/admin/scraping/auto-match',
+    basePath: '/admin/scraping',
+    icon: <FiGlobe />,
+    label: 'Scraping',
+    children: [
+      { to: '/admin/scraping/auto-match', label: 'Coincidencias', icon: <FiCheckCircle /> },
+      { to: '/admin/scraping/revision', label: 'Revisión manual', icon: <FiEdit3 /> },
+    ],
+  },
+  {
     to: '/admin/seguridad/usuarios',
     basePath: '/admin/seguridad',
     icon: <FiUsers />,
@@ -127,6 +137,9 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/admin/compras/ordenes': 'Compras / Órdenes de Compra',
   '/admin/compras/proveedores': 'Compras / Proveedores',
   '/admin/caja': 'Caja y Pagos',
+  '/admin/scraping': 'Scraping',
+  '/admin/scraping/auto-match': 'Scraping / Coincidencias',
+  '/admin/scraping/revision': 'Scraping / Revisión manual',
   '/admin/seguridad': 'Seguridad',
   '/admin/seguridad/usuarios': 'Seguridad / Usuarios / Empleados',
   '/admin/seguridad/roles': 'Seguridad / Roles y Permisos',
