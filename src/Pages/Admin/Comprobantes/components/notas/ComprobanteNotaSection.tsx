@@ -15,7 +15,6 @@ import ComprobantePreviewDialog from "../ComprobantePreviewDialog";
 import ComprobanteDetailDialog from "../ComprobanteDetailDialog";
 import SubmoduleTwoTabsLayout from "../../../../../Components/ERP/SubmoduleTwoTabsLayout";
 import { useDataTable } from "../../../../../Hooks/useDataTable";
-import NewNotaDialog from "./NewComprobanteNotaDialog";
 import { EMPRESA } from "../../../../../Constantes/Empresa";
 
 const PENDING_SUNAT = new Set(['PENDIENTE', 'EXCEPCION', 'NO_ENVIADO']);
@@ -47,7 +46,7 @@ const formatAmount = (amount: number) => `S/ ${amount.toFixed(2)}`;
 
 export const ComprobanteNotaVentas = () => {
   const [activeTab, setActiveTab] = useState<'list' | 'form'>('list');
-  const [formMode, setFormMode] = useState<'create' | 'view'>('create');
+  const [formMode, setFormMode] = useState<'create' | 'view'>('view');
   const [filters, setFilters] = useState<NotaComprobanteFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [previewNota, setPreviewNota] = useState<ComprobanteSelectDto | null>(null);
@@ -59,15 +58,11 @@ export const ComprobanteNotaVentas = () => {
 
   const {
     comprobantes,
-    notasBaseDisponibles,
-    notasBaseDebitoDisponibles,
     loading,
-    generating,
     updatingSunatId,
     error,
     successMessage,
     actualizarEstadoSunat,
-    crearNota,
     getPDF,
     voidBill,
     clearSuccessMessage,
@@ -104,12 +99,6 @@ export const ComprobanteNotaVentas = () => {
   }, [comprobantes, filters]);
 
   const filterCount = Object.values(filters).filter(value => value !== '').length;
-
-  const handleStartCreate = () => {
-    setDetailNota(null);
-    setFormMode('create');
-    setActiveTab('form');
-  };
 
   const handleViewDetails = (comprobante: ComprobanteSelectDto) => {
     setDetailNota(comprobante);
@@ -328,8 +317,6 @@ export const ComprobanteNotaVentas = () => {
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar por serie, número, cliente, documento o motivo..."
-        onNew={handleStartCreate}
-        newLabel="Nueva Nota"
         showFilters={showFilters}
         onToggleFilters={() => setShowFilters(previous => !previous)}
         filterCount={filterCount}
@@ -447,18 +434,7 @@ export const ComprobanteNotaVentas = () => {
     </div>
   );
 
-  const formContent =
-    formMode === 'create' ? (
-      <NewNotaDialog
-        embedded
-        isOpen
-        comprobantesBase={notasBaseDisponibles}
-        comprobantesBaseDebito={notasBaseDebitoDisponibles}
-        loading={generating}
-        onClose={() => setActiveTab('list')}
-        onGenerate={async form => (await crearNota(form)) !== null}
-      />
-    ) : detailNota ? (
+  const formContent = detailNota ? (
       <ComprobanteDetailDialog
         embedded
         comprobante={detailNota}
@@ -475,7 +451,6 @@ export const ComprobanteNotaVentas = () => {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         formMode={formMode}
-        onNew={handleStartCreate}
         listContent={listContent}
         formContent={formContent}
       />

@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { FiCheckCircle, FiExternalLink, FiRefreshCw } from 'react-icons/fi';
+import { FiCheckCircle, FiEdit3, FiExternalLink, FiRefreshCw } from 'react-icons/fi';
 import Pagination from '../../../../Components/ERP/Pagination';
 import { useScraping, type StoreName } from './ScrapingContext';
+import ScrapingPriceDialog from './ScrapingPriceDialog';
 
 const money = (value: number) => `S/ ${value.toFixed(2)}`;
 
 const ScrapingAutoMatchSection = () => {
-  const { matches, products: internalProducts, loading, error, reload } = useScraping();
+  const { matches, products: internalProducts, loading, error, reload, updateProductPrice } = useScraping();
   const autoMatches = matches.filter(match => match.decision === 'AUTO_MATCH' || match.decision === 'MANUAL_MATCH');
   const grouped = internalProducts.map(product => ({
     product,
@@ -14,9 +15,27 @@ const ScrapingAutoMatchSection = () => {
   })).filter(row => Object.keys(row.stores).length > 0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [savingProductId, setSavingProductId] = useState<number | null>(null);
+  const [priceDialog, setPriceDialog] = useState<{ productId: number; productName: string; bestPrice: number; currentPrice: number } | null>(null);
+  const [customPrice, setCustomPrice] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const totalPages = Math.max(1, Math.ceil(grouped.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const paginatedGrouped = grouped.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const savePrice = async (productId: number, price: number) => {
+    setActionError(null);
+    setSavingProductId(productId);
+    try {
+      await updateProductPrice(productId, price);
+      setPriceDialog(null);
+      setCustomPrice('');
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'No se pudo actualizar el precio.');
+    } finally {
+      setSavingProductId(null);
+    }
+  };
 
   return <div className="scraping-page">
     <header className="scraping-header">
@@ -25,6 +44,7 @@ const ScrapingAutoMatchSection = () => {
     </header>
     {loading && <div className="scraping-empty">Cargando coincidencias desde la base de datos...</div>}
     {error && <div className="scraping-error">{error}</div>}
+    {actionError && <div className="scraping-error">{actionError}</div>}
     <div className="scraping-metrics">
       <div><span>Coincidencias activas</span><strong>{grouped.length}</strong></div>
       <div><span>Tiendas comparadas</span><strong>2</strong></div>
@@ -33,8 +53,8 @@ const ScrapingAutoMatchSection = () => {
     <section className="scraping-card">
       <div className="scraping-card-title"><div><h2>Sección 1 · AUTO_MATCH</h2><p>Productos vinculados automáticamente o confirmados manualmente.</p></div><span className="scraping-status success"><FiCheckCircle /> MATCH ACTIVO</span></div>
       <div className="scraping-table-wrap"><table className="scraping-table"><thead><tr><th>Producto de mi tienda</th><th>Tayloy</th><th>Francisco</th><th>Mejor precio</th></tr></thead><tbody>
-        {paginatedGrouped.map(({ product, stores }) => { const prices = Object.values(stores).filter(Boolean).map(item => item!.price); return <tr key={product.id}>
-          <td><strong>{product.name}</strong><small>{product.sku} · Precio propio {money(product.price)}</small></td>
+        {paginatedGrouped.map(({ product, stores }) => { const prices = Object.values(stores).filter(Boolean).map(item => item!.price); const bestPrice = Math.min(...prices); const cost = autoMatches.find(match => match.internalProductId === product.id)?.internalProductCost; return <tr key={product.id}>
+          <td><strong>{product.name}</strong><small>{product.sku} · Precio propio {money(product.price)} · Costo {cost == null ? 'No registrado' : money(cost)}</small><div className="review-price-actions"><button type="button" className="scraping-price-button" disabled={savingProductId !== null} onClick={() => void savePrice(product.id, bestPrice)}>{savingProductId === product.id ? 'Actualizando…' : 'Actualizar al mejor precio'}</button><button type="button" className="scraping-price-button secondary" disabled={savingProductId !== null} onClick={() => { setCustomPrice(''); setPriceDialog({ productId: product.id, productName: product.name, bestPrice, currentPrice: product.price }); }}><FiEdit3 /> Otro precio</button></div></td>
           {(['Tailoy', 'Francisco'] as StoreName[]).map(store => { const item = stores[store]; return <td key={store}>{item ? <div className="store-product"><strong>{money(item.price)}</strong><span>{item.name}</span><small>Score {(item.score * 100).toFixed(1)}% <a href={item.url}>Ver <FiExternalLink /></a></small></div> : <span className="not-available">No encontrado</span>}</td>; })}
           <td><span className="best-price">{money(Math.min(...prices))}</span></td>
         </tr>; })}
@@ -49,6 +69,7 @@ const ScrapingAutoMatchSection = () => {
         onPageSizeChange={size => { setPageSize(size); setPage(1); }}
       />}
     </section>
+    {priceDialog && <ScrapingPriceDialog productName={priceDialog.productName} bestPrice={priceDialog.bestPrice} currentPrice={priceDialog.currentPrice} value={customPrice} loading={savingProductId !== null} onChange={setCustomPrice} onClose={() => setPriceDialog(null)} onSave={() => void savePrice(priceDialog.productId, Number(customPrice))} />}
   </div>;
 };
 

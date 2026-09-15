@@ -8,7 +8,6 @@ const money = (value: number) => `S/ ${value.toFixed(2)}`;
 const ScrapingReviewSection = () => {
   const { matches, products: internalProducts, confirmMatch, rejectMatch, loading, error } = useScraping();
   const reviewMatches = matches.filter(match => match.decision === 'REVIEW');
-  const [assignments, setAssignments] = useState<Record<number, string>>({});
   const [savingMatchId, setSavingMatchId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [expandedProductKey, setExpandedProductKey] = useState<string | null>(null);
@@ -38,11 +37,10 @@ const ScrapingReviewSection = () => {
     [reviewGroups, currentPage, pageSize]
   );
 
-  const assign = (id: number, value: string) => setAssignments(current => ({ ...current, [id]: value }));
   const confirm = async (match: ScrapedMatch) => {
-    const target = Number(assignments[match.id] || match.internalProductId);
+    const target = match.internalProductId;
     if (!target) {
-      setActionError('Selecciona el producto al que pertenece esta coincidencia.');
+      setActionError('Esta coincidencia no tiene una sugerencia de producto para confirmar.');
       return;
     }
 
@@ -84,7 +82,7 @@ const ScrapingReviewSection = () => {
             <tr key={group.key} className={`review-product-row${isExpanded ? ' expanded' : ''}`}>
               <td><button className="scraping-product-toggle" type="button" onClick={() => setExpandedProductKey(isExpanded ? null : group.key)} aria-expanded={isExpanded}>
                 {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                <span>{group.product ? <><strong>{group.product.name}</strong><small>{group.product.sku}</small></> : <span className="not-available">Sin asignar</span>}</span>
+                <span>{group.product ? <><strong>{group.product.name}</strong><small>{group.product.sku}</small><small>Precio: {money(group.product.price)} · Costo: {group.matches[0].internalProductCost == null ? 'No registrado' : money(group.matches[0].internalProductCost)}</small></> : <span className="not-available">Sin asignar</span>}</span>
               </button></td>
               <td><span className="review-match-count">{group.matches.length}</span> sugerencia{group.matches.length === 1 ? '' : 's'}</td>
               <td><div className="review-store-list">{stores.map(store => <span key={store} className={`store-pill ${store.toLowerCase()}`}>{store}</span>)}</div></td>
@@ -94,8 +92,8 @@ const ScrapingReviewSection = () => {
               {group.matches.map(match => <div className="review-match-item" key={match.id}>
                 <div className="review-match-main"><span className={`store-pill ${match.store.toLowerCase()}`}>{match.store}</span><div><strong>{match.name}</strong><small><a href={match.url} target="_blank" rel="noreferrer">Abrir producto <FiExternalLink /></a></small></div></div>
                 <div className="review-match-price"><strong>{money(match.price)}</strong><small>Score {(match.score * 100).toFixed(1)}%</small></div>
-                <select value={assignments[match.id] ?? match.internalProductId ?? ''} onChange={event => assign(match.id, event.target.value)}><option value="">Seleccionar producto</option>{internalProducts.map(product => <option key={product.id} value={product.id}>{product.name}</option>)}</select>
-                <div className="scraping-actions"><button className="scraping-confirm" type="button" disabled={savingMatchId !== null || (!assignments[match.id] && !match.internalProductId)} onClick={() => void confirm(match)} title="Confirmar MANUAL_MATCH">{savingMatchId === match.id ? 'Guardando…' : <><FiCheck /> Confirmar</>}</button><button className="scraping-reject" type="button" disabled={savingMatchId !== null} onClick={() => void reject(match)} title="Marcar NO_MATCH"><FiX /></button></div>
+                <div className="review-suggestion"><small>Sugerencia</small><strong>{match.internalProductId ? (internalProducts.find(product => product.id === match.internalProductId)?.name || 'Producto asignado') : 'Sin asignar'}</strong><small>La sugerencia no se puede cambiar aquí.</small></div>
+                <div className="scraping-actions"><button className="scraping-confirm" type="button" disabled={savingMatchId !== null || !match.internalProductId} onClick={() => void confirm(match)} title="Confirmar MANUAL_MATCH">{savingMatchId === match.id ? 'Guardando…' : <><FiCheck /> Confirmar</>}</button><button className="scraping-reject" type="button" disabled={savingMatchId !== null} onClick={() => void reject(match)} title="Marcar NO_MATCH"><FiX /></button></div>
               </div>)}
             </div></td></tr>}
           </Fragment>;
