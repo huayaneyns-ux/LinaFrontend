@@ -137,8 +137,8 @@ const DetailBody = ({ comprobante }: { comprobante: ComprobanteSelectDto }) => {
           </div>
           <DetailField label="Código de respuesta" value={comprobante.codigoRespuestaSunat} />
           <DetailField label="Mensaje" value={comprobante.mensajeSunat} />
-          <DetailField label="Fecha de consulta" value={comprobante.fechaConsultaSunat} />
-          <DetailField label="Fecha de envío" value={comprobante.fechaEnvioSunat} />
+          <DetailField label="Fecha de consulta" value={comprobante.fechaConsultaSunat?.replace("T"," ")} />
+          <DetailField label="Fecha de envío" value={comprobante.fechaEnvioSunat?.replace("T"," ")} />
         </div>
       </section>
 

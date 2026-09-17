@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { FiCheck, FiLoader, FiSearch } from 'react-icons/fi';
 import CrudDialog from '../../../../../Components/ERP/CrudDialog';
 import FormField from '../../../../../Components/ERP/FormField';
 import SearchInput from '../../../../../Components/ERP/SearchInput';
@@ -7,7 +8,9 @@ import {
   distritos,
   getDistrictsByProvince,
   getProvincesByDepartment,
+  findDistrict,
 } from '../../../../../Utils/ubigeo';
+import { ComprobanteVentasService } from '../../../../../Services/Admin/Comprobantes/ComprobanteVentasService';
 import type {
   LiquidacionCompraDisponibleDto,
   LiquidacionCompraFormData,
@@ -59,6 +62,8 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
   const [sellerLocation, setSellerLocation] = useState<LocationForm>(emptyLocation);
   const [pointOfSale, setPointOfSale] = useState<LocationForm>(emptyLocation);
   const [error, setError] = useState('');
+  const [consultandoDocumento, setConsultandoDocumento] = useState(false);
+  const [documentoValidado, setDocumentoValidado] = useState(false);
 
   const filteredCompras = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -97,11 +102,11 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
     setError('');
     if (!compra) return;
 
-    const ubigeo = compra.ubicacionVendedor?.distritoId
-      ? distritos.find((item) => item.id === String(compra.ubicacionVendedor?.distritoId))
-      : undefined;
-
-    const sellerDistrict = ubigeo || distritos.find((item) => item.name === compra.ubicacionVendedor?.distrito);
+    const sellerDistrict = findDistrict(
+      compra.ubicacionVendedor?.departamento,
+      compra.ubicacionVendedor?.provincia,
+      compra.ubicacionVendedor?.distrito,
+    ) || distritos.find((item) => item.id === String(compra.ubicacionVendedor?.distritoId));
     const sellerName = compra.vendedor.nombreContacto?.trim() || compra.vendedor.nombre.trim();
 
     setSellerLocation({
@@ -112,10 +117,11 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
       codigoEstablecimiento: '0000',
     });
     setSeller({
-      tipoDocumento: 'DNI',
-      numeroDocumento: '',
+      tipoDocumento: compra.vendedor.tipoDocumento === 'RUC' ? 'DNI' : compra.vendedor.tipoDocumento as SellerDocumentType,
+      numeroDocumento: compra.vendedor.tipoDocumento === 'DNI' ? compra.vendedor.numeroDocumento : '',
       nombre: sellerName,
     });
+    setDocumentoValidado(false);
   };
 
   const reset = () => {
@@ -128,6 +134,29 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
     setSellerLocation(emptyLocation);
     setPointOfSale(emptyLocation);
     setError('');
+    setDocumentoValidado(false);
+  };
+
+  const consultarDocumento = async () => {
+    const tipo = seller.tipoDocumento === 'DNI' ? 'DNI' : null;
+    const documento = seller.numeroDocumento.trim();
+    if (!tipo || !/^\d{8}$/.test(documento)) {
+      setError('Para validar el documento, seleccione DNI e ingrese 8 dígitos.');
+      return;
+    }
+    setConsultandoDocumento(true);
+    setError('');
+    try {
+      const persona = await ComprobanteVentasService.consultarPersona(tipo, documento);
+      if (!persona.success || !persona.nombre) throw new Error(persona.mensaje || 'No se encontró el documento.');
+      setSeller(previous => ({ ...previous, numeroDocumento: persona.numero || documento, nombre: persona.nombre || previous.nombre }));
+      setDocumentoValidado(true);
+    } catch (validationError) {
+      setDocumentoValidado(false);
+      setError(validationError instanceof Error ? validationError.message : 'No se pudo validar el documento.');
+    } finally {
+      setConsultandoDocumento(false);
+    }
   };
 
   const validate = () => {
@@ -234,20 +263,27 @@ const NewComprobanteLiquidacionDialog = ({ isOpen, comprasDisponibles, loading, 
               </select>
             </FormField>
             <FormField label="Número documento" required>
-              <input
-                className="erp-input"
-                inputMode="numeric"
-                maxLength={seller.tipoDocumento === 'DNI' ? 8 : 12}
-                value={seller.numeroDocumento}
-                onChange={(event) => {
-                  const raw = event.target.value.replace(/[^a-z0-9]/gi, '');
-                  setSeller((prev) => ({
-                    ...prev,
-                    numeroDocumento: prev.tipoDocumento === 'DNI' ? raw.replace(/\D/g, '').slice(0, 8) : raw.slice(0, 12),
-                  }));
-                }}
-                placeholder={seller.tipoDocumento === 'DNI' ? '8 dígitos' : '6 a 12 caracteres'}
-              />
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  className="erp-input"
+                  inputMode="numeric"
+                  maxLength={seller.tipoDocumento === 'DNI' ? 8 : 12}
+                  value={seller.numeroDocumento}
+                  onChange={(event) => {
+                    const raw = event.target.value.replace(/[^a-z0-9]/gi, '');
+                    setDocumentoValidado(false);
+                    setSeller((prev) => ({
+                      ...prev,
+                      numeroDocumento: prev.tipoDocumento === 'DNI' ? raw.replace(/\D/g, '').slice(0, 8) : raw.slice(0, 12),
+                    }));
+                  }}
+                  placeholder={seller.tipoDocumento === 'DNI' ? '8 dígitos' : '6 a 12 caracteres'}
+                />
+                <button type="button" className="erp-btn erp-btn-secondary" onClick={() => void consultarDocumento()} disabled={consultandoDocumento} title="Validar documento">
+                  {consultandoDocumento ? <FiLoader /> : documentoValidado ? <FiCheck /> : <FiSearch />}
+                  <span>{consultandoDocumento ? 'Validando...' : documentoValidado ? 'Validado' : 'Validar'}</span>
+                </button>
+              </div>
             </FormField>
             <FormField label="Nombre vendedor" required>
               <input className="erp-input" value={seller.nombre} onChange={(event) => setSeller((prev) => ({ ...prev, nombre: event.target.value }))} />

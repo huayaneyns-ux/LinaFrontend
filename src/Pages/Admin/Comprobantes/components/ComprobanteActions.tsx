@@ -2,6 +2,18 @@ import { FiEye, FiFileText, FiLoader, FiRefreshCw, FiDownload, FiTrash2 } from '
 import type { ComprobanteSelectDto } from '../../../../Types/Admin/Comprobantes/Comprobante';
 import IconButton from '../../../../Components/ERP/IconButton';
 
+const NO_ANULABLE_TYPES = new Set(['BOLETA', 'NOTA_CREDITO', 'NOTA_DEBITO']);
+
+const puedeAnularse = (comprobante: ComprobanteSelectDto) => {
+  if (NO_ANULABLE_TYPES.has(comprobante.tipo)) return false;
+
+  const fechaEmision = new Date(`${comprobante.fechaEmision.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(fechaEmision.getTime())) return false;
+
+  const diasTranscurridos = Math.floor((Date.now() - fechaEmision.getTime()) / 86_400_000);
+  return diasTranscurridos <= 5;
+};
+
 interface ComprobanteActionsProps {
   comprobante: ComprobanteSelectDto;
   isUpdatingSunat: boolean;
@@ -78,7 +90,7 @@ const ComprobanteActions = ({
         onClick={() => onDownloadPDF(comprobante)}
       />
     )}
-    {!hideDeleteDocument && onDeleteDocument && (
+    {!hideDeleteDocument && onDeleteDocument && puedeAnularse(comprobante) && (
       <IconButton
         icon={isDeleting ? <FiLoader /> : <FiTrash2 />}
         tooltip={
