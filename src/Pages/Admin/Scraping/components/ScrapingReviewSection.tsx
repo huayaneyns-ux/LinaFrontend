@@ -3,7 +3,16 @@ import { FiAlertCircle, FiCheck, FiChevronDown, FiChevronUp, FiExternalLink, FiX
 import Pagination from '../../../../Components/ERP/Pagination';
 import { useScraping, type ScrapedMatch } from './ScrapingContext';
 
-const money = (value: number) => `S/ ${value.toFixed(2)}`;
+const money = (value: number) => `S/ ${(value / 1.18).toFixed(2)}`;
+const costMoney = (value: number) => `S/ ${value.toFixed(2)}`;
+const margin = (priceWithIgv: number, cost: number | null) => {
+  if (cost == null) return null;
+  const priceWithoutIgv = priceWithIgv / 1.18;
+  if (priceWithoutIgv === 0) return cost > 0 ? -100 : 0;
+  return ((priceWithoutIgv - cost) / priceWithoutIgv) * 100;
+};
+const marginClass = (value: number | null) => value == null ? '' : value < 0 ? 'negative' : value <= 10 ? 'low' : 'good';
+const marginText = (value: number | null) => value == null ? '—' : `${value.toFixed(1)}%`;
 
 const ScrapingReviewSection = () => {
   const { matches, products: internalProducts, confirmMatch, rejectMatch, loading, error } = useScraping();
@@ -82,7 +91,7 @@ const ScrapingReviewSection = () => {
             <tr key={group.key} className={`review-product-row${isExpanded ? ' expanded' : ''}`}>
               <td><button className="scraping-product-toggle" type="button" onClick={() => setExpandedProductKey(isExpanded ? null : group.key)} aria-expanded={isExpanded}>
                 {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                <span>{group.product ? <><strong>{group.product.name}</strong><small>{group.product.sku}</small><small>Precio: {money(group.product.price)} · Costo: {group.matches[0].internalProductCost == null ? 'No registrado' : money(group.matches[0].internalProductCost)}</small></> : <span className="not-available">Sin asignar</span>}</span>
+                <span>{group.product ? <><strong>{group.product.name}</strong><small>{group.product.sku}</small><small>Precio sin IGV: {money(group.product.price)} · Costo: {group.matches[0].internalProductCost == null ? 'No registrado' : costMoney(group.matches[0].internalProductCost)}</small></> : <span className="not-available">Sin asignar</span>}</span>
               </button></td>
               <td><span className="review-match-count">{group.matches.length}</span> sugerencia{group.matches.length === 1 ? '' : 's'}</td>
               <td><div className="review-store-list">{stores.map(store => <span key={store} className={`store-pill ${store.toLowerCase()}`}>{store}</span>)}</div></td>
@@ -91,7 +100,7 @@ const ScrapingReviewSection = () => {
             {isExpanded && <tr key={`${group.key}-details`} className="review-details-row"><td colSpan={4}><div className="review-match-list">
               {group.matches.map(match => <div className="review-match-item" key={match.id}>
                 <div className="review-match-main"><span className={`store-pill ${match.store.toLowerCase()}`}>{match.store}</span><div><strong>{match.name}</strong><small><a href={match.url} target="_blank" rel="noreferrer">Abrir producto <FiExternalLink /></a></small></div></div>
-                <div className="review-match-price"><strong>{money(match.price)}</strong><small>Score {(match.score * 100).toFixed(1)}%</small></div>
+                <div className="review-match-price"><strong>{money(match.price)}</strong><small>Sin IGV · Score {(match.score * 100).toFixed(1)}%</small><span className={`scraping-margin ${marginClass(margin(match.price, match.internalProductCost))}`}>Margen: {marginText(margin(match.price, match.internalProductCost))}</span></div>
                 <div className="review-suggestion"><small>Sugerencia</small><strong>{match.internalProductId ? (internalProducts.find(product => product.id === match.internalProductId)?.name || 'Producto asignado') : 'Sin asignar'}</strong><small>La sugerencia no se puede cambiar aquí.</small></div>
                 <div className="scraping-actions"><button className="scraping-confirm" type="button" disabled={savingMatchId !== null || !match.internalProductId} onClick={() => void confirm(match)} title="Confirmar MANUAL_MATCH">{savingMatchId === match.id ? 'Guardando…' : <><FiCheck /> Confirmar</>}</button><button className="scraping-reject" type="button" disabled={savingMatchId !== null} onClick={() => void reject(match)} title="Marcar NO_MATCH"><FiX /></button></div>
               </div>)}

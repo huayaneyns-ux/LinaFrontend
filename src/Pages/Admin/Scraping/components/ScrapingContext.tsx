@@ -26,15 +26,28 @@ export interface ScrapedMatch {
   decision: MatchDecision;
 }
 
+export interface ScrapedProductOption {
+  scrapedProductId: number;
+  store: StoreName;
+  name: string;
+  price: number;
+  url: string;
+  activeMatchId: number | null;
+  matchedProductId: number | null;
+  matchedProductName: string | null;
+}
+
 interface ScrapingContextValue {
   products: InternalProduct[];
   matches: ScrapedMatch[];
+  scrapedProducts: ScrapedProductOption[];
   loading: boolean;
   error: string | null;
   reload: () => Promise<void>;
   confirmMatch: (id: number, internalProductId: number) => Promise<void>;
   rejectMatch: (id: number) => Promise<void>;
   updateProductPrice: (productId: number, price: number) => Promise<void>;
+  createManualMatch: (scrapedProductId: number, internalProductId: number) => Promise<void>;
 }
 
 const ScrapingContext = createContext<ScrapingContextValue | null>(null);
@@ -48,13 +61,15 @@ export const ScrapingProvider = ({ children }: { children: ReactNode }) => {
   const { usuario } = useAuth();
   const [products, setProducts] = useState<InternalProduct[]>([]);
   const [matches, setMatches] = useState<ScrapedMatch[]>([]);
+  const [scrapedProducts, setScrapedProducts] = useState<ScrapedProductOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const reload = async () => {
     setLoading(true); setError(null);
     try {
-      const [apiMatches, apiProducts] = await Promise.all([api.request<Array<Record<string, unknown>>>('/Scraping/matches'), ProductoService.getProductos()]);
+      const [apiMatches, apiScrapedProducts, apiProducts] = await Promise.all([api.request<Array<Record<string, unknown>>>('/Scraping/matches'), api.request<Array<Record<string, unknown>>>('/Scraping/products'), ProductoService.getProductos()]);
       setMatches(apiMatches.map(item => ({ id: Number(item.id ?? item.Id), internalProductId: item.internalProductId == null && item.ProductoId == null ? null : Number(item.internalProductId ?? item.ProductoId), store: normalizeStore(item.store ?? item.Store), name: String(item.name ?? item.Name ?? ''), price: Number(item.price ?? item.Price ?? 0), internalProductPrice: item.internalProductPrice == null && item.InternalProductPrice == null ? null : Number(item.internalProductPrice ?? item.InternalProductPrice), internalProductCost: item.internalProductCost == null && item.InternalProductCost == null ? null : Number(item.internalProductCost ?? item.InternalProductCost), url: String(item.url ?? item.Url ?? ''), score: Number(item.score ?? item.Score ?? 0), decision: String(item.decision ?? item.Decision) as MatchDecision })));
+      setScrapedProducts(apiScrapedProducts.map(item => ({ scrapedProductId: Number(item.scrapedProductId ?? item.ScrapedProductId), store: normalizeStore(item.store ?? item.Store), name: String(item.name ?? item.Name ?? ''), price: Number(item.price ?? item.Price ?? 0), url: String(item.url ?? item.Url ?? ''), activeMatchId: item.activeMatchId == null && item.ActiveMatchId == null ? null : Number(item.activeMatchId ?? item.ActiveMatchId), matchedProductId: item.matchedProductId == null && item.MatchedProductId == null ? null : Number(item.matchedProductId ?? item.MatchedProductId), matchedProductName: item.matchedProductName == null && item.MatchedProductName == null ? null : String(item.matchedProductName ?? item.MatchedProductName) })));
       setProducts(apiProducts.filter(product => product.estado).map(product => ({ id: product.id, name: product.nombre, sku: product.sku, price: product.precioVenta })));
     } catch (err: unknown) { setError(err instanceof Error ? err.message : 'No se pudieron cargar los datos de scraping.'); }
     finally { setLoading(false); }
@@ -69,7 +84,11 @@ export const ScrapingProvider = ({ children }: { children: ReactNode }) => {
     await ProductoService.updateProducto({ ...product, precioVenta: Number(price.toFixed(2)) });
     await reload();
   };
-  return <ScrapingContext.Provider value={{ products, matches, loading, error, reload, confirmMatch, rejectMatch, updateProductPrice }}>{children}</ScrapingContext.Provider>;
+  const createManualMatch = async (scrapedProductId: number, internalProductId: number) => {
+    await api.request('/Scraping/matches/manual', { method: 'POST', body: JSON.stringify({ scrapedProductId, productoId: internalProductId, reviewedBy: usuario ? `${usuario.nombres} ${usuario.apellidos}`.trim() : null }) });
+    await reload();
+  };
+  return <ScrapingContext.Provider value={{ products, matches, scrapedProducts, loading, error, reload, confirmMatch, rejectMatch, updateProductPrice, createManualMatch }}>{children}</ScrapingContext.Provider>;
 };
 
 export const useScraping = () => {
