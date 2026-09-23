@@ -108,6 +108,24 @@
   box-shadow: 0 0 0 3px rgba(230, 57, 70, 0.1);
 }
 
+.documento-row {
+  display: flex;
+  gap: 8px;
+}
+
+.documento-row select {
+  width: 88px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0 8px;
+  background: var(--bg-white);
+  font: inherit;
+}
+
+.documento-input {
+  flex: 1;
+}
+
 .btn-block {
   width: 100%;
   padding: 13px;
@@ -125,6 +143,28 @@
   font-size: 0.88rem;
   margin-bottom: 18px;
   border: 1px solid #fecaca;
+}
+
+.success-message {
+  background: #ecfdf5;
+  color: #047857;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  margin-bottom: 18px;
+  border: 1px solid #a7f3d0;
+}
+
+.login-switch {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
 }
 
 /* Dashboard perfil */

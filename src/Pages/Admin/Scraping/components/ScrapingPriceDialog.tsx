@@ -24,7 +24,7 @@ const ScrapingPriceDialog = ({ productName, bestPrice, currentPrice, value, load
       <h3 id="price-dialog-title">Actualizar precio</h3>
       <p>{productName}</p>
       <div className="scraping-price-summary"><span>Precio actual: <strong>{money(currentPrice)}</strong></span><span>Mejor sugerencia: <strong>{money(bestPrice)}</strong></span></div>
-      <label htmlFor="custom-product-price">Nuevo precio</label>
+      <label htmlFor="custom-product-price">Nuevo precio sin IGV</label>
       <input id="custom-product-price" className="erp-input" type="number" min="0" step="0.01" value={value} onChange={event => onChange(event.target.value)} autoFocus />
       <div className="scraping-modal-actions"><button type="button" className="scraping-secondary-button" onClick={onClose} disabled={loading}>Cancelar</button><button type="submit" className="scraping-confirm" disabled={loading || value.trim() === '' || !Number.isFinite(Number(value)) || Number(value) < 0}>{loading ? 'Actualizando…' : 'Guardar precio'}</button></div>
     </form>

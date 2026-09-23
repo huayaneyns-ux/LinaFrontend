@@ -6,6 +6,15 @@ interface LoginRequest {
   contrasena: string;
 }
 
+export interface RegistroClienteRequest {
+  nombreApellido: string;
+  tipoDocumento: 'DNI' | 'RUC';
+  dni: string;
+  telefono: string;
+  correo: string;
+  contrasena: string;
+}
+
 function normalizeUsuario(raw: Record<string, unknown>): Usuario {
   return {
     id: String(raw.id ?? ''),
@@ -30,5 +39,17 @@ export const AuthService = {
       body: JSON.stringify(payload),
     });
     return normalizeUsuario(data);
+  },
+
+  async registrarCliente(datos: RegistroClienteRequest): Promise<void> {
+    await api.request('/Usuario/Guardar', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...datos,
+        sexo: '',
+        idRol: 1,
+        estado: true,
+      }),
+    });
   },
 };
