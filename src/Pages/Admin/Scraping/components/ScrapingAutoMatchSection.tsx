@@ -16,7 +16,7 @@ const marginClass = (value: number | null) => value == null ? '' : value < 0 ? '
 const marginText = (value: number | null) => value == null ? '—' : `${value.toFixed(1)}%`;
 
 const ScrapingAutoMatchSection = () => {
-  const { matches, products: internalProducts, scrapedProducts, loading, error, reload, updateProductPrice, createManualMatch } = useScraping();
+  const { matches, products: internalProducts, scrapedProducts, loading, error, reload, rejectMatch, updateProductPrice, createManualMatch } = useScraping();
   const autoMatches = matches.filter(match => match.decision === 'AUTO_MATCH' || match.decision === 'MANUAL_MATCH');
   const grouped = internalProducts.map(product => ({
     product,
@@ -25,6 +25,7 @@ const ScrapingAutoMatchSection = () => {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [savingProductId, setSavingProductId] = useState<number | null>(null);
+  const [savingMatchId, setSavingMatchId] = useState<number | null>(null);
   const [priceDialog, setPriceDialog] = useState<{ productId: number; productName: string; bestPrice: number; currentPrice: number } | null>(null);
   const [linkDialog, setLinkDialog] = useState(false);
   const [linkProductId, setLinkProductId] = useState('');
@@ -46,6 +47,19 @@ const ScrapingAutoMatchSection = () => {
       setActionError(err instanceof Error ? err.message : 'No se pudo actualizar el precio.');
     } finally {
       setSavingProductId(null);
+    }
+  };
+
+  const removeMatch = async (matchId: number, productName: string) => {
+    if (!window.confirm(`¿Quitar la coincidencia de "${productName}"?`)) return;
+    setActionError(null);
+    setSavingMatchId(matchId);
+    try {
+      await rejectMatch(matchId);
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'No se pudo quitar la coincidencia.');
+    } finally {
+      setSavingMatchId(null);
     }
   };
 
@@ -88,7 +102,7 @@ const ScrapingAutoMatchSection = () => {
       <div className="scraping-table-wrap"><table className="scraping-table"><thead><tr><th>Producto de mi tienda</th><th>Tayloy</th><th>Francisco</th><th>Mejor precio</th><th>Margen de ganancia</th></tr></thead><tbody>
         {paginatedGrouped.map(({ product, stores }) => { const prices = Object.values(stores).filter(Boolean).map(item => item!.price); const bestGrossPrice = Math.min(...prices); const cost = autoMatches.find(match => match.internalProductId === product.id)?.internalProductCost ?? null; const ownMargin = margin(product.price, cost); return <tr key={product.id}>
           <td><strong>{product.name}</strong><small>{product.sku} · Precio propio sin IGV {money(product.price)} · Costo {cost == null ? 'No registrado' : costMoney(cost)}</small><div className="review-price-actions"><button type="button" className="scraping-price-button" disabled={savingProductId !== null} onClick={() => void savePrice(product.id, bestGrossPrice)}>{savingProductId === product.id ? 'Actualizando…' : 'Actualizar al mejor precio'}</button><button type="button" className="scraping-price-button secondary" disabled={savingProductId !== null} onClick={() => { setCustomPrice(''); setPriceDialog({ productId: product.id, productName: product.name, bestPrice: bestGrossPrice, currentPrice: product.price }); }}><FiEdit3 /> Otro precio</button></div></td>
-          {(['Tailoy', 'Francisco'] as StoreName[]).map(store => { const item = stores[store]; const scrapedMargin = item ? margin(item.price, cost) : null; return <td key={store}>{item ? <div className="store-product"><strong>{money(item.price)}</strong><span>{item.name}</span><small>Sin IGV · Score {(item.score * 100).toFixed(1)}% <a href={item.url}>Ver <FiExternalLink /></a></small><span className={`scraping-margin ${marginClass(scrapedMargin)}`}>Margen: {marginText(scrapedMargin)}</span></div> : <span className="not-available">No encontrado</span>}</td>; })}
+          {(['Tailoy', 'Francisco'] as StoreName[]).map(store => { const item = stores[store]; const scrapedMargin = item ? margin(item.price, cost) : null; return <td key={store}>{item ? <div className="store-product"><strong>{money(item.price)}</strong><span>{item.name}</span><small>Sin IGV · Score {(item.score * 100).toFixed(1)}% <a href={item.url}>Ver <FiExternalLink /></a></small><span className={`scraping-margin ${marginClass(scrapedMargin)}`}>Margen: {marginText(scrapedMargin)}</span><button type="button" className="scraping-remove-match" disabled={savingMatchId !== null} onClick={() => void removeMatch(item.id, item.name)}><FiX /> {savingMatchId === item.id ? 'Quitando…' : 'Quitar match'}</button></div> : <span className="not-available">No encontrado</span>}</td>; })}
           <td><span className="best-price">{money(bestGrossPrice)}</span></td>
           <td><span className={`scraping-margin scraping-margin-main ${marginClass(ownMargin)}`}>{marginText(ownMargin)}</span></td>
         </tr>; })}

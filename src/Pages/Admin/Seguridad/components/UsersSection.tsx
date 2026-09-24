@@ -135,7 +135,7 @@ export const UsersSection = () => {
     setPageSize,
   } = useDataTable<UsuarioSelectDto>({
     data: users,
-    searchKeys: ['nombreApellido', 'dni', 'correo', 'rol', 'telefono'],
+    searchKeys: ['nombreApellido', 'dni', 'correo', 'rol', 'telefono', 'origen'],
     defaultPageSize: 8,
     externalFilter,
   });
@@ -277,6 +277,13 @@ export const UsersSection = () => {
           {row.rol || '—'}
         </span>
       ),
+    },
+    {
+      key: 'origen',
+      header: 'Origen',
+      sortable: true,
+      width: '130px',
+      render: (row: UsuarioSelectDto) => row.origen?.trim() || 'Propio',
     },
     {
       key: 'sexo',
