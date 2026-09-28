@@ -7,7 +7,7 @@ import {
   FiChevronRight, FiChevronDown, FiChevronLeft, FiMenu, FiX,
   FiFolder, FiBookmark, FiLayers, FiActivity, FiTag,
   FiDollarSign, FiCreditCard, FiCornerUpLeft,
-  FiClipboard, FiEdit3, FiClock, FiShoppingBag, FiLock, FiGlobe, FiCheckCircle
+  FiClipboard, FiEdit3, FiClock, FiShoppingBag, FiLock, FiGlobe, FiCheckCircle, FiShare2
 } from 'react-icons/fi';
 import '../Styles/ERP/erp-variables.css';
 import '../Styles/ERP/erp-layout.css';
@@ -101,6 +101,12 @@ const NAV_STRUCTURE: NavItem[] = [
     ],
   },
   {
+    to: '/admin/integracion',
+    basePath: '/admin/integracion',
+    icon: <FiShare2 />,
+    label: 'Integración',
+  },
+  {
     to: '/admin/seguridad/usuarios',
     basePath: '/admin/seguridad',
     icon: <FiUsers />,
@@ -109,6 +115,7 @@ const NAV_STRUCTURE: NavItem[] = [
     children: [
       { to: '/admin/seguridad/usuarios', label: 'Usuarios / Empleados', icon: <FiUsers /> },
       { to: '/admin/seguridad/roles', label: 'Roles y Permisos', icon: <FiLock /> },
+      { to: '/admin/seguridad/auditoria', label: 'Auditoría', icon: <FiActivity /> },
     ],
   },
 ];
@@ -140,9 +147,11 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/admin/scraping': 'Scraping',
   '/admin/scraping/auto-match': 'Scraping / Coincidencias',
   '/admin/scraping/revision': 'Scraping / Revisión manual',
+  '/admin/integracion': 'Integración de catálogo',
   '/admin/seguridad': 'Seguridad',
   '/admin/seguridad/usuarios': 'Seguridad / Usuarios / Empleados',
   '/admin/seguridad/roles': 'Seguridad / Roles y Permisos',
+  '/admin/seguridad/auditoria': 'Seguridad / Auditoría',
 };
 
 const getInitials = (nombre?: string, apellido?: string) => {

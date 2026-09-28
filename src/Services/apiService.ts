@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://gives-ridge-indicated-concepts.trycloudflare.com/api';
+export const API_BASE_URL = 'http://localhost:5081/api';
 const API_KEY = 'UNFV_FIIS2026';
 
 class ApiService {
@@ -6,7 +6,7 @@ class ApiService {
         const errorText = await response.text();
 
         if (!errorText) {
-            return `API Error: ${response.status}`;
+            return `A2PI Error: ${response.status}`;
         }
 
         try {

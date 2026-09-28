@@ -15,8 +15,7 @@ export interface UsuarioSelectDto {
   idRol: number;
   rol: string;
   estado: boolean;
-  /** Vacío para clientes propios; con valor cuando provienen de otra tienda. */
-  origen?: string | null;
+  idIntegracionSistema?: number | null;
 }
 
 

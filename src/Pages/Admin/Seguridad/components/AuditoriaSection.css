@@ -1,0 +1,88 @@
+.audit-card {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.audit-card .erp-table-wrapper {
+  overflow-x: auto;
+}
+
+.audit-card .erp-table {
+  min-width: 1050px;
+}
+
+.audit-card .erp-table th,
+.audit-card .erp-table td {
+  padding: 12px 14px;
+  white-space: nowrap;
+}
+
+.audit-card .erp-toolbar {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.audit-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px 20px;
+  background: #f8fafc;
+}
+
+.audit-detail-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: #475569;
+  font-size: 12px;
+}
+
+.audit-detail-grid > div:nth-last-child(-n + 2) {
+  grid-column: span 1;
+}
+
+.audit-detail-grid strong {
+  color: #334155;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.audit-detail-grid pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  background: #0f172a;
+  color: #dbeafe;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.audit-detail-grid > div:nth-last-child(2),
+.audit-detail-grid > div:last-child {
+  grid-column: span 3;
+}
+
+.erp-alert-error {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 5px;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .audit-detail-grid,
+  .audit-detail-grid > div:nth-last-child(2),
+  .audit-detail-grid > div:last-child {
+    grid-template-columns: 1fr;
+    grid-column: span 1;
+  }
+}

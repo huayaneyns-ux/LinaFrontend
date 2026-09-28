@@ -49,9 +49,11 @@ import ProveedoresSection from '../Pages/Admin/Compras/components/ProveedoresSec
 import SeguridadPage from '../Pages/Admin/Seguridad/index';
 import UsersSection from '../Pages/Admin/Seguridad/components/UsersSection';
 import RolesSection from '../Pages/Admin/Seguridad/components/RolesSection';
+import AuditoriaSection from '../Pages/Admin/Seguridad/components/AuditoriaSection';
 import ScrapingPage from '../Pages/Admin/Scraping';
 import ScrapingAutoMatchSection from '../Pages/Admin/Scraping/components/ScrapingAutoMatchSection';
 import ScrapingReviewSection from '../Pages/Admin/Scraping/components/ScrapingReviewSection';
+import IntegracionPage from '../Pages/Admin/Integracion';
 
 const AppRoutes = () => {
   return (
@@ -125,6 +127,8 @@ const AppRoutes = () => {
           <Route path="revision" element={<ScrapingReviewSection />} />
         </Route>
 
+        <Route path="integracion" element={<IntegracionPage />} />
+
         {/* MÓDULO SEGURIDAD */}
         <Route path="seguridad" element={
           <ProtectedRoute rolesPermitidos={['ADMINISTRADOR']}>
@@ -134,6 +138,7 @@ const AppRoutes = () => {
           <Route index element={<Navigate to="usuarios" replace />} />
           <Route path="usuarios" element={<UsersSection />} />
           <Route path="roles" element={<RolesSection />} />
+          <Route path="auditoria" element={<AuditoriaSection />} />
         </Route>
       </Route>
     </Routes>

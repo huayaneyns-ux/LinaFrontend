@@ -1,0 +1,20 @@
+.integration-page { gap: 18px; }
+.integration-section { background: var(--erp-surface, #fff); border: 1px solid var(--erp-border, #e5e7eb); border-radius: 12px; padding: 22px; box-shadow: 0 2px 8px #00000008; }
+.integration-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.integration-section h2 { margin: 0 0 5px; font-size: 17px; }
+.integration-section-heading p { margin: 0; color: #6b7280; font-size: 13px; }
+.integration-form { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.integration-form label { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: 13px; }
+.integration-form input:not([type=checkbox]) { padding: 10px; border: 1px solid #d1d5db; border-radius: 7px; }
+.integration-check { flex-direction: row !important; align-items: center; align-self: end; }
+.integration-company-list { display: grid; gap: 10px; }
+.integration-company-row { display: grid; grid-template-columns: minmax(180px, 1fr) auto minmax(260px, 1.3fr); align-items: center; gap: 18px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 13px 15px; }
+.integration-company-row strong, .integration-company-row span { display: block; }
+.integration-company-row span { margin-top: 4px; color: #6b7280; font-size: 12px; }
+.integration-key { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 0; }
+.integration-key code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #374151; font-size: 12px; }
+.integration-table-wrap { overflow-x: auto; }
+.integration-table-wrap .erp-table { min-width: 1050px; }
+.integration-table-wrap .erp-table th, .integration-table-wrap .erp-table td { white-space: nowrap; padding: 12px 14px; }
+.integration-empty { padding: 20px; text-align: center; color: #6b7280; }
+@media (max-width: 800px) { .integration-form { grid-template-columns: 1fr; } .integration-company-row { grid-template-columns: 1fr; gap: 10px; } .integration-key { justify-content: flex-start; } }
