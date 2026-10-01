@@ -4,6 +4,8 @@ export interface IntegracionConfiguracion {
   descripcion?: string | null;
   apiKey: string;
   estado: boolean;
+  dominioEndpoint?: string | null;
+  apiKeyExterna?: string | null;
 }
 
 export interface IntegracionAuditoria {
@@ -17,4 +19,14 @@ export interface IntegracionAuditoria {
   registrosEnviados: number;
   detalle?: string | null;
   ipOrigen?: string | null;
+}
+
+export interface IntegracionProductoAdmin { id: number; codigo?: string | null; sku?: string | null; nombre?: string | null; empresaOrigen?: string | null; seleccionado: boolean; entregado: boolean; }
+export interface IntegracionProveedorAdmin { id: number; ruc?: string | null; razonSocial?: string | null; empresaOrigen?: string | null; seleccionado: boolean; entregado: boolean; }
+export interface IntegracionCatalogoAdmin { productos: IntegracionProductoAdmin[]; proveedores: IntegracionProveedorAdmin[]; }
+
+export interface IntegracionConsultaExterna {
+  tipo: string;
+  productos: IntegracionProductoAdmin[];
+  proveedores: IntegracionProveedorAdmin[];
 }

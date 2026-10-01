@@ -255,10 +255,17 @@ export const UsersSection = () => {
     },
     {
       key: 'dni',
-      header: 'DNI',
+      header: 'Documento',
       sortable: true,
-      width: '110px',
-      render: (row: UsuarioSelectDto) => row.dni || '—',
+      width: '145px',
+      render: (row: UsuarioSelectDto) => (
+        <div>
+          <div style={{ fontWeight: 600 }}>{row.dni || '—'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--erp-text-muted)' }}>
+            {row.tipoDocumento || 'Documento'}
+          </div>
+        </div>
+      ),
     },
     {
       key: 'telefono',
@@ -266,6 +273,13 @@ export const UsersSection = () => {
       sortable: true,
       width: '120px',
       render: (row: UsuarioSelectDto) => row.telefono || '—',
+    },
+    {
+      key: 'empresaOrigen',
+      header: 'Procedencia',
+      sortable: true,
+      width: '135px',
+      render: (row: UsuarioSelectDto) => row.empresaOrigen || 'Local',
     },
     {
       key: 'rol',

@@ -440,6 +440,13 @@ export const ProductsSection = () => {
       width: '130px',
     },
     {
+      key: 'empresaOrigen',
+      header: 'Procedencia',
+      sortable: true,
+      width: '130px',
+      render: (row: ProductoSelectDto) => row.empresaOrigen || 'Local',
+    },
+    {
       key: 'precioVenta',
       header: 'Precio',
       sortable: true,

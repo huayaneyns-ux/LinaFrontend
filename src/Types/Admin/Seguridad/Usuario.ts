@@ -9,6 +9,7 @@ export interface UsuarioSelectDto {
   id: number;
   nombreApellido: string;
   dni: string;
+  tipoDocumento?: string;
   sexo?: string;
   telefono?: string;
   correo: string;
@@ -16,6 +17,7 @@ export interface UsuarioSelectDto {
   rol: string;
   estado: boolean;
   idIntegracionSistema?: number | null;
+  empresaOrigen?: string | null;
 }
 
 

@@ -216,6 +216,13 @@ export const ProveedoresSection = () => {
         [row.direccion, row.distrito, row.provincia].filter(Boolean).join(', ') || '—',
     },
     {
+      key: 'empresaOrigen',
+      header: 'Procedencia',
+      sortable: true,
+      width: '130px',
+      render: (row: Proveedor) => row.empresaOrigen || 'Local',
+    },
+    {
       key: 'estado',
       header: 'Estado',
       sortable: true,

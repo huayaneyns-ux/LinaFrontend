@@ -24,6 +24,7 @@ export interface ProductoSelectDto {
     razonSocial: string;
     nombreContacto: string;
     telefono: string;
+    empresaOrigen?: string | null;
 
     // Marca
     idMarca: number;

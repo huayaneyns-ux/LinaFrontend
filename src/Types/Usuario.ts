@@ -14,6 +14,7 @@ export interface Usuario {
   telefono?: string;
   createdAt: string;
   updatedAt: string;
+  empresaOrigen?: string | null;
 }
 
 export interface UsuarioFormData {

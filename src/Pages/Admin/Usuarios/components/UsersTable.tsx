@@ -48,6 +48,12 @@ const COLUMNS: ColumnDef<Usuario>[] = [
     render: (row) => <RoleBadge role={row.rol} />,
   },
   {
+    key: 'empresaOrigen',
+    header: 'Procedencia',
+    sortable: true,
+    render: (row) => row.empresaOrigen || 'Local',
+  },
+  {
     key: 'estado',
     header: 'Estado',
     sortable: true,

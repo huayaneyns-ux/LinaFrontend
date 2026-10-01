@@ -14,6 +14,7 @@ export interface Proveedor {
   distrito: string;
   provincia: string;
   departamento: string;
+  empresaOrigen?: string | null;
 }
 
 export interface ProveedorInsert {
@@ -47,4 +48,3 @@ export interface ProveedorDeleteResponse {
   tieneProductos: boolean;
   productos: ProductoProveedorAlert[];
 }
-
