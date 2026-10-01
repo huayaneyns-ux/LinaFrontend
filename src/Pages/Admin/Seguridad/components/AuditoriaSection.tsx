@@ -84,12 +84,13 @@ const AuditoriaSection = () => {
 
   const integrationTable = useDataTable<IntegracionAuditoria>({
     data: integracionAudit,
-    searchKeys: ['empresa', 'operacion', 'estado', 'ipOrigen'],
+    searchKeys: ['empresa', 'empresaOrigen', 'empresaDestino', 'operacion', 'estado', 'ipOrigen'],
     defaultPageSize: 10,
   });
 
   const integrationColumns = useMemo(() => [
-    { key: 'empresa', header: 'Empresa que realizó la petición', sortable: true, minWidth: '230px' },
+    { key: 'empresaOrigen', header: 'Empresa origen', sortable: true, minWidth: '180px' },
+    { key: 'empresaDestino', header: 'Empresa destino', sortable: true, minWidth: '180px' },
     { key: 'operacion', header: 'Operación', sortable: true, minWidth: '190px' },
     { key: 'fechaInicio', header: 'Inicio', sortable: true, minWidth: '175px', render: (row: IntegracionAuditoria) => formatDate(row.fechaInicio) },
     { key: 'fechaFin', header: 'Finalización', sortable: true, minWidth: '175px', render: (row: IntegracionAuditoria) => formatDate(row.fechaFin ?? '') },

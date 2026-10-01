@@ -11,6 +11,8 @@ export interface IntegracionConfiguracion {
 export interface IntegracionAuditoria {
   id: number;
   empresa: string;
+  empresaOrigen: string;
+  empresaDestino: string;
   operacion: string;
   fechaInicio: string;
   fechaFin?: string | null;
