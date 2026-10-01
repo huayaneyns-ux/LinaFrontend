@@ -31,9 +31,10 @@ import {
 
 interface ProveedorFilters {
   estado: string;
+  empresaOrigen: string;
 }
 
-const DEFAULT_FILTERS: ProveedorFilters = { estado: '' };
+const DEFAULT_FILTERS: ProveedorFilters = { estado: '', empresaOrigen: '' };
 
 const EMPTY_FORM: Partial<Proveedor> = {
   ruc: '',
@@ -84,10 +85,12 @@ export const ProveedoresSection = () => {
         if (filters.estado === 'ACTIVO' && !prov.estado) return false;
         if (filters.estado === 'INACTIVO' && prov.estado) return false;
       }
+      if (filters.empresaOrigen && (prov.empresaOrigen || 'Local') !== filters.empresaOrigen) return false;
       return true;
     },
     [filters, showDisabled]
   );
+  const empresaOrigenOptions = useMemo(() => Array.from(new Set(providers.map(p => p.empresaOrigen || 'Local'))).sort((a, b) => a.localeCompare(b)), [providers]);
 
   const {
     processedData,
@@ -316,14 +319,10 @@ export const ProveedoresSection = () => {
             onResetFilters={filterCount > 0 ? () => setFilters(DEFAULT_FILTERS) : undefined}
             alwaysShowFilters={true}
             filterPanel={
-              <div className="erp-filter-group">
-                <label className="erp-filter-label">Estado</label>
-                <select className="erp-filter-select" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}>
-                  <option value="">Todos los estados</option>
-                  <option value="ACTIVO">Activo</option>
-                  <option value="INACTIVO">Inactivo</option>
-                </select>
-              </div>
+              <>
+                <div className="erp-filter-group"><label className="erp-filter-label">Empresa de origen</label><select className="erp-filter-select" value={filters.empresaOrigen} onChange={e => setFilters(prev => ({ ...prev, empresaOrigen: e.target.value }))}><option value="">Todas las empresas</option>{empresaOrigenOptions.map(origen => <option key={origen} value={origen}>{origen}</option>)}</select></div>
+                <div className="erp-filter-group"><label className="erp-filter-label">Estado</label><select className="erp-filter-select" value={filters.estado} onChange={e => setFilters(prev => ({ ...prev, estado: e.target.value }))}><option value="">Todos los estados</option><option value="ACTIVO">Activo</option><option value="INACTIVO">Inactivo</option></select></div>
+              </>
             }
           />
 

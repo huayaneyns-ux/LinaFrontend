@@ -45,6 +45,7 @@ interface ProductFilters {
   marca: string;
   proveedor: string;
   estado: string;
+  empresaOrigen: string;
 }
 
 const DEFAULT_FILTERS: ProductFilters = {
@@ -52,6 +53,7 @@ const DEFAULT_FILTERS: ProductFilters = {
   marca: '',
   proveedor: '',
   estado: '',
+  empresaOrigen: '',
 };
 
 function generarCodigoProducto(): string {
@@ -187,6 +189,7 @@ export const ProductsSection = () => {
       .map(([id, razonSocial]) => ({ id, razonSocial }))
       .sort((a, b) => a.razonSocial.localeCompare(b.razonSocial));
   }, [proveedores, products]);
+  const empresaOrigenOptions = useMemo(() => Array.from(new Set(products.map(p => p.empresaOrigen || 'Local'))).sort((a, b) => a.localeCompare(b)), [products]);
 
   const externalFilter = useCallback(
     (prod: ProductoSelectDto) => {
@@ -199,6 +202,7 @@ export const ProductsSection = () => {
         if (filters.estado === 'ACTIVO' && !isActive) return false;
         if (filters.estado === 'INACTIVO' && isActive) return false;
       }
+      if (filters.empresaOrigen && (prod.empresaOrigen || 'Local') !== filters.empresaOrigen) return false;
       return true;
     },
     [filters, showDisabled]
@@ -613,6 +617,13 @@ export const ProductsSection = () => {
                     {proveedorOptions.map(p => (
                       <option key={p.id} value={p.id}>{p.razonSocial}</option>
                     ))}
+                  </select>
+                </div>
+                <div className="erp-filter-group">
+                  <label className="erp-filter-label">Empresa de origen</label>
+                  <select className="erp-filter-select" value={filters.empresaOrigen} onChange={e => setFilter('empresaOrigen', e.target.value)}>
+                    <option value="">Todas las empresas</option>
+                    {empresaOrigenOptions.map(origen => <option key={origen} value={origen}>{origen}</option>)}
                   </select>
                 </div>
                 <div className="erp-filter-group">

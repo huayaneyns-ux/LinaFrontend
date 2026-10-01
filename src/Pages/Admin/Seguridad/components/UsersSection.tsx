@@ -33,6 +33,7 @@ import {
 interface UsuarioFilters {
   estado: string;
   idRol: string;
+  empresaOrigen: string;
 }
 
 interface UsuarioFormState {
@@ -47,7 +48,7 @@ interface UsuarioFormState {
   estado: boolean;
 }
 
-const DEFAULT_FILTERS: UsuarioFilters = { estado: '', idRol: '' };
+const DEFAULT_FILTERS: UsuarioFilters = { estado: '', idRol: '', empresaOrigen: '' };
 
 const EMPTY_FORM: UsuarioFormState = {
   idUsuario: null,
@@ -117,10 +118,12 @@ export const UsersSection = () => {
         if (filters.estado === 'INACTIVO' && user.estado) return false;
       }
       if (filters.idRol && user.idRol.toString() !== filters.idRol) return false;
+      if (filters.empresaOrigen && (user.empresaOrigen || 'Local') !== filters.empresaOrigen) return false;
       return true;
     },
     [filters, showDisabled]
   );
+  const empresaOrigenOptions = useMemo(() => Array.from(new Set(users.map(u => u.empresaOrigen || 'Local'))).sort((a, b) => a.localeCompare(b)), [users]);
 
   const {
     processedData,
@@ -388,6 +391,13 @@ export const UsersSection = () => {
                 {roles.map(r => (
                   <option key={r.id} value={r.id}>{r.nombre}</option>
                 ))}
+              </select>
+            </div>
+            <div className="erp-filter-group">
+              <label className="erp-filter-label">Empresa de origen</label>
+              <select className="erp-filter-select" value={filters.empresaOrigen} onChange={e => setFilters(prev => ({ ...prev, empresaOrigen: e.target.value }))}>
+                <option value="">Todas las empresas</option>
+                {empresaOrigenOptions.map(origen => <option key={origen} value={origen}>{origen}</option>)}
               </select>
             </div>
             <div className="erp-filter-group">
