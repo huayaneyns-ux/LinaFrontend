@@ -31,4 +31,7 @@ export interface IntegracionConsultaExterna {
   proveedores: IntegracionProveedorAdmin[];
   clientes?: unknown[];
   guardados?: number;
+  insertados?: number;
+  actualizados?: number;
+  sinCambios?: number;
 }

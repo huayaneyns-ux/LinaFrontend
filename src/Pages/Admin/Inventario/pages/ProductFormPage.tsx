@@ -81,14 +81,23 @@ export const ProductFormPage: React.FC<ProductFormPageProps> = ({ mode }) => {
           ProveedorService.getProveedores(),
           UnidadMedidaService.getUnidades(),
         ]);
-        setCategorias(cats.filter(c => c.estado !== false));
-        setMarcas(marcs.filter(m => m.estado !== false));
-        setProveedores(provs.filter(p => p.estado));
-        setUnidades(unis.filter(u => u.estado));
+        const detail = isEditing && id ? await ProductoService.getProductoById(Number(id)) : null;
+        setCategorias(cats.filter(c => c.estado !== false || c.id === detail?.idCategoria));
+        setMarcas(marcs.filter(m => m.estado !== false || m.id === detail?.idMarca));
+        setProveedores(provs.filter(p => p.estado || p.id === detail?.idProveedor));
+        setUnidades(unis.filter(u => u.estado || u.id === detail?.idUnidadMedida));
 
-        if (isEditing && id) {
-          const detail = await ProductoService.getProductoById(Number(id));
-          setFormState(detail);
+        if (detail) {
+          // Normalizamos los IDs para que los <select> los reconozcan aunque
+          // el proveedor JSON los entregue como texto o número.
+          setFormState({
+            ...EMPTY_FORM,
+            ...detail,
+            idCategoria: Number(detail.idCategoria) || 0,
+            idMarca: Number(detail.idMarca) || 0,
+            idProveedor: Number(detail.idProveedor) || 0,
+            idUnidadMedida: Number(detail.idUnidadMedida) || 0,
+          });
           originalPublicIdRef.current = detail.publicIdImagen || '';
           originalRutaRef.current = detail.rutaImagen || '';
         } else {
