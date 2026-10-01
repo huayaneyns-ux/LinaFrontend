@@ -29,4 +29,6 @@ export interface IntegracionConsultaExterna {
   tipo: string;
   productos: IntegracionProductoAdmin[];
   proveedores: IntegracionProveedorAdmin[];
+  clientes?: unknown[];
+  guardados?: number;
 }

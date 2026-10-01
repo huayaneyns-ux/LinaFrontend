@@ -1,6 +1,14 @@
 import { api } from '../../../Services/apiService';
 import type { AuditoriaDto } from '../../../Types/Admin/Seguridad/Auditoria';
 
+export interface AuditoriaPage {
+  items: AuditoriaDto[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+}
+
 const pick = (raw: Record<string, unknown>, ...keys: string[]) => {
   for (const key of keys) {
     if (raw[key] !== undefined && raw[key] !== null) return raw[key];
@@ -25,14 +33,24 @@ const normalize = (raw: Record<string, unknown>): AuditoriaDto => ({
 });
 
 export const AuditoriaService = {
-  getAll: async (): Promise<AuditoriaDto[]> => {
-    const raw = await api.request<unknown>('/Auditoria/Lista', { method: 'GET' });
-    const list = Array.isArray(raw)
-      ? raw
-      : Array.isArray((raw as { data?: unknown })?.data)
-        ? (raw as { data: unknown[] }).data
-        : [];
-
-    return list.map(item => normalize(item as Record<string, unknown>));
+  getPage: async (params: { page: number; pageSize: number; search?: string; sortBy?: string; sortDirection?: 'asc' | 'desc' | null }): Promise<AuditoriaPage> => {
+    const query = new URLSearchParams({
+      page: String(params.page),
+      pageSize: String(params.pageSize),
+    });
+    if (params.search?.trim()) query.set('search', params.search.trim());
+    if (params.sortBy && params.sortDirection) {
+      query.set('sortBy', params.sortBy);
+      query.set('sortDirection', params.sortDirection);
+    }
+    const raw = await api.request<Record<string, unknown>>(`/Auditoria/Lista?${query.toString()}`, { method: 'GET' });
+    const items = Array.isArray(raw.items) ? raw.items : [];
+    return {
+      items: items.map(item => normalize(item as Record<string, unknown>)),
+      page: Number(raw.page ?? params.page),
+      pageSize: Number(raw.pageSize ?? params.pageSize),
+      totalItems: Number(raw.totalItems ?? 0),
+      totalPages: Number(raw.totalPages ?? 1),
+    };
   },
 };

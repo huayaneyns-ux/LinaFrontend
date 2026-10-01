@@ -4,8 +4,8 @@ import Toolbar from '../../../../Components/ERP/Toolbar';
 import DataTable from '../../../../Components/ERP/DataTable';
 import Pagination from '../../../../Components/ERP/Pagination';
 import { StatusBadge } from '../../../../Components/ERP/StatusBadge';
-import { useDataTable } from '../../../../Hooks/useDataTable';
-import { AuditoriaService } from '../../../../Services/Admin/Seguridad/Auditoria';
+import { useDataTable, type SortConfig, type SortDirection } from '../../../../Hooks/useDataTable';
+import { AuditoriaService, type AuditoriaPage } from '../../../../Services/Admin/Seguridad/Auditoria';
 import type { AuditoriaDto } from '../../../../Types/Admin/Seguridad/Auditoria';
 import { IntegracionService } from '../../../../Services/Admin/Integracion';
 import type { IntegracionAuditoria } from '../../../../Types/Admin/Integracion';
@@ -38,41 +38,49 @@ const AuditoriaSection = () => {
   const [error, setError] = useState('');
   const [expandedId, setExpandedId] = useState<number | undefined>();
   const [integracionAudit, setIntegracionAudit] = useState<IntegracionAuditoria[]>([]);
+  const [auditPage, setAuditPage] = useState({ page: 1, pageSize: 10 });
+  const [auditSearch, setAuditSearch] = useState('');
+  const [auditSort, setAuditSort] = useState<SortConfig<AuditoriaDto>>({ key: null, direction: null });
+  const [auditTotals, setAuditTotals] = useState<Pick<AuditoriaPage, 'totalItems' | 'totalPages'>>({ totalItems: 0, totalPages: 1 });
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const [general, integration] = await Promise.all([AuditoriaService.getAll(), IntegracionService.getAudit()]);
-      setItems(general);
+      const [general, integration] = await Promise.all([
+        AuditoriaService.getPage({
+          ...auditPage,
+          search: auditSearch,
+          sortBy: auditSort.key ? String(auditSort.key) : undefined,
+          sortDirection: auditSort.direction,
+        }),
+        IntegracionService.getAudit(),
+      ]);
+      setItems(general.items);
+      setAuditTotals({ totalItems: general.totalItems, totalPages: general.totalPages });
       setIntegracionAudit(integration);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo cargar la auditoría.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [auditPage, auditSearch, auditSort]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const externalFilter = useCallback((item: AuditoriaDto) => item.actionType.length > 0, []);
-  const {
-    processedData,
-    totalItems,
-    totalPages,
-    searchQuery,
-    setSearchQuery,
-    sortConfig,
-    handleSort,
-    pagination,
-    setPage,
-    setPageSize,
-  } = useDataTable<AuditoriaDto>({
-    data: items,
-    searchKeys: ['tableName', 'recordKey', 'actionType', 'changedBy', 'operationName', 'hostName'],
-    defaultPageSize: 10,
-    externalFilter,
-  });
+  const handleAuditSearch = useCallback((value: string) => {
+    setAuditSearch(value);
+    setAuditPage(current => ({ ...current, page: 1 }));
+  }, []);
+
+  const handleAuditSort = useCallback((key: keyof AuditoriaDto) => {
+    setAuditSort(current => {
+      if (current.key !== key) return { key, direction: 'asc' };
+      const next: SortDirection = current.direction === 'asc' ? 'desc' : null;
+      return { key: next ? key : null, direction: next };
+    });
+    setAuditPage(current => ({ ...current, page: 1 }));
+  }, []);
 
   const integrationTable = useDataTable<IntegracionAuditoria>({
     data: integracionAudit,
@@ -119,8 +127,8 @@ const AuditoriaSection = () => {
 
       <div className="erp-form-card audit-card">
         <Toolbar
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
+          searchValue={auditSearch}
+          onSearchChange={handleAuditSearch}
           searchPlaceholder="Buscar tabla, registro, usuario..."
           showFilters={false}
           alwaysShowFilters={true}
@@ -128,10 +136,10 @@ const AuditoriaSection = () => {
         {error && <div className="erp-alert erp-alert-error">{error}</div>}
         <DataTable
           columns={columns}
-          data={processedData}
+          data={items}
           loading={loading}
-          sortConfig={sortConfig}
-          onSort={handleSort}
+          sortConfig={auditSort}
+          onSort={handleAuditSort}
           rowKey={row => row.auditId}
           expandedRowKey={expandedId}
           onRowClick={row => setExpandedId(current => current === row.auditId ? undefined : row.auditId)}
@@ -147,12 +155,12 @@ const AuditoriaSection = () => {
           emptyMessage="No se encontraron registros de auditoría"
         />
         <Pagination
-          page={pagination.page}
-          totalPages={totalPages}
-          pageSize={pagination.pageSize}
-          totalItems={totalItems}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          page={auditPage.page}
+          totalPages={auditTotals.totalPages}
+          pageSize={auditPage.pageSize}
+          totalItems={auditTotals.totalItems}
+          onPageChange={page => setAuditPage(current => ({ ...current, page }))}
+          onPageSizeChange={pageSize => setAuditPage({ page: 1, pageSize })}
         />
       </div>
 

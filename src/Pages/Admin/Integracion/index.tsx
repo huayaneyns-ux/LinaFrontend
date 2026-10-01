@@ -62,7 +62,7 @@ const IntegracionPage = () => {
     catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo crear la empresa.'); }
     finally { setSaving(false); }
   };
-  const consultarExterna = async (item: IntegracionConfiguracion, tipo: 'PRODUCTOS' | 'PROVEEDORES') => {
+  const consultarExterna = async (item: IntegracionConfiguracion, tipo: 'PRODUCTOS' | 'PROVEEDORES' | 'CLIENTES') => {
     setErrorMessage(''); setMessage(''); setExternalResult(null);
     if (!item.dominioEndpoint?.trim() || !item.apiKeyExterna?.trim()) {
       setErrorMessage('No se puede traer ' + tipo.toLowerCase() + ' de ' + item.nombreEmpresa + ': configura el dominio y la API key externa.');
@@ -71,8 +71,8 @@ const IntegracionPage = () => {
     setExternalLoading(item.id);
     try {
       const result = await IntegracionService.consultarExterna(item.id, tipo);
-      setExternalResult({ company: item.nombreEmpresa, tipo, cantidad: result.productos.length + result.proveedores.length });
-      setMessage(`Petición de ${tipo.toLowerCase()} realizada y registrada en auditoría.`);
+      setExternalResult({ company: item.nombreEmpresa, tipo, cantidad: result.guardados ?? result.productos.length + result.proveedores.length + (result.clientes?.length ?? 0) });
+      setMessage(`Petición de ${tipo.toLowerCase()} realizada: ${result.guardados ?? result.productos.length + result.proveedores.length} registros guardados en la BD.`);
     } catch (error) { setErrorMessage('No se pudieron traer ' + tipo.toLowerCase() + ' de ' + item.nombreEmpresa + ': ' + (error instanceof Error ? error.message : 'error de comunicación con la empresa externa.')); }
     finally { setExternalLoading(null); }
   };
@@ -116,7 +116,7 @@ const IntegracionPage = () => {
 
     </>}
 
-    {activeSection === 'consultar' && <section className="integration-section"><div className="integration-section-heading"><div><h2>Consultar otra empresa</h2><p>Configura el dominio base y realiza peticiones manuales. Las rutas se gestionan internamente y cada consulta queda auditada.</p></div><FiDownload /></div><div className="integration-external-list">{companies.map(item => <div className="integration-external-row" key={item.id}><div className="integration-external-config"><strong>{item.nombreEmpresa}</strong><label>Dominio<input value={item.dominioEndpoint ?? ''} onChange={e => updateExternalField(item.id, 'dominioEndpoint', e.target.value)} placeholder="https://socio.com" /></label><label>API key externa<input type="password" value={item.apiKeyExterna ?? ''} onChange={e => updateExternalField(item.id, 'apiKeyExterna', e.target.value)} placeholder="Clave del sistema externo" /></label><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" onClick={() => void saveExternalConfig(item)}><FiSave /> Guardar conexión</button></div><div className="integration-fetch-actions"><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" disabled={externalLoading === item.id} onClick={() => void consultarExterna(item, 'PRODUCTOS')}><FiDownload /> Traer productos</button><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" disabled={externalLoading === item.id} onClick={() => void consultarExterna(item, 'PROVEEDORES')}><FiDownload /> Traer proveedores</button></div></div>)}</div>{externalResult && <div className="integration-external-result"><FiCheck /> Última consulta: {externalResult.company} · {externalResult.tipo.toLowerCase()} recibidos: {externalResult.cantidad}</div>}</section>}
+    {activeSection === 'consultar' && <section className="integration-section"><div className="integration-section-heading"><div><h2>Consultar otra empresa</h2><p>Configura el dominio base y realiza peticiones manuales. Cada botón consulta y guarda los registros en la BD.</p></div><FiDownload /></div><div className="integration-external-list">{companies.map(item => <div className="integration-external-row" key={item.id}><div className="integration-external-config"><strong>{item.nombreEmpresa}</strong><label>Dominio<input value={item.dominioEndpoint ?? ''} onChange={e => updateExternalField(item.id, 'dominioEndpoint', e.target.value)} placeholder="https://j-s-acabados.onrender.com" /></label><label>API key externa<input type="password" value={item.apiKeyExterna ?? ''} onChange={e => updateExternalField(item.id, 'apiKeyExterna', e.target.value)} placeholder="Clave del sistema externo" /></label><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" onClick={() => void saveExternalConfig(item)}><FiSave /> Guardar conexión</button></div><div className="integration-fetch-actions"><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" disabled={externalLoading === item.id} onClick={() => void consultarExterna(item, 'PRODUCTOS')}><FiDownload /> Traer productos</button><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" disabled={externalLoading === item.id} onClick={() => void consultarExterna(item, 'PROVEEDORES')}><FiDownload /> Traer proveedores</button><button type="button" className="erp-btn erp-btn-sm erp-btn-secondary" disabled={externalLoading === item.id} onClick={() => void consultarExterna(item, 'CLIENTES')}><FiDownload /> Traer clientes</button></div></div>)}</div>{externalResult && <div className="integration-external-result"><FiCheck /> Última consulta: {externalResult.company} · {externalResult.tipo.toLowerCase()} recibidos: {externalResult.cantidad}</div>}</section>}
 
   </div>;
 };
